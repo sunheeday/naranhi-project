@@ -36,3 +36,11 @@ pnpm-debug.log*
 
 # typescript
 *.tsbuildinfo
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+
+# local migration source checkout
+naranhi-demo/

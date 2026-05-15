@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  validate:
+  validate-web:
     name: Validate Next.js app
     runs-on: ubuntu-latest
 
@@ -32,3 +32,24 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  validate-api:
+    name: Validate FastAPI app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Compile Python
+        run: python -m compileall backend/app

@@ -1,0 +1,1 @@
+export { createSupabaseBrowserClient } from "./browser";

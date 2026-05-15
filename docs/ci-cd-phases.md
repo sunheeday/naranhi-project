@@ -68,6 +68,7 @@ curl http://127.0.0.1:8080/api/health
 - Google Cloud Project
 - Artifact Registry Docker repository
 - Cloud Run service
+- Cloud Run API service
 - GitHub Actions 전용 Service Account
 - Workload Identity Pool / Provider
 
@@ -89,6 +90,7 @@ GCP_REGION
 GAR_LOCATION
 GAR_REPOSITORY
 CLOUD_RUN_SERVICE
+CLOUD_RUN_API_SERVICE
 ```
 
 권장 Secret:
@@ -103,6 +105,7 @@ GCP_SERVICE_ACCOUNT
 구현 항목:
 
 - `.github/workflows/deploy-cloud-run.yml`
+- `.github/workflows/deploy-api-cloud-run.yml`
 - Google Cloud 인증
 - Artifact Registry Docker auth 설정
 - Docker image build / push

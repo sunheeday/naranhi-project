@@ -47,12 +47,13 @@
 | 구분 | 내용 |
 |---|---|
 | 프론트엔드 | Next.js, React, TypeScript |
-| 백엔드 | Next.js Route Handler |
-| 데이터베이스 | 추후 확정 |
-| 인증 | 추후 확정 |
-| AI/OCR | 추후 확정 |
+| 백엔드 | Next.js Route Handler, FastAPI |
+| 데이터베이스 | Supabase Postgres |
+| 인증 | Supabase Auth |
+| 파일 저장 | Supabase Storage |
+| AI/OCR | FastAPI에서 외부 AI/OCR API 연동 |
 | 배포 | Docker, GitHub Actions, Google Cloud Run |
-| 다국어 | 추후 확정 |
+| 다국어 | FastAPI 번역 파이프라인 |
 
 ## 실행 방법
 
@@ -75,7 +76,39 @@ curl http://localhost:3000/api/health
 
 ```env
 NEXT_PUBLIC_APP_NAME=Naranhi
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+SUPABASE_URL=https://your-project-ref.supabase.co
+CORS_ORIGINS=http://localhost:3000
 ```
+
+## Supabase
+
+Supabase는 사용자 인증, Postgres DB, 파일 저장소, RLS 권한 정책을 담당합니다.
+초기 스키마는 `supabase/migrations/0001_initial_schema.sql`에 있습니다.
+
+```bash
+supabase link --project-ref your-project-ref
+supabase db push
+```
+
+자세한 내용은 [Supabase Schema](docs/supabase/schema.md)를 참고합니다.
+
+## FastAPI
+
+FastAPI는 공지 수집, 문서 분석, AI/OCR 호출, 번역 처리, NEIS API 연동, Google Calendar 연동처럼 Next.js 화면 서버와 분리하는 편이 좋은 서버 로직을 담당합니다.
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+자세한 내용은 [FastAPI Service](docs/backend/fastapi.md)를 참고합니다.
 
 ## CI/CD
 
@@ -86,21 +119,16 @@ NEXT_PUBLIC_APP_NAME=Naranhi
 주요 파일:
 
 - `Dockerfile`
+- `backend/Dockerfile`
 - `.dockerignore`
 - `.github/workflows/ci.yml`
 - `.github/workflows/deploy-cloud-run.yml`
+- `.github/workflows/deploy-api-cloud-run.yml`
 
 ## 프로젝트 문서
 
-- [서비스 설명서](docs/OVERVIEW.md)
-- [Supabase 설정 문서](docs/supabase-setup.md)
-- [디자인 시스템](docs/design/design-system.md)
-- [와이어프레임](docs/design/wireframes.md)
-- [샘플 가정통신문](docs/demo/samples/README.md)
-
-## 데모 자료
-
-시연용 가정통신문 샘플은 `docs/demo/samples/` 아래에 정리되어 있습니다. 초등 및 중등 공통 공지, 학년별 공지, PDF 샘플을 포함합니다.
+- [Supabase Schema](docs/supabase/schema.md)
+- [FastAPI Service](docs/backend/fastapi.md)
 
 ## 라이선스
 
