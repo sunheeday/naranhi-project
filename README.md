@@ -44,33 +44,51 @@
 
 ## 기술 정보
 
-추후 작성 예정입니다.
-
 | 구분 | 내용 |
 |---|---|
-| 프론트엔드 |  |
-| 백엔드 |  |
-| 데이터베이스 |  |
-| 인증 |  |
-| AI/OCR |  |
-| 배포 |  |
-| 다국어 |  |
+| 프론트엔드 | Next.js, React, TypeScript |
+| 백엔드 | Next.js Route Handler |
+| 데이터베이스 | 추후 확정 |
+| 인증 | 추후 확정 |
+| AI/OCR | 추후 확정 |
+| 배포 | Docker, GitHub Actions, Google Cloud Run |
+| 다국어 | 추후 확정 |
 
 ## 실행 방법
 
-추후 작성 예정입니다.
+```bash
+npm install
+npm run dev
+```
+
+로컬 개발 서버는 기본적으로 `http://localhost:3000`에서 실행됩니다.
+
+헬스체크 엔드포인트:
 
 ```bash
-
+curl http://localhost:3000/api/health
 ```
 
 ## 환경 변수
 
-추후 작성 예정입니다.
+로컬 환경 변수는 `.env.local`에 작성합니다. 공개 가능한 예시는 `.env.example`을 참고합니다.
 
 ```env
-
+NEXT_PUBLIC_APP_NAME=Naranhi
 ```
+
+## CI/CD
+
+이 프로젝트는 Docker, GitHub Actions, Google Cloud Run 기반 배포를 기준으로 구성합니다.
+
+자세한 구축 phase는 [Next.js CI/CD 구축 Phase](docs/ci-cd-phases.md)를 참고합니다.
+
+주요 파일:
+
+- `Dockerfile`
+- `.dockerignore`
+- `.github/workflows/ci.yml`
+- `.github/workflows/deploy-cloud-run.yml`
 
 ## 프로젝트 문서
 
