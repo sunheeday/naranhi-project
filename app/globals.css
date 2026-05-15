@@ -1,61 +1,130 @@
-:root {
-  color-scheme: light;
-  --background: #f7f7f2;
-  --foreground: #202124;
-  --muted: #5f6368;
-  --accent: #177245;
+@import "tailwindcss";
+
+@theme {
+  /* ─── Action / Brand ───────────────────────────────── */
+  --color-primary: #111111;
+  --color-primary-active: #242424;
+  --color-on-primary: #FFFFFF;
+  --color-brand-accent: #4A7FE7;
+  --color-brand-accent-soft: #EEF3FF;
+
+  /* ─── Card Categories (학부모 인식 컬러) ──────────── */
+  --color-cat-supply: #10B981;
+  --color-cat-supply-bg: #ECFDF5;
+  --color-cat-action: #F59E0B;
+  --color-cat-action-bg: #FFFBEB;
+  --color-cat-schedule: #4A7FE7;
+  --color-cat-schedule-bg: #EEF3FF;
+  --color-warning-strong: #DC2626;
+
+  /* ─── Surface ─────────────────────────────────────── */
+  --color-canvas: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-soft: #FAFAFA;
+  --color-surface-card: #F7F7F8;
+  --color-surface-strong: #E5E7EB;
+  --color-bg: #FFFFFF;
+  --color-hairline: #E5E7EB;
+  --color-hairline-soft: #F3F4F6;
+  --color-border: #E5E7EB;
+
+  /* ─── Text ─────────────────────────────────────────── */
+  --color-ink: #111111;
+  --color-body: #374151;
+  --color-text-primary: #111111;
+  --color-text-secondary: #6B7280;
+  --color-text-disabled: #9CA3AF;
+  --color-muted: #6B7280;
+  --color-muted-soft: #9CA3AF;
+
+  /* ─── Semantic ─────────────────────────────────────── */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #DC2626;
+
+  /* ─── 호환용: 기존 카드 스타일 토큰 (점진 마이그레이션) ─── */
+  --color-card-supply: #10B981;
+  --color-card-supply-bg: #ECFDF5;
+  --color-card-action: #F59E0B;
+  --color-card-action-bg: #FFFBEB;
+  --color-card-schedule: #4A7FE7;
+  --color-card-schedule-bg: #EEF3FF;
+  --color-accent: #F59E0B;
+  --color-accent-light: #FFFBEB;
+  --color-primary-light: #EEF3FF;
+
+  /* ─── Typography ───────────────────────────────────── */
+  --font-sans: var(--font-noto-sans), var(--font-noto-kr), var(--font-noto-sc), var(--font-noto-arabic),
+    var(--font-noto-thai),
+    -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo",
+    "Helvetica Neue", "Segoe UI", sans-serif;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 1.4;
+  --text-caption--letter-spacing: 0;
+
+  --text-xs: 12px;
+  --text-xs--line-height: 1.5;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.5;
+  --text-base: 16px;
+  --text-base--line-height: 1.55;
+  --text-lg: 18px;
+  --text-lg--line-height: 1.4;
+  --text-xl: 20px;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 26px;
+  --text-3xl--line-height: 1.25;
+  --text-4xl: 32px;
+  --text-4xl--line-height: 1.2;
+
+  /* ─── Radius ──────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-btn: 16px;
+  --radius-img: 16px;
+  --radius-lg: 16px;
+  --radius-card: 20px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* ─── Shadow ──────────────────────────────────────── */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-nav: 0 -4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-strong: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-btn-primary: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  /* ─── Container ───────────────────────────────────── */
+  --container-app: 480px;
 }
 
 * {
-  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html,
-body {
-  min-height: 100%;
-  margin: 0;
+html, body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-sans);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    Arial,
-    "Apple SD Gothic Neo",
-    "Noto Sans KR",
-    sans-serif;
+/* iOS safe area */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.page {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 32px;
+.pb-safe-4 {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
 }
 
-.intro {
-  width: min(680px, 100%);
-}
-
-.eyebrow {
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0;
-  margin: 0 0 16px;
-  text-transform: uppercase;
-}
-
-h1 {
-  font-size: clamp(36px, 8vw, 72px);
-  line-height: 1.05;
-  letter-spacing: 0;
-  margin: 0 0 20px;
-}
-
-p {
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 1.7;
-  margin: 0;
+/* RTL 보정: 화살표 등 방향성 아이콘 자동 flip */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
 }
