@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    environment: str = Field(default="local", alias="ENVIRONMENT")
+    environment: str = Field(default="production", alias="ENVIRONMENT")
     cors_origins_raw: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
 
     supabase_url: str | None = Field(default=None, alias="SUPABASE_URL")
