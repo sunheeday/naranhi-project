@@ -28,8 +28,18 @@ class Settings(BaseSettings):
         default=180.0,
         alias="CRAWLER_SCHOOL_TIMEOUT_SECONDS",
     )
+    crawler_internal_token: str | None = Field(
+        default=None,
+        alias="CRAWLER_INTERNAL_TOKEN",
+    )
+    crawler_initial_notice_count: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        alias="CRAWLER_INITIAL_NOTICE_COUNT",
+    )
     crawler_max_posts: int = Field(default=5, alias="CRAWLER_MAX_POSTS")
-    crawler_enable_gemini: bool = Field(default=True, alias="CRAWLER_ENABLE_GEMINI")
+    crawler_enable_gemini: bool = Field(default=False, alias="CRAWLER_ENABLE_GEMINI")
 
     @property
     def cors_origins(self) -> list[str]:

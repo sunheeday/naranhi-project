@@ -131,11 +131,15 @@ export interface Database {
       notices: {
         Row: {
           id: string
-          child_id: string
+          child_id: string | null
           school_id: string | null
           source: NoticeSource
           title: string | null
           original_text: string | null
+          source_post_id: string | null
+          source_post_uid: string | null
+          detail_url: string | null
+          crawl_result: Json
           summary_translations: { [locale: string]: string }
           storage_path: string | null
           status: NoticeStatus
@@ -146,11 +150,15 @@ export interface Database {
         }
         Insert: {
           id?: string
-          child_id: string
+          child_id?: string | null
           school_id?: string | null
           source: NoticeSource
           title?: string | null
           original_text?: string | null
+          source_post_id?: string | null
+          source_post_uid?: string | null
+          detail_url?: string | null
+          crawl_result?: Json
           summary_translations?: { [locale: string]: string }
           storage_path?: string | null
           status?: NoticeStatus
@@ -160,9 +168,14 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          child_id?: string | null
           school_id?: string | null
           title?: string | null
           original_text?: string | null
+          source_post_id?: string | null
+          source_post_uid?: string | null
+          detail_url?: string | null
+          crawl_result?: Json
           summary_translations?: { [locale: string]: string }
           storage_path?: string | null
           status?: NoticeStatus

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -12,15 +13,21 @@ from app.crawler.board_detector import NoticeBoardSearchResult, find_notice_boar
 from app.crawler.neis_client import NeisClient, normalize_homepage_url
 from app.crawler.notice_post_extractor import NoticePostRefResult, extract_notice_post_refs
 
+POST_SUCCESS_STATUSES = {"success", "success_with_derived_id", "success_file_only"}
+
 
 @dataclass(frozen=True)
 class DiscoveredPostPreview:
     title: str
     post_id: str
+    post_uid: str
+    board_key: str
     detail_url: str
     status: str
     method: str
     source: str
+    cms_key: str
+    parser_family: str
     reason: str
 
 
@@ -64,6 +71,22 @@ class _SchoolContext:
 
 
 class SchoolCrawlerService:
+    async def discover_and_save_school_board(
+        self,
+        school_id: str,
+    ) -> SchoolBoardDiscoveryResult:
+        settings = get_settings()
+        result = await self.discover_school_board(
+            school_id,
+            use_gemini=settings.crawler_enable_gemini,
+            max_posts=settings.crawler_initial_notice_count,
+        )
+        if result.status == "school_not_found":
+            return result
+        _save_school_discovery_result(result)
+        _save_discovered_notice_candidates(result)
+        return result
+
     async def discover_school_board(
         self,
         school_id: str,
@@ -293,10 +316,14 @@ def _result_from_detail_result(
             DiscoveredPostPreview(
                 title=post.title,
                 post_id=post.post_id,
+                post_uid=post.post_uid,
+                board_key=post.board_key,
                 detail_url=post.detail_url,
                 status=post.status,
                 method=post.detail_method,
                 source=post.post_id_source,
+                cms_key=post.cms_key,
+                parser_family=post.parser_family,
                 reason=post.reason,
             )
             for post in detail_result.posts[:max_posts]
@@ -339,6 +366,76 @@ def _failure_result(
         sample_posts=[],
         error_code=status,
         error_message=error_message,
+    )
+
+
+def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
+    payload: dict[str, Any] = {
+        "crawl_status": result.status,
+        "crawl_error_message": result.error_message,
+        "crawl_result": result.to_dict(),
+        "crawl_last_checked_at": _utc_now_iso(),
+    }
+    if result.homepage_url:
+        payload["homepage_url"] = result.homepage_url
+    if result.verified and result.board_url:
+        payload["crawl_board_url"] = result.board_url
+        payload["crawl_board_kind"] = (
+            result.board_kind
+            if result.board_kind in {"family_notice", "announcement_fallback", "unknown"}
+            else "unknown"
+        )
+
+    try:
+        get_supabase_client().table("schools").update(payload).eq(
+            "id",
+            result.school_id,
+        ).execute()
+    except Exception as exc:  # noqa: BLE001 - normalize DB errors for API layer.
+        raise RuntimeError(f"Failed to save school crawler result: {exc}") from exc
+
+
+def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> int:
+    saved = 0
+    for post in result.sample_posts:
+        if post.status not in POST_SUCCESS_STATUSES or not post.detail_url:
+            continue
+
+        payload = {
+            "child_id": None,
+            "school_id": result.school_id,
+            "source": "crawl",
+            "title": post.title or None,
+            "status": "pending",
+            "detail_url": post.detail_url,
+            "source_post_id": post.post_id or None,
+            "source_post_uid": post.post_uid or None,
+            "crawl_result": {
+                "status": post.status,
+                "board_url": result.board_url,
+                "board_kind": result.board_kind,
+                "cms_key": post.cms_key or result.cms_key,
+                "parser_family": post.parser_family or result.parser_family,
+                "post": asdict(post),
+            },
+        }
+        try:
+            get_supabase_client().table("notices").insert(payload).execute()
+            saved += 1
+        except Exception as exc:  # noqa: BLE001 - Supabase client error shape varies.
+            if _is_unique_violation(exc):
+                continue
+            raise RuntimeError(f"Failed to save crawled notice candidate: {exc}") from exc
+    return saved
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    code = getattr(exc, "code", None)
+    text = str(exc).lower()
+    return (
+        code == "23505"
+        or "23505" in text
+        or "duplicate key value violates unique constraint" in text
     )
 
 
@@ -400,3 +497,7 @@ def _optional_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(UTC).isoformat()
