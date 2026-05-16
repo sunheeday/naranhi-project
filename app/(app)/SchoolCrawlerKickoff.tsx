@@ -19,11 +19,11 @@ export default function SchoolCrawlerKickoff({ schoolId }: Props) {
     startedRef.current = true
 
     const key = `naranhi:crawl-kickoff:${schoolId}`
-    const previousAttempt = Number(window.sessionStorage.getItem(key) ?? '0')
+    const previousAttempt = Number(window.localStorage.getItem(key) ?? '0')
     if (Number.isFinite(previousAttempt) && Date.now() - previousAttempt < RETRY_COOLDOWN_MS) {
       return
     }
-    window.sessionStorage.setItem(key, String(Date.now()))
+    window.localStorage.setItem(key, String(Date.now()))
 
     let cancelled = false
 

@@ -57,4 +57,4 @@ async def discover_school_board(
             detail="School row was not found.",
         )
 
-    return {"ok": True, "result": result.to_dict()}
+    return {"ok": True, "result": result.to_api_dict()}

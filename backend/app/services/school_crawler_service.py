@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -50,6 +50,8 @@ class SchoolBoardDiscoveryResult:
     cms_confidence: float | None
     cms_signals: list[str]
     verified: bool
+    board_verified: bool
+    posts_extracted: bool
     verification_score: int | None
     verification_title: str | None
     verification_error: str | None
@@ -65,6 +67,16 @@ class SchoolBoardDiscoveryResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def to_api_dict(self) -> dict[str, Any]:
+        return {
+            "school_id": self.school_id,
+            "status": self.status,
+            "board_url": self.board_url,
+            "board_kind": self.board_kind,
+            "success_count": self.success_count,
+            "error_message": self.error_message,
+        }
 
 
 @dataclass(frozen=True)
@@ -317,7 +329,69 @@ def _result_from_detail_result(
     rediscovery_used: bool = False,
     cached_board_failed_status: str | None = None,
 ) -> SchoolBoardDiscoveryResult:
+    board_verified = bool(board_result.verification and board_result.verification.ok)
+    return _build_result_from_detail(
+        context=context,
+        board_url=board_result.decision.best_url,
+        board_kind=board_result.board_kind,
+        fallback_used=board_result.fallback_used,
+        cms=board_result.cms,
+        detail_result=detail_result,
+        max_posts=max_posts,
+        board_verified=board_verified,
+        verification_score=board_result.verification.score if board_result.verification else None,
+        verification_title=board_result.verification.title if board_result.verification else None,
+        verification_error=board_result.verification.error if board_result.verification else None,
+        board_source=board_source,
+        rediscovery_used=rediscovery_used,
+        cached_board_failed_status=cached_board_failed_status,
+    )
+
+
+def _result_from_cached_detail_result(
+    *,
+    context: _SchoolContext,
+    cached_board: "_CachedBoard",
+    detail_result: NoticePostRefResult,
+    max_posts: int,
+) -> SchoolBoardDiscoveryResult:
+    return _build_result_from_detail(
+        context=context,
+        board_url=cached_board.board_url,
+        board_kind=cached_board.board_kind,
+        fallback_used=cached_board.board_kind == "announcement_fallback",
+        cms=cached_board.cms,
+        detail_result=detail_result,
+        max_posts=max_posts,
+        board_verified=False,
+        verification_score=None,
+        verification_title=detail_result.page_title or None,
+        verification_error=detail_result.error,
+        board_source="cached",
+        rediscovery_used=False,
+        cached_board_failed_status=None,
+    )
+
+
+def _build_result_from_detail(
+    *,
+    context: _SchoolContext,
+    board_url: str | None,
+    board_kind: str,
+    fallback_used: bool,
+    cms: CmsDetection,
+    detail_result: NoticePostRefResult,
+    max_posts: int,
+    board_verified: bool,
+    verification_score: int | None,
+    verification_title: str | None,
+    verification_error: str | None,
+    board_source: str,
+    rediscovery_used: bool,
+    cached_board_failed_status: str | None,
+) -> SchoolBoardDiscoveryResult:
     status = "success" if detail_result.success_count > 0 else _normalize_detail_status(detail_result.status)
+    posts_extracted = detail_result.success_count > 0
     return SchoolBoardDiscoveryResult(
         school_id=context.school_id,
         school_name=context.school_name,
@@ -325,23 +399,19 @@ def _result_from_detail_result(
         school_code=context.school_code,
         homepage_url=context.homepage_url,
         status=status,
-        board_url=board_result.decision.best_url,
-        board_kind=board_result.board_kind,
-        fallback_used=board_result.fallback_used,
-        cms_key=board_result.cms.key,
-        cms_name=board_result.cms.name,
-        cms_confidence=board_result.cms.confidence,
-        cms_signals=board_result.cms.signals,
-        verified=bool(board_result.verification and board_result.verification.ok),
-        verification_score=(
-            board_result.verification.score if board_result.verification else None
-        ),
-        verification_title=(
-            board_result.verification.title if board_result.verification else None
-        ),
-        verification_error=(
-            board_result.verification.error if board_result.verification else None
-        ),
+        board_url=board_url,
+        board_kind=board_kind,
+        fallback_used=fallback_used,
+        cms_key=cms.key,
+        cms_name=cms.name,
+        cms_confidence=cms.confidence,
+        cms_signals=cms.signals,
+        verified=board_verified or posts_extracted,
+        board_verified=board_verified,
+        posts_extracted=posts_extracted,
+        verification_score=verification_score,
+        verification_title=verification_title,
+        verification_error=verification_error,
         parser_family=detail_result.parser_family,
         total_candidates=detail_result.total_candidates,
         success_count=detail_result.success_count,
@@ -366,59 +436,6 @@ def _result_from_detail_result(
         board_source=board_source,
         rediscovery_used=rediscovery_used,
         cached_board_failed_status=cached_board_failed_status,
-    )
-
-
-def _result_from_cached_detail_result(
-    *,
-    context: _SchoolContext,
-    cached_board: "_CachedBoard",
-    detail_result: NoticePostRefResult,
-    max_posts: int,
-) -> SchoolBoardDiscoveryResult:
-    status = "success" if detail_result.success_count > 0 else _normalize_detail_status(detail_result.status)
-    return SchoolBoardDiscoveryResult(
-        school_id=context.school_id,
-        school_name=context.school_name,
-        office_code=context.office_code,
-        school_code=context.school_code,
-        homepage_url=context.homepage_url,
-        status=status,
-        board_url=cached_board.board_url,
-        board_kind=cached_board.board_kind,
-        fallback_used=cached_board.board_kind == "announcement_fallback",
-        cms_key=cached_board.cms.key,
-        cms_name=cached_board.cms.name,
-        cms_confidence=cached_board.cms.confidence,
-        cms_signals=cached_board.cms.signals,
-        verified=detail_result.success_count > 0,
-        verification_score=None,
-        verification_title=detail_result.page_title or None,
-        verification_error=detail_result.error,
-        parser_family=detail_result.parser_family,
-        total_candidates=detail_result.total_candidates,
-        success_count=detail_result.success_count,
-        sample_posts=[
-            DiscoveredPostPreview(
-                title=post.title,
-                post_id=post.post_id,
-                post_uid=post.post_uid,
-                board_key=post.board_key,
-                detail_url=post.detail_url,
-                status=post.status,
-                method=post.detail_method,
-                source=post.post_id_source,
-                cms_key=post.cms_key,
-                parser_family=post.parser_family,
-                reason=post.reason,
-            )
-            for post in detail_result.posts[:max_posts]
-        ],
-        error_code=None if status == "success" else status,
-        error_message=None if status == "success" else detail_result.error,
-        board_source="cached",
-        rediscovery_used=False,
-        cached_board_failed_status=None,
     )
 
 
@@ -448,6 +465,8 @@ def _failure_result(
         cms_confidence=cms.confidence if cms else None,
         cms_signals=cms.signals if cms else [],
         verified=bool(verification and verification.ok),
+        board_verified=bool(verification and verification.ok),
+        posts_extracted=False,
         verification_score=verification.score if verification else None,
         verification_title=verification.title if verification else None,
         verification_error=verification.error if verification else None,
@@ -559,16 +578,18 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
         for post in result.sample_posts
         if post.status in POST_SUCCESS_STATUSES and post.detail_url
     ]
-    base_created_at = datetime.now(UTC)
+    crawl_checked_at = datetime.now(UTC).isoformat()
 
     for post_rank, post in enumerate(valid_posts):
-        created_at = (base_created_at - timedelta(seconds=post_rank)).isoformat()
         crawl_result = {
             "status": post.status,
             "board_url": result.board_url,
             "board_kind": result.board_kind,
+            "board_verified": result.board_verified,
+            "posts_extracted": result.posts_extracted,
             "cms_key": post.cms_key or result.cms_key,
             "parser_family": post.parser_family or result.parser_family,
+            "crawl_checked_at": crawl_checked_at,
             "post_rank": post_rank,
             "post": asdict(post),
         }
@@ -582,7 +603,6 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
             "source_post_id": post.post_id or None,
             "source_post_uid": post.post_uid or None,
             "crawl_result": crawl_result,
-            "created_at": created_at,
         }
         try:
             get_supabase_client().table("notices").insert(payload).execute()
@@ -592,7 +612,6 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
                 _update_existing_notice_candidate(
                     result=result,
                     post=post,
-                    created_at=created_at,
                     crawl_result=crawl_result,
                 )
                 continue
@@ -605,7 +624,6 @@ def _update_existing_notice_candidate(
     *,
     result: SchoolBoardDiscoveryResult,
     post: DiscoveredPostPreview,
-    created_at: str,
     crawl_result: dict[str, Any],
 ) -> None:
     payload = {
@@ -614,7 +632,6 @@ def _update_existing_notice_candidate(
         "source_post_id": post.post_id or None,
         "source_post_uid": post.post_uid or None,
         "crawl_result": crawl_result,
-        "created_at": created_at,
     }
     query = (
         get_supabase_client()
@@ -628,8 +645,20 @@ def _update_existing_notice_candidate(
     elif post.detail_url:
         query = query.eq("detail_url", post.detail_url)
     else:
+        LOGGER.warning(
+            "Skipped duplicate crawled notice update without post_uid/detail_url: school_id=%s title=%s",
+            result.school_id,
+            post.title,
+        )
         return
-    query.execute()
+    response = query.execute()
+    if not response.data:
+        LOGGER.warning(
+            "Duplicate crawled notice update matched no rows: school_id=%s post_uid=%s detail_url=%s",
+            result.school_id,
+            post.post_uid,
+            post.detail_url,
+        )
 
 
 def _trim_school_notice_cache(school_id: str) -> None:

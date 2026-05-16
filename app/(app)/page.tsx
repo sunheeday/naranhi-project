@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
-import type { NoticeSource, NoticeStatus } from '@/types/database'
+import type { Json, NoticeSource, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
 import HomePoller from './HomePoller'
 import NoticeCardItem from './NoticeCardItem'
@@ -16,6 +16,7 @@ interface NoticeRow {
   source: NoticeSource
   title: string | null
   summary_translations: { [locale: string]: string }
+  crawl_result: Json
   created_at: string
   notice_cards: { type: string }[]
 }
@@ -64,6 +65,47 @@ function relativeTime(iso: string, m: HomeMessages): string {
   const hours = Math.floor(mins / 60)
   if (hours < 24) return m.relative.hours_ago.replace('{n}', String(hours))
   return m.relative.days_ago.replace('{n}', String(Math.floor(hours / 24)))
+}
+
+function jsonObject(value: Json | null | undefined): Record<string, Json> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function jsonNumber(value: Json | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function jsonString(value: Json | undefined): string | null {
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function noticeSortTime(row: NoticeRow): number {
+  if (row.source === 'crawl') {
+    const crawl = jsonObject(row.crawl_result)
+    const checkedAt = jsonString(crawl.crawl_checked_at)
+    if (checkedAt) {
+      return new Date(checkedAt).getTime()
+    }
+  }
+  return new Date(row.created_at).getTime()
+}
+
+function crawlPostRank(row: NoticeRow): number {
+  if (row.source !== 'crawl') return 0
+  const rank = jsonNumber(jsonObject(row.crawl_result).post_rank)
+  return rank ?? Number.MAX_SAFE_INTEGER
+}
+
+function compareNoticeRows(a: NoticeRow, b: NoticeRow): number {
+  const timeDiff = noticeSortTime(b) - noticeSortTime(a)
+  if (timeDiff !== 0) return timeDiff
+
+  if (a.source === 'crawl' && b.source === 'crawl') {
+    const rankDiff = crawlPostRank(a) - crawlPostRank(b)
+    if (rankDiff !== 0) return rankDiff
+  }
+
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
 }
 
 function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
@@ -184,7 +226,7 @@ export default async function HomePage() {
 
     const { data: personalRows } = await supabase
       .from('notices')
-      .select('id, source, status, title, summary_translations, created_at')
+      .select('id, source, status, title, summary_translations, crawl_result, created_at')
       .eq('child_id', child.id)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -192,7 +234,7 @@ export default async function HomePage() {
     const { data: schoolRows } = child.school_id
       ? await supabase
           .from('notices')
-          .select('id, source, status, title, summary_translations, created_at')
+          .select('id, source, status, title, summary_translations, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('source', 'crawl')
           .order('created_at', { ascending: false })
@@ -205,9 +247,7 @@ export default async function HomePage() {
         rowMap.set(row.id, row as NoticeRow)
       }
     }
-    const rows = Array.from(rowMap.values()).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+    const rows = Array.from(rowMap.values()).sort(compareNoticeRows)
 
     if (rows && rows.length > 0) {
       const noticeIds = rows.map(r => r.id)
