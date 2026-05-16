@@ -91,7 +91,6 @@ function noticeSortTime(row: NoticeRow): number {
 }
 
 function crawlPostRank(row: NoticeRow): number {
-  if (row.source !== 'crawl') return 0
   const rank = jsonNumber(jsonObject(row.crawl_result).post_rank)
   return rank ?? Number.MAX_SAFE_INTEGER
 }
@@ -310,15 +309,7 @@ export default async function HomePage() {
         ) : (
           <>
             {shouldCollectSchoolNotices && schoolCrawlerState ? (
-              <div className="mb-3 rounded-xl border border-hairline-soft bg-surface-card px-4 py-3">
-                <p className="text-sm font-medium text-ink">
-                  {messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'}
-                </p>
-                <p className="mt-1 text-xs text-muted-soft">
-                  {messages.home.crawl_collecting_body ?? '완료되면 최신 학교 공지가 자동으로 표시됩니다.'}
-                </p>
-                <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} />
-              </div>
+              <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} showFailure={false} />
             ) : null}
             <ul className="flex flex-col gap-3">
               {notices.map(notice => {

@@ -6,6 +6,18 @@ interface RouteContext {
   params: Promise<{ schoolId: string }>
 }
 
+interface SchoolStateRow {
+  id: string
+  crawl_status: string | null
+  crawl_board_url: string | null
+  crawl_last_checked_at: string | null
+}
+
+interface ChildSchoolLookupRow {
+  id: string
+  schools: SchoolStateRow | SchoolStateRow[] | null
+}
+
 export async function POST(_request: Request, context: RouteContext) {
   const { schoolId } = await context.params
   if (!schoolId) {
@@ -18,32 +30,34 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
-  const { data: child, error: childError } = await supabase
+  const { data: lookupRow, error: lookupError } = await supabase
     .from('children')
-    .select('id')
+    .select(`
+      id,
+      schools!inner (
+        id,
+        crawl_status,
+        crawl_board_url,
+        crawl_last_checked_at
+      )
+    `)
     .eq('user_id', user.id)
     .eq('school_id', schoolId)
     .limit(1)
     .maybeSingle()
 
-  if (childError) {
-    return NextResponse.json({ ok: false, error: 'child_lookup_failed' }, { status: 500 })
-  }
-
-  if (!child) {
-    return NextResponse.json({ ok: false, error: 'school_not_allowed' }, { status: 403 })
-  }
-
-  const { data: school, error: schoolError } = await supabase
-    .from('schools')
-    .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
-    .eq('id', schoolId)
-    .maybeSingle()
-
-  if (schoolError) {
+  if (lookupError) {
     return NextResponse.json({ ok: false, error: 'school_lookup_failed' }, { status: 500 })
   }
 
+  if (!lookupRow) {
+    return NextResponse.json({ ok: false, error: 'school_not_allowed' }, { status: 403 })
+  }
+
+  const childWithSchool = lookupRow as unknown as ChildSchoolLookupRow
+  const school = Array.isArray(childWithSchool.schools)
+    ? childWithSchool.schools[0]
+    : childWithSchool.schools
   if (!school) {
     return NextResponse.json({ ok: false, error: 'school_not_found' }, { status: 404 })
   }

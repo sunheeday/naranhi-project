@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 
 interface Props {
   schoolId: string
+  showFailure?: boolean
 }
 
 const RETRY_COOLDOWN_MS = 5 * 60 * 1000
 
-export default function SchoolCrawlerKickoff({ schoolId }: Props) {
+export default function SchoolCrawlerKickoff({ schoolId, showFailure = true }: Props) {
   const router = useRouter()
   const startedRef = useRef(false)
   const [failed, setFailed] = useState(false)
@@ -54,7 +55,7 @@ export default function SchoolCrawlerKickoff({ schoolId }: Props) {
     }
   }, [router, schoolId])
 
-  if (!failed) return null
+  if (!failed || !showFailure) return null
 
   return (
     <p className="mt-2 text-xs text-muted-soft text-center">
