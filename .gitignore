@@ -44,3 +44,5 @@ __pycache__/
 
 # local migration source checkout
 naranhi-demo/
+naranhi-crawler-lab/
+naranhi-crawler-lab.zip
