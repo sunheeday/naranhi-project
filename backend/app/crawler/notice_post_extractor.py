@@ -77,6 +77,7 @@ async def extract_notice_post_refs(
     warmup_url: str | None,
     gemini_api_key: str | None = None,
     max_posts: int = 30,
+    timeout: float = 30.0,
 ) -> NoticePostRefResult:
     if cms.key == "schoolbell" or "schoolbell-e.com" in urlparse(board_url).netloc:
         return NoticePostRefResult(
@@ -94,7 +95,7 @@ async def extract_notice_post_refs(
         )
 
     try:
-        async with make_async_client_for_url(url=board_url, timeout=20.0) as client:
+        async with make_async_client_for_url(url=board_url, timeout=timeout) as client:
             referer = warmup_url
             if warmup_url:
                 warmup_response = await _get_following_js_redirect(client, warmup_url)

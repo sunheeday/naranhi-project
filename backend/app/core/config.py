@@ -23,7 +23,7 @@ class Settings(BaseSettings):
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
     )
     neis_api_key: str | None = Field(default=None, alias="NEIS_API_KEY")
-    crawler_timeout_seconds: float = Field(default=20.0, alias="CRAWLER_TIMEOUT_SECONDS")
+    crawler_timeout_seconds: float = Field(default=30.0, alias="CRAWLER_TIMEOUT_SECONDS")
     crawler_school_timeout_seconds: float = Field(
         default=180.0,
         alias="CRAWLER_SCHOOL_TIMEOUT_SECONDS",

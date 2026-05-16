@@ -42,8 +42,9 @@ async def find_notice_board_url(
     school_name: str,
     homepage_url: str,
     gemini_api_key: str | None,
+    timeout: float = 30.0,
 ) -> NoticeBoardSearchResult:
-    client = HomepageClient()
+    client = HomepageClient(timeout=timeout)
     homepage = await client.fetch(homepage_url)
     homepage = await _resolve_school_landing_page(client, homepage)
     title = page_title(homepage.html)
@@ -128,6 +129,7 @@ async def find_notice_board_url(
             decision,
             warmup_url=homepage.final_url,
             cms=cms,
+            timeout=timeout,
         )
         if (
             verification
@@ -149,6 +151,7 @@ async def find_notice_board_url(
                 fallback_decision,
                 warmup_url=homepage.final_url,
                 cms=cms,
+                timeout=timeout,
             )
             if fallback_verification.ok:
                 decision, verification = fallback_decision, fallback_verification
@@ -301,6 +304,7 @@ async def _verify_with_board_url_normalization(
     *,
     warmup_url: str,
     cms: CmsDetection,
+    timeout: float,
 ) -> tuple[GeminiDecision, VerificationResult]:
     assert decision.best_url is not None
 
@@ -308,7 +312,7 @@ async def _verify_with_board_url_normalization(
 
     first_verification: VerificationResult | None = None
     for url in urls:
-        verification = await verify_notice_url(url, warmup_url=warmup_url)
+        verification = await verify_notice_url(url, warmup_url=warmup_url, timeout=timeout)
         if first_verification is None:
             first_verification = verification
         if verification.ok:
@@ -325,5 +329,9 @@ async def _verify_with_board_url_normalization(
                 )
             return decision, verification
 
-    return decision, first_verification or await verify_notice_url(decision.best_url, warmup_url=warmup_url)
+    return decision, first_verification or await verify_notice_url(
+        decision.best_url,
+        warmup_url=warmup_url,
+        timeout=timeout,
+    )
 

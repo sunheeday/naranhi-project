@@ -27,9 +27,14 @@ class VerificationResult:
     error: str | None = None
 
 
-async def verify_notice_url(url: str, warmup_url: str | None = None) -> VerificationResult:
+async def verify_notice_url(
+    url: str,
+    warmup_url: str | None = None,
+    *,
+    timeout: float = 30.0,
+) -> VerificationResult:
     try:
-        async with make_async_client_for_url(url=url, timeout=20.0) as client:
+        async with make_async_client_for_url(url=url, timeout=timeout) as client:
             referer = warmup_url
             if warmup_url:
                 warmup_response = await with_retries(

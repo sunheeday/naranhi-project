@@ -198,6 +198,7 @@ class SchoolCrawlerService:
                     cached_board=cached_board,
                     gemini_api_key=gemini_api_key,
                     max_posts=post_limit,
+                    timeout=settings.crawler_timeout_seconds,
                 )
                 if cached_result.success_count > 0:
                     return cached_result
@@ -210,6 +211,7 @@ class SchoolCrawlerService:
                 school_name=context.school_name,
                 homepage_url=context.homepage_url,
                 gemini_api_key=gemini_api_key,
+                timeout=settings.crawler_timeout_seconds,
             )
         except Exception as exc:  # noqa: BLE001 - classify homepage/board failures.
             status = _classify_fetch_exception(exc)
@@ -240,6 +242,7 @@ class SchoolCrawlerService:
             warmup_url=board_result.homepage_final_url,
             gemini_api_key=gemini_api_key,
             max_posts=post_limit,
+            timeout=settings.crawler_timeout_seconds,
         )
         return _result_from_detail_result(
             context=context,
@@ -505,6 +508,7 @@ async def _extract_cached_board_posts(
     cached_board: _CachedBoard,
     gemini_api_key: str | None,
     max_posts: int,
+    timeout: float,
 ) -> SchoolBoardDiscoveryResult:
     detail_result = await extract_notice_post_refs(
         board_url=cached_board.board_url,
@@ -512,6 +516,7 @@ async def _extract_cached_board_posts(
         warmup_url=context.homepage_url,
         gemini_api_key=gemini_api_key,
         max_posts=max_posts,
+        timeout=timeout,
     )
     return _result_from_cached_detail_result(
         context=context,
