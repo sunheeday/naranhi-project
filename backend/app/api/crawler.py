@@ -11,7 +11,6 @@ from app.services.school_crawler_service import (
 )
 
 router = APIRouter()
-UNSAFE_INTERNAL_TOKEN_PLACEHOLDERS = {"change-this-before-deploy"}
 
 
 def _require_internal_token(
@@ -19,19 +18,13 @@ def _require_internal_token(
 ) -> None:
     settings = get_settings()
     expected = (settings.crawler_internal_token or "").strip()
-    is_local = settings.environment.lower() == "local"
 
     if not expected:
-        if is_local:
+        if settings.environment.lower() == "local":
             return
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRAWLER_INTERNAL_TOKEN is required outside local environment.",
-        )
-    if not is_local and expected in UNSAFE_INTERNAL_TOKEN_PLACEHOLDERS:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRAWLER_INTERNAL_TOKEN must be changed before deployment.",
         )
 
     provided = (x_internal_token or "").strip()
