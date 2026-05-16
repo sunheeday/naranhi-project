@@ -52,3 +52,7 @@ naranhi-crawler-lab.zip
 # local Supabase runtime state
 supabase/.branches/
 supabase/.temp/
+supabase/config.toml
+
+# local assistant/tooling state
+.claude/
