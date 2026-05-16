@@ -52,22 +52,56 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     throw new Error('프로필 저장 실패: ' + profileError.message)
   }
 
-  const { data: school, error: schoolError } = await serviceClient
+  const { data: existingSchool, error: schoolLookupError } = await serviceClient
     .from('schools')
-    .upsert(
-      {
+    .select('id')
+    .eq('neis_office_code', officeCode)
+    .eq('neis_school_code', schoolCode)
+    .maybeSingle()
+
+  if (schoolLookupError) {
+    throw new Error('학교 정보 조회 실패: ' + schoolLookupError.message)
+  }
+
+  let school = existingSchool
+  let isNewSchool = false
+
+  if (!school) {
+    const { data: insertedSchool, error: schoolInsertError } = await serviceClient
+      .from('schools')
+      .insert({
         name: schoolName,
         neis_office_code: officeCode,
         neis_school_code: schoolCode,
         address: input.schoolAddress?.trim() || null,
-      },
-      { onConflict: 'neis_office_code,neis_school_code' }
-    )
-    .select('id')
-    .single()
+      })
+      .select('id')
+      .single()
 
-  if (schoolError || !school) {
-    throw new Error('학교 정보 저장 실패: ' + schoolError?.message)
+    if (schoolInsertError) {
+      if (_isUniqueViolation(schoolInsertError)) {
+        const { data: fallbackSchool, error: fallbackError } = await serviceClient
+          .from('schools')
+          .select('id')
+          .eq('neis_office_code', officeCode)
+          .eq('neis_school_code', schoolCode)
+          .single()
+
+        if (fallbackError || !fallbackSchool) {
+          throw new Error('학교 정보 재조회 실패: ' + fallbackError?.message)
+        }
+        school = fallbackSchool
+      } else {
+        throw new Error('학교 정보 저장 실패: ' + schoolInsertError.message)
+      }
+    } else if (insertedSchool) {
+      school = insertedSchool
+      isNewSchool = true
+    }
+  }
+
+  if (!school) {
+    throw new Error('학교 정보 저장 실패')
   }
 
   const { data: child, error } = await supabase.from('children').insert({
@@ -85,5 +119,40 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     throw new Error('자녀 정보 저장 실패: ' + error?.message)
   }
 
+  if (isNewSchool) {
+    await _triggerInitialSchoolCrawl(school.id)
+  }
+
   redirect('/')
+}
+
+function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
+  return error.code === '23505' || (error.message ?? '').includes('duplicate key value')
+}
+
+async function _triggerInitialSchoolCrawl(schoolId: string): Promise<void> {
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, '')
+  if (!apiBase) return
+
+  const headers: Record<string, string> = {}
+  const token = process.env.CRAWLER_INTERNAL_TOKEN?.trim()
+  if (token) {
+    headers['X-Internal-Token'] = token
+  }
+
+  try {
+    const response = await fetch(
+      `${apiBase}/crawler/schools/${encodeURIComponent(schoolId)}/discover-board`,
+      {
+        method: 'POST',
+        headers,
+        cache: 'no-store',
+      }
+    )
+    if (!response.ok) {
+      console.warn(`Initial school crawler failed with HTTP ${response.status}`)
+    }
+  } catch (error) {
+    console.warn('Initial school crawler request failed', error)
+  }
 }

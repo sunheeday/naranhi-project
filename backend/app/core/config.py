@@ -38,6 +38,12 @@ class Settings(BaseSettings):
         le=20,
         alias="CRAWLER_INITIAL_NOTICE_COUNT",
     )
+    crawler_notice_cache_limit_per_school: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        alias="CRAWLER_NOTICE_CACHE_LIMIT_PER_SCHOOL",
+    )
     crawler_max_posts: int = Field(default=5, alias="CRAWLER_MAX_POSTS")
     crawler_enable_gemini: bool = Field(default=False, alias="CRAWLER_ENABLE_GEMINI")
 

@@ -185,6 +185,22 @@ export interface Database {
         }
         Relationships: []
       }
+      notice_hides: {
+        Row: {
+          user_id: string
+          notice_id: string
+          hidden_at: string
+        }
+        Insert: {
+          user_id: string
+          notice_id: string
+          hidden_at?: string
+        }
+        Update: {
+          hidden_at?: string
+        }
+        Relationships: []
+      }
       notice_cards: {
         Row: {
           id: string

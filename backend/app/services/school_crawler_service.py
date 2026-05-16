@@ -10,6 +10,7 @@ import httpx
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
 from app.crawler.board_detector import NoticeBoardSearchResult, find_notice_board_url
+from app.crawler.cms_patterns import CMS_NAMES, CmsDetection
 from app.crawler.neis_client import NeisClient, normalize_homepage_url
 from app.crawler.notice_post_extractor import NoticePostRefResult, extract_notice_post_refs
 
@@ -56,6 +57,9 @@ class SchoolBoardDiscoveryResult:
     sample_posts: list[DiscoveredPostPreview]
     error_code: str | None
     error_message: str | None
+    board_source: str = "discovered"
+    rediscovery_used: bool = False
+    cached_board_failed_status: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -182,6 +186,22 @@ class SchoolCrawlerService:
             else None
         )
         post_limit = max_posts if max_posts is not None else settings.crawler_max_posts
+        cached_board_failed_status: str | None = None
+
+        cached_board = _cached_board_from_school_row(school_row)
+        if cached_board:
+            try:
+                cached_result = await _extract_cached_board_posts(
+                    context=context,
+                    cached_board=cached_board,
+                    gemini_api_key=gemini_api_key,
+                    max_posts=post_limit,
+                )
+                if cached_result.success_count > 0:
+                    return cached_result
+                cached_board_failed_status = cached_result.status
+            except Exception as exc:  # noqa: BLE001 - cached board failure falls back to rediscovery.
+                cached_board_failed_status = _classify_fetch_exception(exc)
 
         try:
             board_result = await find_notice_board_url(
@@ -208,6 +228,8 @@ class SchoolCrawlerService:
                 status=status,
                 error_message=_board_failure_message(board_result),
                 board_result=board_result,
+                rediscovery_used=bool(cached_board_failed_status),
+                cached_board_failed_status=cached_board_failed_status,
             )
 
         detail_result = await extract_notice_post_refs(
@@ -222,6 +244,9 @@ class SchoolCrawlerService:
             board_result=board_result,
             detail_result=detail_result,
             max_posts=post_limit,
+            board_source="discovered",
+            rediscovery_used=bool(cached_board_failed_status),
+            cached_board_failed_status=cached_board_failed_status,
         )
 
 
@@ -283,6 +308,9 @@ def _result_from_detail_result(
     board_result: NoticeBoardSearchResult,
     detail_result: NoticePostRefResult,
     max_posts: int,
+    board_source: str = "discovered",
+    rediscovery_used: bool = False,
+    cached_board_failed_status: str | None = None,
 ) -> SchoolBoardDiscoveryResult:
     status = "success" if detail_result.success_count > 0 else _normalize_detail_status(detail_result.status)
     return SchoolBoardDiscoveryResult(
@@ -330,6 +358,62 @@ def _result_from_detail_result(
         ],
         error_code=None if status == "success" else status,
         error_message=None if status == "success" else detail_result.error,
+        board_source=board_source,
+        rediscovery_used=rediscovery_used,
+        cached_board_failed_status=cached_board_failed_status,
+    )
+
+
+def _result_from_cached_detail_result(
+    *,
+    context: _SchoolContext,
+    cached_board: "_CachedBoard",
+    detail_result: NoticePostRefResult,
+    max_posts: int,
+) -> SchoolBoardDiscoveryResult:
+    status = "success" if detail_result.success_count > 0 else _normalize_detail_status(detail_result.status)
+    return SchoolBoardDiscoveryResult(
+        school_id=context.school_id,
+        school_name=context.school_name,
+        office_code=context.office_code,
+        school_code=context.school_code,
+        homepage_url=context.homepage_url,
+        status=status,
+        board_url=cached_board.board_url,
+        board_kind=cached_board.board_kind,
+        fallback_used=cached_board.board_kind == "announcement_fallback",
+        cms_key=cached_board.cms.key,
+        cms_name=cached_board.cms.name,
+        cms_confidence=cached_board.cms.confidence,
+        cms_signals=cached_board.cms.signals,
+        verified=detail_result.success_count > 0,
+        verification_score=None,
+        verification_title=detail_result.page_title or None,
+        verification_error=detail_result.error,
+        parser_family=detail_result.parser_family,
+        total_candidates=detail_result.total_candidates,
+        success_count=detail_result.success_count,
+        sample_posts=[
+            DiscoveredPostPreview(
+                title=post.title,
+                post_id=post.post_id,
+                post_uid=post.post_uid,
+                board_key=post.board_key,
+                detail_url=post.detail_url,
+                status=post.status,
+                method=post.detail_method,
+                source=post.post_id_source,
+                cms_key=post.cms_key,
+                parser_family=post.parser_family,
+                reason=post.reason,
+            )
+            for post in detail_result.posts[:max_posts]
+        ],
+        error_code=None if status == "success" else status,
+        error_message=None if status == "success" else detail_result.error,
+        board_source="cached",
+        rediscovery_used=False,
+        cached_board_failed_status=None,
     )
 
 
@@ -339,6 +423,8 @@ def _failure_result(
     status: str,
     error_message: str | None,
     board_result: NoticeBoardSearchResult | None = None,
+    rediscovery_used: bool = False,
+    cached_board_failed_status: str | None = None,
 ) -> SchoolBoardDiscoveryResult:
     cms = board_result.cms if board_result else None
     verification = board_result.verification if board_result else None
@@ -366,6 +452,70 @@ def _failure_result(
         sample_posts=[],
         error_code=status,
         error_message=error_message,
+        board_source="discovered",
+        rediscovery_used=rediscovery_used,
+        cached_board_failed_status=cached_board_failed_status,
+    )
+
+
+@dataclass(frozen=True)
+class _CachedBoard:
+    board_url: str
+    board_kind: str
+    cms: CmsDetection
+
+
+def _cached_board_from_school_row(row: dict[str, Any]) -> _CachedBoard | None:
+    board_url = _optional_str(row.get("crawl_board_url"))
+    if not board_url:
+        return None
+
+    raw_result = row.get("crawl_result")
+    crawl_result = raw_result if isinstance(raw_result, dict) else {}
+    cms_key = _optional_str(crawl_result.get("cms_key"))
+    if not cms_key:
+        return None
+
+    board_kind = _optional_str(row.get("crawl_board_kind")) or _optional_str(crawl_result.get("board_kind")) or "unknown"
+    if board_kind not in {"family_notice", "announcement_fallback", "unknown"}:
+        board_kind = "unknown"
+
+    signals = crawl_result.get("cms_signals")
+    if not isinstance(signals, list):
+        signals = []
+
+    confidence = crawl_result.get("cms_confidence")
+    if not isinstance(confidence, (int, float)):
+        confidence = 0.0
+
+    cms = CmsDetection(
+        key=cms_key,
+        name=_optional_str(crawl_result.get("cms_name")) or CMS_NAMES.get(cms_key, cms_key),
+        confidence=float(confidence),
+        signals=[str(item) for item in signals],
+    )
+    return _CachedBoard(board_url=board_url, board_kind=board_kind, cms=cms)
+
+
+async def _extract_cached_board_posts(
+    *,
+    context: _SchoolContext,
+    cached_board: _CachedBoard,
+    gemini_api_key: str | None,
+    max_posts: int,
+) -> SchoolBoardDiscoveryResult:
+    detail_result = await extract_notice_post_refs(
+        board_url=cached_board.board_url,
+        cms=cached_board.cms,
+        warmup_url=context.homepage_url,
+        gemini_api_key=gemini_api_key,
+        max_posts=max_posts,
+    )
+    return _result_from_cached_detail_result(
+        context=context,
+        cached_board=cached_board,
+        detail_result=detail_result,
+        max_posts=max_posts,
     )
 
 
@@ -426,7 +576,29 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
             if _is_unique_violation(exc):
                 continue
             raise RuntimeError(f"Failed to save crawled notice candidate: {exc}") from exc
+    _trim_school_notice_cache(result.school_id)
     return saved
+
+
+def _trim_school_notice_cache(school_id: str) -> None:
+    settings = get_settings()
+    limit = settings.crawler_notice_cache_limit_per_school
+    try:
+        result = (
+            get_supabase_client()
+            .table("notices")
+            .select("id")
+            .eq("school_id", school_id)
+            .eq("source", "crawl")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        rows = result.data or []
+        stale_ids = [str(row["id"]) for row in rows[limit:] if row.get("id")]
+        if stale_ids:
+            get_supabase_client().table("notices").delete().in_("id", stale_ids).execute()
+    except Exception as exc:  # noqa: BLE001 - cleanup failure should surface operationally.
+        raise RuntimeError(f"Failed to trim school notice cache: {exc}") from exc
 
 
 def _is_unique_violation(exc: Exception) -> bool:
