@@ -21,6 +21,7 @@ from app.crawler.verifier import VerificationResult, verify_notice_url
 
 
 SECONDARY_MENU_THRESHOLD = 15
+HEURISTIC_GEMINI_SKIP_CONFIDENCE = 0.8
 
 
 @dataclass(frozen=True)
@@ -51,7 +52,7 @@ async def find_notice_board_url(
     direct_notice_link = find_exact_notice_menu_link(homepage.final_url, homepage.html)
     announcement_fallback_link = find_announcement_menu_link(homepage.final_url, homepage.html)
 
-    expanded = await _expand_from_menu_candidates(client, candidates)
+    expanded = [] if direct_notice_link else await _expand_from_menu_candidates(client, candidates)
     seeded_candidates = []
     if direct_notice_link:
         seeded_candidates.append(direct_notice_link)
@@ -79,23 +80,33 @@ async def find_notice_board_url(
             needs_human_check=False,
         )
     elif gemini_api_key:
-        try:
-            decision = await GeminiFinder(gemini_api_key).choose_notice_board(
-                school_name=school_name,
-                homepage_url=homepage.final_url,
-                page_title=title,
-                page_snippet=snippet,
-                candidates=merged_candidates,
+        heuristic = heuristic_decision(merged_candidates)
+        if heuristic.best_url and heuristic.confidence >= HEURISTIC_GEMINI_SKIP_CONFIDENCE:
+            decision = replace(
+                heuristic,
+                reason=(
+                    "규칙 기반 1위 후보의 confidence가 충분히 높아 "
+                    "Gemini 판단 없이 선택했습니다."
+                ),
+                needs_human_check=False,
             )
-        except Exception as exc:  # noqa: BLE001 - POC should degrade, not fail batch.
-            fallback = heuristic_decision(merged_candidates)
-            decision = GeminiDecision(
-                best_url=fallback.best_url,
-                confidence=max(0.1, fallback.confidence - 0.15),
-                reason=f"Gemini 판단 실패로 규칙 기반 후보를 사용했습니다. Gemini error: {exc}",
-                alternatives=fallback.alternatives,
-                needs_human_check=True,
-            )
+        else:
+            try:
+                decision = await GeminiFinder(gemini_api_key).choose_notice_board(
+                    school_name=school_name,
+                    homepage_url=homepage.final_url,
+                    page_title=title,
+                    page_snippet=snippet,
+                    candidates=merged_candidates,
+                )
+            except Exception as exc:  # noqa: BLE001 - POC should degrade, not fail batch.
+                decision = GeminiDecision(
+                    best_url=heuristic.best_url,
+                    confidence=max(0.1, heuristic.confidence - 0.15),
+                    reason=f"Gemini 판단 실패로 규칙 기반 후보를 사용했습니다. Gemini error: {exc}",
+                    alternatives=heuristic.alternatives,
+                    needs_human_check=True,
+                )
     else:
         decision = heuristic_decision(merged_candidates)
 
