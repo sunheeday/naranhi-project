@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -15,6 +16,7 @@ from app.crawler.neis_client import NeisClient, normalize_homepage_url
 from app.crawler.notice_post_extractor import NoticePostRefResult, extract_notice_post_refs
 
 POST_SUCCESS_STATUSES = {"success", "success_with_derived_id", "success_file_only"}
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -584,21 +586,26 @@ def _trim_school_notice_cache(school_id: str) -> None:
     settings = get_settings()
     limit = settings.crawler_notice_cache_limit_per_school
     try:
-        result = (
-            get_supabase_client()
-            .table("notices")
-            .select("id")
-            .eq("school_id", school_id)
-            .eq("source", "crawl")
-            .order("created_at", desc=True)
-            .execute()
-        )
-        rows = result.data or []
-        stale_ids = [str(row["id"]) for row in rows[limit:] if row.get("id")]
-        if stale_ids:
+        while True:
+            result = (
+                get_supabase_client()
+                .table("notices")
+                .select("id")
+                .eq("school_id", school_id)
+                .eq("source", "crawl")
+                .order("created_at", desc=True)
+                .range(limit, limit + 499)
+                .execute()
+            )
+            rows = result.data or []
+            stale_ids = [str(row["id"]) for row in rows if row.get("id")]
+            if not stale_ids:
+                break
             get_supabase_client().table("notices").delete().in_("id", stale_ids).execute()
-    except Exception as exc:  # noqa: BLE001 - cleanup failure should surface operationally.
-        raise RuntimeError(f"Failed to trim school notice cache: {exc}") from exc
+            if len(stale_ids) < 500:
+                break
+    except Exception:
+        LOGGER.warning("Failed to trim school notice cache for school_id=%s", school_id, exc_info=True)
 
 
 def _is_unique_violation(exc: Exception) -> bool:

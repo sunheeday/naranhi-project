@@ -175,6 +175,7 @@ export default async function HomePage() {
       .select('id, source, status, title, summary_translations, created_at')
       .eq('child_id', child.id)
       .order('created_at', { ascending: false })
+      .limit(50)
 
     const { data: schoolRows } = child.school_id
       ? await supabase
@@ -183,6 +184,7 @@ export default async function HomePage() {
           .eq('school_id', child.school_id)
           .eq('source', 'crawl')
           .order('created_at', { ascending: false })
+          .limit(50)
       : { data: [] }
 
     const rowMap = new Map<string, NoticeRow>()
