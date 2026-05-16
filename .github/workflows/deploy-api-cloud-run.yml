@@ -73,3 +73,6 @@ jobs:
           flags: >-
             --allow-unauthenticated
             --port=8080
+            --timeout=300
+            --memory=512Mi
+            --cpu=1
