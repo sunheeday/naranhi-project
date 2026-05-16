@@ -2,6 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import {
+  schoolNeedsInitialCrawl,
+  triggerInitialSchoolCrawl,
+  type SchoolCrawlerState,
+} from '@/lib/school-crawler-trigger'
 
 export interface UpdateSchoolInput {
   childId: string
@@ -25,22 +30,57 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
     throw new Error('학교를 검색하여 다시 선택해 주세요.')
   }
 
-  const { data: school, error: schoolError } = await serviceClient
+  const { data: existingSchool, error: schoolLookupError } = await serviceClient
     .from('schools')
-    .upsert(
-      {
+    .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+    .eq('neis_office_code', officeCode)
+    .eq('neis_school_code', schoolCode)
+    .maybeSingle()
+
+  if (schoolLookupError) {
+    throw new Error('학교 정보 조회 실패: ' + schoolLookupError.message)
+  }
+
+  let school: SchoolCrawlerState | null = existingSchool
+  let shouldTriggerCrawl = existingSchool ? schoolNeedsInitialCrawl(existingSchool) : false
+
+  if (!school) {
+    const { data: insertedSchool, error: schoolInsertError } = await serviceClient
+      .from('schools')
+      .insert({
         name: schoolName,
         neis_office_code: officeCode,
         neis_school_code: schoolCode,
         address: input.schoolAddress?.trim() || null,
-      },
-      { onConflict: 'neis_office_code,neis_school_code' }
-    )
-    .select('id')
-    .single()
+      })
+      .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+      .single()
 
-  if (schoolError || !school) {
-    throw new Error('학교 정보 저장 실패: ' + schoolError?.message)
+    if (schoolInsertError) {
+      if (_isUniqueViolation(schoolInsertError)) {
+        const { data: fallbackSchool, error: fallbackError } = await serviceClient
+          .from('schools')
+          .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+          .eq('neis_office_code', officeCode)
+          .eq('neis_school_code', schoolCode)
+          .single()
+
+        if (fallbackError || !fallbackSchool) {
+          throw new Error('학교 정보 재조회 실패: ' + fallbackError?.message)
+        }
+        school = fallbackSchool
+        shouldTriggerCrawl = schoolNeedsInitialCrawl(fallbackSchool)
+      } else {
+        throw new Error('학교 정보 저장 실패: ' + schoolInsertError.message)
+      }
+    } else if (insertedSchool) {
+      school = insertedSchool
+      shouldTriggerCrawl = true
+    }
+  }
+
+  if (!school) {
+    throw new Error('학교 정보 저장 실패')
   }
 
   // 본인 자녀인지 검증 후 업데이트 (RLS도 막지만 명시적으로)
@@ -57,6 +97,14 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
 
   if (error) throw new Error(`학교 정보 업데이트 실패: ${error.message}`)
 
+  if (shouldTriggerCrawl) {
+    await triggerInitialSchoolCrawl(school.id)
+  }
+
   revalidatePath('/')
   revalidatePath('/settings')
+}
+
+function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
+  return error.code === '23505' || (error.message ?? '').includes('duplicate key value')
 }

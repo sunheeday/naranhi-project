@@ -65,6 +65,8 @@
     "greeting": "Здравствуйте, родитель {childName}",
     "notices_title": "Школьные новости",
     "no_notices": "Пока нет новостей.",
+    "crawl_collecting": "Получаем школьные уведомления.",
+    "crawl_collecting_body": "Последние уведомления появятся автоматически после завершения.",
     "notice_new_badge": "НОВОЕ",
     "notice_date": "{date}",
     "see_detail": "Подробнее",

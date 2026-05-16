@@ -65,6 +65,8 @@
     "greeting": "Bonjour, parent de {childName}",
     "notices_title": "Nouvelles de l'école",
     "no_notices": "Aucune annonce pour le moment.",
+    "crawl_collecting": "Récupération des avis de l’école.",
+    "crawl_collecting_body": "Les derniers avis s’afficheront automatiquement une fois terminé.",
     "notice_new_badge": "NOUVEAU",
     "notice_date": "{date}",
     "see_detail": "Voir les détails",

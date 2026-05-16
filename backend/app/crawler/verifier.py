@@ -31,7 +31,7 @@ async def verify_notice_url(
     url: str,
     warmup_url: str | None = None,
     *,
-    timeout: float = 30.0,
+    timeout: float,
 ) -> VerificationResult:
     try:
         async with make_async_client_for_url(url=url, timeout=timeout) as client:

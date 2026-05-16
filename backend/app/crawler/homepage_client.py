@@ -20,7 +20,7 @@ class FetchedPage:
 
 
 class HomepageClient:
-    def __init__(self, timeout: float = 20.0) -> None:
+    def __init__(self, timeout: float = 30.0) -> None:
         self.timeout = timeout
 
     async def fetch(self, url: str, follow_js_redirect: bool = True) -> FetchedPage:

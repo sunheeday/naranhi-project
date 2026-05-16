@@ -65,6 +65,8 @@
     "greeting": "Xin chào, phụ huynh của {childName}",
     "notices_title": "Thông báo trường học",
     "no_notices": "Chưa có thông báo nào.",
+    "crawl_collecting": "Đang lấy thông báo của trường.",
+    "crawl_collecting_body": "Thông báo mới nhất sẽ tự động hiển thị khi hoàn tất.",
     "notice_new_badge": "MỚI",
     "notice_date": "{date}",
     "see_detail": "Xem chi tiết",

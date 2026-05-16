@@ -77,7 +77,7 @@ async def extract_notice_post_refs(
     warmup_url: str | None,
     gemini_api_key: str | None = None,
     max_posts: int = 30,
-    timeout: float = 30.0,
+    timeout: float,
 ) -> NoticePostRefResult:
     if cms.key == "schoolbell" or "schoolbell-e.com" in urlparse(board_url).netloc:
         return NoticePostRefResult(

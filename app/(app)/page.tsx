@@ -5,8 +5,10 @@ import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
 import type { NoticeSource, NoticeStatus } from '@/types/database'
+import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
 import HomePoller from './HomePoller'
 import NoticeCardItem from './NoticeCardItem'
+import SchoolCrawlerKickoff from './SchoolCrawlerKickoff'
 
 interface NoticeRow {
   id: string
@@ -138,6 +140,7 @@ export default async function HomePage() {
 
   let childInfo = ''
   let notices: DisplayNotice[] = []
+  let schoolCrawlerState: SchoolCrawlerState | null = null
 
   if (isUiPreviewEnabled()) {
     childInfo = previewChildInfo()
@@ -163,6 +166,15 @@ export default async function HomePage() {
     }
 
     childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`
+
+    if (child.school_id) {
+      const { data: school } = await supabase
+        .from('schools')
+        .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+        .eq('id', child.school_id)
+        .maybeSingle()
+      schoolCrawlerState = school
+    }
 
     const { data: hiddenRows } = await supabase
       .from('notice_hides')
@@ -221,6 +233,7 @@ export default async function HomePage() {
   }
 
   const hasPending = notices.some(n => n.status === 'pending' || n.status === 'processing')
+  const shouldCollectSchoolNotices = schoolCrawlerState ? schoolNeedsInitialCrawl(schoolCrawlerState) : false
 
   return (
     <main className="flex flex-col min-h-screen pb-24">
@@ -245,44 +258,64 @@ export default async function HomePage() {
         {notices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <span className="text-3xl" aria-hidden="true">📭</span>
-            <p className="text-sm text-muted-soft text-center">{messages.home.no_notices}</p>
+            <p className="text-sm text-muted-soft text-center">
+              {shouldCollectSchoolNotices
+                ? messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'
+                : messages.home.no_notices}
+            </p>
+            {shouldCollectSchoolNotices && schoolCrawlerState ? (
+              <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} />
+            ) : null}
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {notices.map(notice => {
-              const badge = BADGE[notice.cardType ?? 'null']
-              const badgeLabel = badge.label[locale] ?? badge.label.ko
-              return (
-                <li key={notice.id}>
-                  <NoticeCardItem
-                    noticeId={notice.id}
-                    title={notice.title}
-                    statusLabel={notice.status !== 'done' ? statusLabel(notice.status, homeMsg) : ''}
-                    arrivedAt={notice.arrivedAt}
-                    arrivedSuffix={homeMsg.relative.arrived_suffix}
-                    accentBar={badge.bar}
-                    badgeBg={badge.bg}
-                    badgeText={badge.text}
-                    badgeLabel={badgeLabel}
-                    deleteLabel={messages.home.delete ?? '삭제'}
-                    confirmTitle={
-                      notice.source === 'crawl'
-                        ? messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?'
-                        : messages.home.delete_confirm_title ?? '이 공지를 삭제할까요?'
-                    }
-                    confirmBody={
-                      notice.source === 'crawl'
-                        ? messages.home.hide_confirm_body ?? '내 화면에서만 사라지고, 학교 공지 원본은 유지됩니다.'
-                        : messages.home.delete_confirm_body ?? '삭제하면 복구할 수 없어요.'
-                    }
-                    confirmCancel={messages.common.cancel ?? '취소'}
-                    confirmDelete={messages.home.delete ?? '삭제'}
-                    deletingLabel={messages.home.deleting ?? '삭제 중...'}
-                  />
-                </li>
-              )
-            })}
-          </ul>
+          <>
+            {shouldCollectSchoolNotices && schoolCrawlerState ? (
+              <div className="mb-3 rounded-xl border border-hairline-soft bg-surface-card px-4 py-3">
+                <p className="text-sm font-medium text-ink">
+                  {messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'}
+                </p>
+                <p className="mt-1 text-xs text-muted-soft">
+                  {messages.home.crawl_collecting_body ?? '완료되면 최신 학교 공지가 자동으로 표시됩니다.'}
+                </p>
+                <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} />
+              </div>
+            ) : null}
+            <ul className="flex flex-col gap-3">
+              {notices.map(notice => {
+                const badge = BADGE[notice.cardType ?? 'null']
+                const badgeLabel = badge.label[locale] ?? badge.label.ko
+                return (
+                  <li key={notice.id}>
+                    <NoticeCardItem
+                      noticeId={notice.id}
+                      title={notice.title}
+                      statusLabel={notice.status !== 'done' ? statusLabel(notice.status, homeMsg) : ''}
+                      arrivedAt={notice.arrivedAt}
+                      arrivedSuffix={homeMsg.relative.arrived_suffix}
+                      accentBar={badge.bar}
+                      badgeBg={badge.bg}
+                      badgeText={badge.text}
+                      badgeLabel={badgeLabel}
+                      deleteLabel={messages.home.delete ?? '삭제'}
+                      confirmTitle={
+                        notice.source === 'crawl'
+                          ? messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?'
+                          : messages.home.delete_confirm_title ?? '이 공지를 삭제할까요?'
+                      }
+                      confirmBody={
+                        notice.source === 'crawl'
+                          ? messages.home.hide_confirm_body ?? '내 화면에서만 사라지고, 학교 공지 원본은 유지됩니다.'
+                          : messages.home.delete_confirm_body ?? '삭제하면 복구할 수 없어요.'
+                      }
+                      confirmCancel={messages.common.cancel ?? '취소'}
+                      confirmDelete={messages.home.delete ?? '삭제'}
+                      deletingLabel={messages.home.deleting ?? '삭제 중...'}
+                    />
+                  </li>
+                )
+              })}
+            </ul>
+          </>
         )}
       </section>
     </main>

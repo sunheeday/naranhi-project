@@ -42,7 +42,7 @@ async def find_notice_board_url(
     school_name: str,
     homepage_url: str,
     gemini_api_key: str | None,
-    timeout: float = 30.0,
+    timeout: float,
 ) -> NoticeBoardSearchResult:
     client = HomepageClient(timeout=timeout)
     homepage = await client.fetch(homepage_url)

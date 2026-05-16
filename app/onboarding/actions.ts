@@ -3,6 +3,11 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
+import {
+  schoolNeedsInitialCrawl,
+  triggerInitialSchoolCrawl,
+  type SchoolCrawlerState,
+} from '@/lib/school-crawler-trigger'
 
 export interface SaveChildInput {
   schoolName: string
@@ -54,7 +59,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
 
   const { data: existingSchool, error: schoolLookupError } = await serviceClient
     .from('schools')
-    .select('id')
+    .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
     .eq('neis_office_code', officeCode)
     .eq('neis_school_code', schoolCode)
     .maybeSingle()
@@ -63,8 +68,8 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     throw new Error('학교 정보 조회 실패: ' + schoolLookupError.message)
   }
 
-  let school = existingSchool
-  let isNewSchool = false
+  let school: SchoolCrawlerState | null = existingSchool
+  let shouldTriggerCrawl = existingSchool ? schoolNeedsInitialCrawl(existingSchool) : false
 
   if (!school) {
     const { data: insertedSchool, error: schoolInsertError } = await serviceClient
@@ -75,14 +80,14 @@ export async function saveChildAndProfile(input: SaveChildInput) {
         neis_school_code: schoolCode,
         address: input.schoolAddress?.trim() || null,
       })
-      .select('id')
+      .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
       .single()
 
     if (schoolInsertError) {
       if (_isUniqueViolation(schoolInsertError)) {
         const { data: fallbackSchool, error: fallbackError } = await serviceClient
           .from('schools')
-          .select('id')
+          .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
           .eq('neis_office_code', officeCode)
           .eq('neis_school_code', schoolCode)
           .single()
@@ -91,12 +96,13 @@ export async function saveChildAndProfile(input: SaveChildInput) {
           throw new Error('학교 정보 재조회 실패: ' + fallbackError?.message)
         }
         school = fallbackSchool
+        shouldTriggerCrawl = schoolNeedsInitialCrawl(fallbackSchool)
       } else {
         throw new Error('학교 정보 저장 실패: ' + schoolInsertError.message)
       }
     } else if (insertedSchool) {
       school = insertedSchool
-      isNewSchool = true
+      shouldTriggerCrawl = true
     }
   }
 
@@ -119,8 +125,8 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     throw new Error('자녀 정보 저장 실패: ' + error?.message)
   }
 
-  if (isNewSchool) {
-    await _triggerInitialSchoolCrawl(school.id)
+  if (shouldTriggerCrawl) {
+    await triggerInitialSchoolCrawl(school.id)
   }
 
   redirect('/')
@@ -128,31 +134,4 @@ export async function saveChildAndProfile(input: SaveChildInput) {
 
 function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
   return error.code === '23505' || (error.message ?? '').includes('duplicate key value')
-}
-
-async function _triggerInitialSchoolCrawl(schoolId: string): Promise<void> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, '')
-  if (!apiBase) return
-
-  const headers: Record<string, string> = {}
-  const token = process.env.CRAWLER_INTERNAL_TOKEN?.trim()
-  if (token) {
-    headers['X-Internal-Token'] = token
-  }
-
-  try {
-    const response = await fetch(
-      `${apiBase}/crawler/schools/${encodeURIComponent(schoolId)}/discover-board`,
-      {
-        method: 'POST',
-        headers,
-        cache: 'no-store',
-      }
-    )
-    if (!response.ok) {
-      console.warn(`Initial school crawler failed with HTTP ${response.status}`)
-    }
-  } catch (error) {
-    console.warn('Initial school crawler request failed', error)
-  }
 }

@@ -65,6 +65,8 @@
     "greeting": "مرحبًا، ولي أمر {childName}",
     "notices_title": "أخبار المدرسة",
     "no_notices": "لا توجد إشعارات حتى الآن.",
+    "crawl_collecting": "جارٍ جلب إشعارات المدرسة.",
+    "crawl_collecting_body": "ستظهر أحدث الإشعارات تلقائيًا عند الانتهاء.",
     "notice_new_badge": "جديد",
     "notice_date": "{date}",
     "see_detail": "عرض التفاصيل",

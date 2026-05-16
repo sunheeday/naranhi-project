@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -554,10 +554,24 @@ def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
 
 def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> int:
     saved = 0
-    for post in result.sample_posts:
-        if post.status not in POST_SUCCESS_STATUSES or not post.detail_url:
-            continue
+    valid_posts = [
+        post
+        for post in result.sample_posts
+        if post.status in POST_SUCCESS_STATUSES and post.detail_url
+    ]
+    base_created_at = datetime.now(UTC)
 
+    for post_rank, post in enumerate(valid_posts):
+        created_at = (base_created_at - timedelta(seconds=post_rank)).isoformat()
+        crawl_result = {
+            "status": post.status,
+            "board_url": result.board_url,
+            "board_kind": result.board_kind,
+            "cms_key": post.cms_key or result.cms_key,
+            "parser_family": post.parser_family or result.parser_family,
+            "post_rank": post_rank,
+            "post": asdict(post),
+        }
         payload = {
             "child_id": None,
             "school_id": result.school_id,
@@ -567,24 +581,55 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
             "detail_url": post.detail_url,
             "source_post_id": post.post_id or None,
             "source_post_uid": post.post_uid or None,
-            "crawl_result": {
-                "status": post.status,
-                "board_url": result.board_url,
-                "board_kind": result.board_kind,
-                "cms_key": post.cms_key or result.cms_key,
-                "parser_family": post.parser_family or result.parser_family,
-                "post": asdict(post),
-            },
+            "crawl_result": crawl_result,
+            "created_at": created_at,
         }
         try:
             get_supabase_client().table("notices").insert(payload).execute()
             saved += 1
         except Exception as exc:  # noqa: BLE001 - Supabase client error shape varies.
             if _is_unique_violation(exc):
+                _update_existing_notice_candidate(
+                    result=result,
+                    post=post,
+                    created_at=created_at,
+                    crawl_result=crawl_result,
+                )
                 continue
             raise RuntimeError(f"Failed to save crawled notice candidate: {exc}") from exc
     _trim_school_notice_cache(result.school_id)
     return saved
+
+
+def _update_existing_notice_candidate(
+    *,
+    result: SchoolBoardDiscoveryResult,
+    post: DiscoveredPostPreview,
+    created_at: str,
+    crawl_result: dict[str, Any],
+) -> None:
+    payload = {
+        "title": post.title or None,
+        "detail_url": post.detail_url,
+        "source_post_id": post.post_id or None,
+        "source_post_uid": post.post_uid or None,
+        "crawl_result": crawl_result,
+        "created_at": created_at,
+    }
+    query = (
+        get_supabase_client()
+        .table("notices")
+        .update(payload)
+        .eq("school_id", result.school_id)
+        .eq("source", "crawl")
+    )
+    if post.post_uid:
+        query = query.eq("source_post_uid", post.post_uid)
+    elif post.detail_url:
+        query = query.eq("detail_url", post.detail_url)
+    else:
+        return
+    query.execute()
 
 
 def _trim_school_notice_cache(school_id: str) -> None:
