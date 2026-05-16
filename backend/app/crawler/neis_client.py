@@ -88,6 +88,35 @@ class NeisClient:
         self.api_key = api_key
         self.timeout = timeout
 
+    async def get_school_by_codes(
+        self,
+        office_code: str,
+        school_code: str,
+    ) -> School | None:
+        if not self.api_key:
+            raise RuntimeError("NEIS_API_KEY 환경변수가 필요합니다.")
+
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+            response = await client.get(
+                f"{NEIS_BASE_URL}/schoolInfo",
+                params={
+                    "KEY": self.api_key,
+                    "Type": "json",
+                    "pIndex": "1",
+                    "pSize": "10",
+                    "ATPT_OFCDC_SC_CODE": office_code,
+                    "SD_SCHUL_CODE": school_code,
+                },
+            )
+            response.raise_for_status()
+            rows = _extract_rows(response.json(), "schoolInfo")
+
+        for row in rows:
+            school = _school_from_row(row)
+            if school and school.office_code == office_code and school.school_code == school_code:
+                return school
+        return None
+
     async def search_schools(self, query: str) -> list[School]:
         if not self.api_key:
             raise RuntimeError("NEIS_API_KEY 환경변수가 필요합니다.")
@@ -108,27 +137,34 @@ class NeisClient:
                 rows = _extract_rows(response.json(), "schoolInfo")
 
                 for row in rows:
-                    level = str(row.get("SCHUL_KND_SC_NM") or "").strip()
-                    if level not in ALLOWED_LEVELS:
+                    school = _school_from_row(row)
+                    if not school:
                         continue
-
-                    office_code = str(row.get("ATPT_OFCDC_SC_CODE") or "").strip()
-                    school_code = str(row.get("SD_SCHUL_CODE") or "").strip()
-                    homepage_url = normalize_homepage_url(row.get("HMPG_ADRES"))
-                    if not homepage_url:
+                    if not school.homepage_url:
                         continue
-
-                    school = School(
-                        name=str(row.get("SCHUL_NM") or "").strip(),
-                        level=level,
-                        office_code=office_code,
-                        school_code=school_code,
-                        address=str(row.get("ORG_RDNMA") or "").strip(),
-                        homepage_url=homepage_url,
-                    )
-                    found[(office_code, school_code)] = school
+                    found[(school.office_code, school.school_code)] = school
 
         return _rank_schools(query, list(found.values()))
+
+
+def _school_from_row(row: dict[str, Any]) -> School | None:
+    level = str(row.get("SCHUL_KND_SC_NM") or "").strip()
+    if level not in ALLOWED_LEVELS:
+        return None
+
+    office_code = str(row.get("ATPT_OFCDC_SC_CODE") or "").strip()
+    school_code = str(row.get("SD_SCHUL_CODE") or "").strip()
+    if not office_code or not school_code:
+        return None
+
+    return School(
+        name=str(row.get("SCHUL_NM") or "").strip(),
+        level=level,
+        office_code=office_code,
+        school_code=school_code,
+        address=str(row.get("ORG_RDNMA") or "").strip(),
+        homepage_url=normalize_homepage_url(row.get("HMPG_ADRES")),
+    )
 
 
 def _rank_schools(query: str, schools: list[School]) -> list[School]:

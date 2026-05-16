@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from app.crawler.cms_patterns import CmsDetection, board_url_variants, detect_cms
 from app.crawler.gemini_finder import GeminiDecision, GeminiFinder, heuristic_decision
@@ -11,6 +12,7 @@ from app.crawler.link_extractor import (
     extract_links,
     find_announcement_menu_link,
     find_exact_notice_menu_link,
+    is_primary_notice_text,
     page_snippet,
     page_title,
     score_candidate,
@@ -30,6 +32,8 @@ class NoticeBoardSearchResult:
     candidates: list[LinkCandidate]
     decision: GeminiDecision
     verification: VerificationResult | None
+    board_kind: str
+    fallback_used: bool
 
 
 async def find_notice_board_url(
@@ -146,6 +150,18 @@ async def find_notice_board_url(
         candidates=merged_candidates,
         decision=decision,
         verification=verification,
+        board_kind=_board_kind_for_decision(
+            decision=decision,
+            verification=verification,
+            direct_notice_link=direct_notice_link,
+            announcement_fallback_link=announcement_fallback_link,
+            candidates=merged_candidates,
+        ),
+        fallback_used=_fallback_used_for_decision(
+            decision=decision,
+            verification=verification,
+            announcement_fallback_link=announcement_fallback_link,
+        ),
     )
 
 
@@ -186,6 +202,63 @@ def _merge_candidates(candidates: list[LinkCandidate], limit: int = 80) -> list[
         if current is None or candidate_priority(item) < candidate_priority(current):
             by_url[item.url] = item
     return sorted(by_url.values(), key=lambda item: (candidate_priority(item), -item.score))[:limit]
+
+
+def _board_kind_for_decision(
+    *,
+    decision: GeminiDecision,
+    verification: VerificationResult | None,
+    direct_notice_link: LinkCandidate | None,
+    announcement_fallback_link: LinkCandidate | None,
+    candidates: list[LinkCandidate],
+) -> str:
+    if not decision.best_url or not verification or not verification.ok:
+        return "unknown"
+
+    if direct_notice_link and _same_url_for_kind(decision.best_url, direct_notice_link.url):
+        return "family_notice"
+
+    if announcement_fallback_link and _same_url_for_kind(decision.best_url, announcement_fallback_link.url):
+        return "announcement_fallback"
+
+    selected = _candidate_for_url(decision.best_url, candidates)
+    if selected and is_primary_notice_text(f"{selected.text} {selected.context} {selected.url}"):
+        return "family_notice"
+
+    if is_primary_notice_text(decision.best_url):
+        return "family_notice"
+
+    return "unknown"
+
+
+def _fallback_used_for_decision(
+    *,
+    decision: GeminiDecision,
+    verification: VerificationResult | None,
+    announcement_fallback_link: LinkCandidate | None,
+) -> bool:
+    return bool(
+        decision.best_url
+        and verification
+        and verification.ok
+        and announcement_fallback_link
+        and _same_url_for_kind(decision.best_url, announcement_fallback_link.url)
+    )
+
+
+def _candidate_for_url(url: str, candidates: list[LinkCandidate]) -> LinkCandidate | None:
+    return next((item for item in candidates if _same_url_for_kind(url, item.url)), None)
+
+
+def _same_url_for_kind(left: str, right: str) -> bool:
+    return _normalize_url_for_kind(left) == _normalize_url_for_kind(right)
+
+
+def _normalize_url_for_kind(url: str) -> str:
+    parsed = urlparse(url)
+    query = urlencode(sorted(parse_qsl(parsed.query, keep_blank_values=True)))
+    path = parsed.path.rstrip("/") or "/"
+    return urlunparse((parsed.scheme, parsed.netloc, path, "", query, ""))
 
 
 async def _resolve_school_landing_page(client: HomepageClient, page: FetchedPage) -> FetchedPage:

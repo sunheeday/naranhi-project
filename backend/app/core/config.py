@@ -17,11 +17,19 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
     )
     neis_api_key: str | None = Field(default=None, alias="NEIS_API_KEY")
+    crawler_timeout_seconds: float = Field(default=20.0, alias="CRAWLER_TIMEOUT_SECONDS")
+    crawler_school_timeout_seconds: float = Field(
+        default=180.0,
+        alias="CRAWLER_SCHOOL_TIMEOUT_SECONDS",
+    )
+    crawler_max_posts: int = Field(default=5, alias="CRAWLER_MAX_POSTS")
+    crawler_enable_gemini: bool = Field(default=True, alias="CRAWLER_ENABLE_GEMINI")
 
     @property
     def cors_origins(self) -> list[str]:
@@ -38,6 +46,10 @@ class Settings(BaseSettings):
     @property
     def ai_configured(self) -> bool:
         return bool(self.openai_api_key)
+
+    @property
+    def gemini_configured(self) -> bool:
+        return bool(self.gemini_api_key)
 
 
 @lru_cache
