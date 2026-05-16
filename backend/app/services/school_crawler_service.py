@@ -224,7 +224,7 @@ def _context_from_school_row(school_id: str, row: dict[str, Any]) -> _SchoolCont
     return _SchoolContext(
         school_id=school_id,
         school_name=str(row.get("name") or ""),
-        office_code=_optional_str(row.get("neis_office_code") or row.get("edu_office_code")),
+        office_code=_optional_str(row.get("neis_office_code")),
         school_code=_optional_str(row.get("neis_school_code")),
         homepage_url=normalize_homepage_url(_optional_str(row.get("homepage_url"))),
     )

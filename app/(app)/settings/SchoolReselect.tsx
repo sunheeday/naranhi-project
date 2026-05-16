@@ -45,6 +45,7 @@ export default function SchoolReselect({ childId, currentSchoolName, hasNeisCode
         await updateChildSchool({
           childId,
           schoolName: school.name,
+          schoolAddress: school.address,
           neisOfficeCode: school.officeCode,
           neisSchoolCode: school.schoolCode,
         })
