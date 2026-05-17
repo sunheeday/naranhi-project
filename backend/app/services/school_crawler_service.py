@@ -680,8 +680,6 @@ def _update_existing_notice_candidate(
     next_crawl_result = dict(crawl_result)
     if previous_checked_at:
         next_crawl_result["crawl_checked_at"] = previous_checked_at
-    else:
-        next_crawl_result.pop("crawl_checked_at", None)
 
     payload = {
         "title": post.title or None,
@@ -697,7 +695,7 @@ def _trim_school_notice_cache(school_id: str) -> None:
     settings = get_settings()
     limit = settings.crawler_notice_cache_limit_per_school
     try:
-        while True:
+        for _ in range(20):
             result = (
                 get_supabase_client()
                 .table("notices")
@@ -715,6 +713,11 @@ def _trim_school_notice_cache(school_id: str) -> None:
             get_supabase_client().table("notices").delete().in_("id", stale_ids).execute()
             if len(stale_ids) < 500:
                 break
+        else:
+            LOGGER.warning(
+                "Stopped trimming school notice cache after too many batches: school_id=%s",
+                school_id,
+            )
     except Exception:
         LOGGER.warning("Failed to trim school notice cache for school_id=%s", school_id, exc_info=True)
 
