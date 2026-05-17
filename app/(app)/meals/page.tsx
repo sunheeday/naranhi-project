@@ -67,9 +67,11 @@ export default async function MealsPage({ searchParams }: Props) {
   let dayEntries: DayEntry[] = []
   let unsupported = false
   let errorMessage: string | null = null
+  let childLabel = ''
 
   if (isUiPreviewEnabled()) {
     dayEntries = previewMealEntries(monday)
+    childLabel = '나란히초등학교 3-2'
   } else {
     const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -77,13 +79,14 @@ export default async function MealsPage({ searchParams }: Props) {
 
     const { data: child } = await supabase
       .from('children')
-      .select('id, school_name, neis_office_code, neis_school_code')
+      .select('id, school_name, grade, class_no, neis_office_code, neis_school_code')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (!child) redirect('/onboarding')
+    childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
 
     if (!child.neis_office_code || !child.neis_school_code) {
       unsupported = true
@@ -134,6 +137,9 @@ export default async function MealsPage({ searchParams }: Props) {
     <main className="flex flex-col min-h-screen pb-20">
       <header className="sticky top-0 bg-surface border-b border-border px-6 py-4 z-10">
         <h1 className="text-lg font-bold text-text-primary">{m.title ?? '급식'}</h1>
+        {childLabel && (
+          <p className="text-xs text-muted truncate mt-0.5">{childLabel}</p>
+        )}
       </header>
 
       {unsupported && (

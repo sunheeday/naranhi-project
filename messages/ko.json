@@ -26,8 +26,14 @@
     "no_meal": "급식 없음",
     "range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "today": "오늘",
+    "meal_tab": "급식",
+    "timetable_tab": "수업",
+    "no_timetable": "수업 정보 없음",
+    "period_suffix": "{period}교시",
     "unsupported": "학교 코드가 등록되지 않았어요. 설정에서 학교를 다시 선택해 주세요.",
-    "error": "급식 정보를 불러오지 못했어요."
+    "error": "급식 정보를 불러오지 못했어요.",
+    "timetable_error": "수업 정보를 불러오지 못했어요.",
+    "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요."
   },
   "login": {
     "title": "나란히",
@@ -117,12 +123,21 @@
     "no_events": "이 날은 일정이 없어요.",
     "event_from_notice": "가정통신문 일정",
     "today": "오늘",
+    "event_tab": "일정",
+    "timetable_tab": "수업",
     "month_year": "{year}년 {month}월",
     "weekdays": ["일", "월", "화", "수", "목", "금", "토"],
     "prev_month": "이전 달",
     "next_month": "다음 달",
+    "prev_week": "이전 주",
+    "next_week": "다음 주",
+    "week_range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "month_events_title": "{month}월 일정",
     "day_sheet_title": "{month}월 {day}일 일정",
+    "no_timetable": "수업 정보 없음",
+    "period_suffix": "{period}교시",
+    "timetable_error": "수업 정보를 불러오지 못했어요.",
+    "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요.",
     "gcal_error": "구글 캘린더 연결에 실패했어요. 로그아웃 후 다시 로그인해 주세요."
   },
   "settings": {
