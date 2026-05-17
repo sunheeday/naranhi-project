@@ -107,12 +107,19 @@ class SchoolCrawlerService:
     async def discover_and_save_school_board(
         self,
         school_id: str,
+        *,
+        max_posts: int | None = None,
+        use_gemini: bool | None = None,
     ) -> SchoolBoardDiscoveryResult:
         settings = get_settings()
         result = await self.discover_school_board(
             school_id,
-            use_gemini=settings.crawler_enable_gemini,
-            max_posts=settings.crawler_initial_notice_count,
+            use_gemini=(
+                settings.crawler_enable_gemini
+                if use_gemini is None
+                else use_gemini
+            ),
+            max_posts=max_posts or settings.crawler_initial_notice_count,
         )
         if result.status == "school_not_found":
             return result

@@ -335,7 +335,7 @@ export default async function HomePage() {
                       }
                       confirmBody={
                         notice.source === 'crawl'
-                          ? messages.home.hide_confirm_body ?? '내 화면에서만 사라지고, 학교 공지 원본은 유지됩니다.'
+                          ? messages.home.hide_confirm_body
                           : messages.home.delete_confirm_body ?? '삭제하면 복구할 수 없어요.'
                       }
                       confirmCancel={messages.common.cancel ?? '취소'}

@@ -46,6 +46,29 @@ class Settings(BaseSettings):
     )
     crawler_max_posts: int = Field(default=5, alias="CRAWLER_MAX_POSTS")
     crawler_enable_gemini: bool = Field(default=False, alias="CRAWLER_ENABLE_GEMINI")
+    crawler_schedule_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        alias="CRAWLER_SCHEDULE_CONCURRENCY",
+    )
+    crawler_schedule_notice_count: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        alias="CRAWLER_SCHEDULE_NOTICE_COUNT",
+    )
+    crawler_unsupported_recheck_hours: int = Field(
+        default=168,
+        ge=1,
+        alias="CRAWLER_UNSUPPORTED_RECHECK_HOURS",
+    )
+    crawler_schedule_fail_rate_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        alias="CRAWLER_SCHEDULE_FAIL_RATE_THRESHOLD",
+    )
 
     @property
     def cors_origins(self) -> list[str]:
