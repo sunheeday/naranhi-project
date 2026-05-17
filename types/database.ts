@@ -140,10 +140,20 @@ export interface Database {
           source_post_uid: string | null
           detail_url: string | null
           crawl_result: Json
+          extracted_content: Json
+          summary_oneliner: string | null
+          document_type: string | null
+          urgency: string | null
+          deadline_at: string | null
           summary_translations: { [locale: string]: string }
           storage_path: string | null
           status: NoticeStatus
           error_message: string | null
+          extraction_attempts: number
+          extraction_started_at: string | null
+          extraction_finished_at: string | null
+          extraction_next_run_at: string | null
+          extraction_error_code: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -159,10 +169,20 @@ export interface Database {
           source_post_uid?: string | null
           detail_url?: string | null
           crawl_result?: Json
+          extracted_content?: Json
+          summary_oneliner?: string | null
+          document_type?: string | null
+          urgency?: string | null
+          deadline_at?: string | null
           summary_translations?: { [locale: string]: string }
           storage_path?: string | null
           status?: NoticeStatus
           error_message?: string | null
+          extraction_attempts?: number
+          extraction_started_at?: string | null
+          extraction_finished_at?: string | null
+          extraction_next_run_at?: string | null
+          extraction_error_code?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -176,10 +196,20 @@ export interface Database {
           source_post_uid?: string | null
           detail_url?: string | null
           crawl_result?: Json
+          extracted_content?: Json
+          summary_oneliner?: string | null
+          document_type?: string | null
+          urgency?: string | null
+          deadline_at?: string | null
           summary_translations?: { [locale: string]: string }
           storage_path?: string | null
           status?: NoticeStatus
           error_message?: string | null
+          extraction_attempts?: number
+          extraction_started_at?: string | null
+          extraction_finished_at?: string | null
+          extraction_next_run_at?: string | null
+          extraction_error_code?: string | null
           created_by?: string | null
           updated_at?: string
         }
@@ -325,7 +355,15 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_notice_extractions: {
+        Args: {
+          p_limit?: number
+          p_stale_minutes?: number
+          p_notice_id?: string | null
+          p_force?: boolean
+        }
+        Returns: Database['public']['Tables']['notices']['Row'][]
+      }
     }
     Enums: {
       [_ in never]: never
