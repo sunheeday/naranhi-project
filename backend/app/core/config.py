@@ -69,6 +69,26 @@ class Settings(BaseSettings):
         le=1.0,
         alias="CRAWLER_SCHEDULE_FAIL_RATE_THRESHOLD",
     )
+    extractor_max_notices_per_run: int = Field(
+        default=20,
+        ge=1,
+        alias="EXTRACTOR_MAX_NOTICES_PER_RUN",
+    )
+    extractor_notice_timeout_seconds: float = Field(
+        default=600.0,
+        ge=1.0,
+        alias="EXTRACTOR_NOTICE_TIMEOUT_SECONDS",
+    )
+    extractor_stale_minutes: int = Field(
+        default=180,
+        ge=1,
+        alias="EXTRACTOR_STALE_MINUTES",
+    )
+    extractor_max_gemini_calls_per_run: int = Field(
+        default=80,
+        ge=0,
+        alias="EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN",
+    )
 
     @property
     def cors_origins(self) -> list[str]:
