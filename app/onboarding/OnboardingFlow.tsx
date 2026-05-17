@@ -106,6 +106,7 @@ export default function OnboardingFlow({ messages, locale }: Props) {
       try {
         await saveChildAndProfile({
           schoolName: school.name,
+          schoolAddress: school.address,
           neisOfficeCode: school.officeCode,
           neisSchoolCode: school.schoolCode,
           grade: step2Data.grade,

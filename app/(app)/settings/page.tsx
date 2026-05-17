@@ -13,13 +13,21 @@ export default async function SettingsPage() {
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
-  let child: { id: string; school_name: string; neis_school_code: string | null } | null = null
+  let child: {
+    id: string
+    school_name: string
+    neis_school_code: string | null
+    grade: number
+    class_no: number | null
+  } | null = null
 
   if (isUiPreviewEnabled()) {
     child = {
       id: 'preview-child',
       school_name: '나란히초등학교',
       neis_school_code: 'PREVIEW',
+      grade: 1,
+      class_no: 1,
     }
   } else {
     const supabase = await createSupabaseServerClient()
@@ -28,7 +36,7 @@ export default async function SettingsPage() {
 
     const result = await supabase
       .from('children')
-      .select('id, school_name, neis_school_code')
+      .select('id, school_name, neis_school_code, grade, class_no')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -58,6 +66,8 @@ export default async function SettingsPage() {
             <SchoolReselect
               childId={child.id}
               currentSchoolName={child.school_name}
+              currentGrade={child.grade}
+              currentClassNo={child.class_no}
               hasNeisCode={!!child.neis_school_code}
               labels={{
                 title: messages.settings.school_section_title ?? '학교 정보',
@@ -73,6 +83,10 @@ export default async function SettingsPage() {
                 searching: messages.onboarding.step1_searching ?? '검색 중...',
                 search_error: messages.onboarding.step1_search_error ?? '검색 실패',
                 required: messages.onboarding.step1_school_required ?? '학교를 선택해 주세요.',
+                grade_label: messages.onboarding.step2_grade ?? '{grade}학년',
+                class_label: messages.onboarding.step2_class ?? '{class}반',
+                grade_placeholder: '학년 선택',
+                class_placeholder: '반 입력',
               }}
             />
             <hr className="border-border" />

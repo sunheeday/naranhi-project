@@ -11,7 +11,7 @@ export interface NoticeDetailDto {
   id: string
   status: NoticeStatus
   errorMessage: string | null
-  childId: string
+  childId: string | null
   createdAt: string
   summary: string | null
   /** 사용자 locale에 해당 번역이 캐시돼 있는지 (lazy 번역 트리거용) */

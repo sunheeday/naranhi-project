@@ -65,6 +65,8 @@
     "greeting": "สวัสดีค่ะ ผู้ปกครองของ {childName}",
     "notices_title": "ข่าวโรงเรียน",
     "no_notices": "ยังไม่มีประกาศ",
+    "crawl_collecting": "กำลังดึงประกาศจากโรงเรียน",
+    "crawl_collecting_body": "ประกาศล่าสุดจะแสดงโดยอัตโนมัติเมื่อเสร็จสิ้น",
     "notice_new_badge": "ใหม่",
     "notice_date": "{date}",
     "see_detail": "ดูรายละเอียด",

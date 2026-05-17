@@ -65,6 +65,8 @@
     "greeting": "Hello, {childName}'s parent",
     "notices_title": "School News",
     "no_notices": "No notices yet.",
+    "crawl_collecting": "Collecting school notices.",
+    "crawl_collecting_body": "Latest notices will appear automatically when it finishes.",
     "notice_new_badge": "NEW",
     "notice_date": "{date}",
     "see_detail": "View details",

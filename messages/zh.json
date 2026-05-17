@@ -65,6 +65,8 @@
     "greeting": "{childName} 的家长，您好",
     "notices_title": "学校通知",
     "no_notices": "暂无通知。",
+    "crawl_collecting": "正在获取学校通知。",
+    "crawl_collecting_body": "完成后会自动显示最新通知。",
     "notice_new_badge": "新",
     "notice_date": "{date}",
     "see_detail": "查看详情",

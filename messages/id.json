@@ -65,6 +65,8 @@
     "greeting": "Halo, orang tua {childName}",
     "notices_title": "Berita Sekolah",
     "no_notices": "Belum ada pemberitahuan.",
+    "crawl_collecting": "Sedang mengambil pengumuman sekolah.",
+    "crawl_collecting_body": "Pengumuman terbaru akan muncul otomatis setelah selesai.",
     "notice_new_badge": "BARU",
     "notice_date": "{date}",
     "see_detail": "Lihat detail",

@@ -65,6 +65,8 @@
     "greeting": "{childName} 보호자님, 안녕하세요",
     "notices_title": "학교 소식",
     "no_notices": "아직 등록된 소식이 없어요.",
+    "crawl_collecting": "학교 공지를 가져오는 중이에요.",
+    "crawl_collecting_body": "완료되면 최신 학교 공지가 자동으로 표시됩니다.",
     "notice_new_badge": "NEW",
     "notice_date": "{date}",
     "see_detail": "자세히 보기",

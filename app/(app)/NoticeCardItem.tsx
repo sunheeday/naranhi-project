@@ -19,7 +19,7 @@ interface Props {
   badgeLabel: string
   deleteLabel: string
   confirmTitle: string
-  confirmBody: string
+  confirmBody?: string
   confirmCancel: string
   confirmDelete: string
   deletingLabel: string
@@ -117,7 +117,7 @@ export default function NoticeCardItem({
             onClick={e => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-ink">{confirmTitle}</h3>
-            <p className="text-sm text-muted">{confirmBody}</p>
+            {confirmBody ? <p className="text-sm text-muted">{confirmBody}</p> : null}
             {error && <p className="text-sm text-error">{error}</p>}
             <div className="flex gap-2 mt-2">
               <button

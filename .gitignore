@@ -25,6 +25,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+next.err.log
+next.out.log
 
 # local env files
 .env*.local
@@ -44,3 +46,16 @@ __pycache__/
 
 # local migration source checkout
 naranhi-demo/
+naranhi-crawler-lab/
+naranhi-crawler-lab.zip
+
+# local product/spec drafts
+docs/기능명세서.md
+
+# local Supabase runtime state
+supabase/.branches/
+supabase/.temp/
+supabase/config.toml
+
+# local assistant/tooling state
+.claude/

@@ -53,3 +53,6 @@ jobs:
 
       - name: Compile Python
         run: python -m compileall backend/app
+
+      - name: Run Python unit tests
+        run: PYTHONPATH=backend python -m unittest discover backend/tests
