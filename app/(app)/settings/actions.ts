@@ -14,6 +14,8 @@ export interface UpdateSchoolInput {
   schoolAddress?: string
   neisOfficeCode: string
   neisSchoolCode: string
+  grade: number
+  classNo: number
 }
 
 export async function updateChildSchool(input: UpdateSchoolInput): Promise<void> {
@@ -25,9 +27,17 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
   const schoolName = input.schoolName.trim()
   const officeCode = input.neisOfficeCode.trim()
   const schoolCode = input.neisSchoolCode.trim()
+  const grade = Number(input.grade)
+  const classNo = Number(input.classNo)
 
   if (!schoolName || !officeCode || !schoolCode) {
     throw new Error('학교를 검색하여 다시 선택해 주세요.')
+  }
+  if (!Number.isInteger(grade) || grade < 1 || grade > 6) {
+    throw new Error('학년을 다시 선택해 주세요.')
+  }
+  if (!Number.isInteger(classNo) || classNo < 1 || classNo > 20) {
+    throw new Error('반을 다시 입력해 주세요.')
   }
 
   const { data: existingSchool, error: schoolLookupError } = await serviceClient
@@ -91,6 +101,8 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
       school_name: schoolName,
       neis_office_code: officeCode,
       neis_school_code: schoolCode,
+      grade,
+      class_no: classNo,
     })
     .eq('id', input.childId)
     .eq('user_id', user.id)
