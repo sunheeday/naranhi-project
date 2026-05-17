@@ -49,6 +49,9 @@ naranhi-demo/
 naranhi-crawler-lab/
 naranhi-crawler-lab.zip
 
+# local product/spec drafts
+docs/기능명세서.md
+
 # local Supabase runtime state
 supabase/.branches/
 supabase/.temp/
