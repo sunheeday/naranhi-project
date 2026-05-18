@@ -92,9 +92,11 @@
     "meal_allergy_prefix": "⚠ 알레르기:"
   },
   "notice_detail": {
+    "summary_badge": "핵심 요약",
     "supplies_badge": "준비물",
     "action_badge": "해야 할 일",
     "schedule_badge": "일정",
+    "info_badge": "참고 안내",
     "swipe_hint": "옆으로 밀어서 더 보기",
     "save_to_calendar": "캘린더에 저장",
     "deadline_remaining": "D-{days}일 남음",

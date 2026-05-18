@@ -92,9 +92,11 @@
     "meal_allergy_prefix": "⚠ Alergen:"
   },
   "notice_detail": {
+    "summary_badge": "Ringkasan",
     "supplies_badge": "Perlengkapan",
     "action_badge": "Tugas",
     "schedule_badge": "Jadwal",
+    "info_badge": "Info",
     "swipe_hint": "Geser untuk melihat lebih banyak",
     "save_to_calendar": "Simpan ke kalender",
     "deadline_remaining": "Sisa {days} hari",

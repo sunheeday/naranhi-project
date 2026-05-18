@@ -92,9 +92,11 @@
     "meal_allergy_prefix": "⚠ Allergènes :"
   },
   "notice_detail": {
+    "summary_badge": "Résumé",
     "supplies_badge": "Fournitures",
     "action_badge": "À faire",
     "schedule_badge": "Planning",
+    "info_badge": "Infos",
     "swipe_hint": "Glissez pour voir plus",
     "save_to_calendar": "Enregistrer dans l'agenda",
     "deadline_remaining": "Reste {days} jours",

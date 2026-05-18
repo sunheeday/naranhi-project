@@ -92,9 +92,11 @@
     "meal_allergy_prefix": "⚠ مسببات الحساسية:"
   },
   "notice_detail": {
+    "summary_badge": "ملخص",
     "supplies_badge": "المستلزمات",
     "action_badge": "المهام",
     "schedule_badge": "الجدول",
+    "info_badge": "معلومات",
     "swipe_hint": "اسحب للمزيد",
     "save_to_calendar": "حفظ في التقويم",
     "deadline_remaining": "متبقي {days} يوم",

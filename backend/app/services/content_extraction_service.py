@@ -9,6 +9,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
+from app.services.notice_card_service import replace_notice_cards
 from app.utils.korean_date_parser import parse_korean_deadline, to_iso_or_none
 from extractor.http_security import sanitize_error
 
@@ -249,6 +250,7 @@ def _save_success(notice: dict[str, Any], result: Any) -> None:
     summary_oneliner = _optional_str(canonical_summary.get("summary_oneliner"))
     deadline = _optional_str(canonical_summary.get("deadline"))
     deadline_at = to_iso_or_none(parse_korean_deadline(deadline, reference=notice.get("created_at")))
+    extracted_content = build_extracted_content(result)
 
     payload = {
         "status": "done",
@@ -258,13 +260,21 @@ def _save_success(notice: dict[str, Any], result: Any) -> None:
         "document_type": _optional_str(canonical_summary.get("document_type")),
         "urgency": _optional_str(canonical_summary.get("urgency")),
         "deadline_at": deadline_at,
-        "extracted_content": build_extracted_content(result),
+        "extracted_content": extracted_content,
         "extraction_finished_at": _utc_now().isoformat(),
         "extraction_next_run_at": None,
         "extraction_error_code": None,
         "error_message": None,
     }
     get_supabase_client().table("notices").update(payload).eq("id", notice_id).execute()
+    try:
+        replace_notice_cards(notice_id, extracted_content)
+    except Exception as exc:  # noqa: BLE001 - cards are a rebuildable cache.
+        LOGGER.warning(
+            "notice card generation failed: notice_id=%s exception=%s",
+            notice_id,
+            sanitize_error(exc),
+        )
 
 
 def _save_failure(
