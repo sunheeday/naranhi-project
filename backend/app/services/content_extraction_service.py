@@ -74,6 +74,7 @@ class ContentExtractionService:
             raise ValueError("--force requires --notice-id for content extraction.")
 
         settings = get_settings()
+        _ensure_supabase_configured(settings)
         started_at = _utc_now()
         max_count = max_notices or settings.extractor_max_notices_per_run
 
@@ -210,6 +211,21 @@ def classify_extraction_error(result: Any) -> str:
         if any(term in haystack for term in terms):
             return code
     return "internal_error"
+
+
+def _ensure_supabase_configured(settings: Any) -> None:
+    missing = _missing_supabase_config_names(settings)
+    if missing:
+        raise RuntimeError(f"Missing required configuration: {', '.join(missing)}")
+
+
+def _missing_supabase_config_names(settings: Any) -> list[str]:
+    missing: list[str] = []
+    if not getattr(settings, "supabase_url", None):
+        missing.append("SUPABASE_URL")
+    if not getattr(settings, "supabase_service_role_key", None):
+        missing.append("SUPABASE_SERVICE_ROLE_KEY")
+    return missing
 
 
 def build_extracted_content(result: Any) -> dict[str, Any]:

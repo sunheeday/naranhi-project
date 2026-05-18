@@ -9,6 +9,7 @@ from app.services.content_extraction_service import (
     classify_extraction_error,
     _is_successful_extraction,
     _failure_payload,
+    _missing_supabase_config_names,
 )
 
 
@@ -95,6 +96,18 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(payload["extraction_attempts"], 3)
         self.assertIsNone(payload["extraction_next_run_at"])
+
+    def test_reports_missing_supabase_config_names(self) -> None:
+        settings = type(
+            "FakeSettings",
+            (),
+            {"supabase_url": "", "supabase_service_role_key": None},
+        )()
+
+        self.assertEqual(
+            _missing_supabase_config_names(settings),
+            ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
+        )
 
 
 if __name__ == "__main__":

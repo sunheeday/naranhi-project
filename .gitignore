@@ -57,6 +57,7 @@ docs/기능명세서.md
 supabase/.branches/
 supabase/.temp/
 supabase/config.toml
+supabase/snippets/
 
 # local assistant/tooling state
 .claude/
