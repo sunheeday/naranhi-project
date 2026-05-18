@@ -183,6 +183,7 @@ export default async function HomePage() {
   let childInfo = ''
   let notices: DisplayNotice[] = []
   let schoolCrawlerState: SchoolCrawlerState | null = null
+  let hasProcessingNotices = false
 
   if (isUiPreviewEnabled()) {
     childInfo = previewChildInfo()
@@ -228,6 +229,7 @@ export default async function HomePage() {
       .from('notices')
       .select('id, source, status, title, summary_translations, crawl_result, created_at')
       .eq('child_id', child.id)
+      .eq('status', 'done')
       .order('created_at', { ascending: false })
       .limit(50)
 
@@ -237,9 +239,27 @@ export default async function HomePage() {
           .select('id, source, status, title, summary_translations, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('source', 'crawl')
+          .eq('status', 'done')
           .order('created_at', { ascending: false })
           .limit(50)
       : { data: [] }
+
+    const { count: personalProcessingCount } = await supabase
+      .from('notices')
+      .select('id', { count: 'exact', head: true })
+      .eq('child_id', child.id)
+      .in('status', ['pending', 'processing'])
+
+    const { count: schoolProcessingCount } = child.school_id
+      ? await supabase
+          .from('notices')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', child.school_id)
+          .eq('source', 'crawl')
+          .in('status', ['pending', 'processing'])
+      : { count: 0 }
+
+    hasProcessingNotices = Boolean((personalProcessingCount ?? 0) + (schoolProcessingCount ?? 0))
 
     const rowMap = new Map<string, NoticeRow>()
     for (const row of [...(personalRows ?? []), ...(schoolRows ?? [])]) {
@@ -272,12 +292,12 @@ export default async function HomePage() {
     }
   }
 
-  const hasPending = notices.some(n => n.status === 'pending' || n.status === 'processing')
   const shouldCollectSchoolNotices = schoolCrawlerState ? schoolNeedsInitialCrawl(schoolCrawlerState) : false
+  const isPreparingSchoolNotices = shouldCollectSchoolNotices || hasProcessingNotices
 
   return (
     <main className="flex flex-col min-h-screen pb-24">
-      <HomePoller hasPending={hasPending} />
+      <HomePoller hasPending={hasProcessingNotices} />
       <header className="sticky top-0 bg-canvas border-b border-hairline-soft px-6 py-4 flex items-center justify-between z-10">
         <div className="min-w-0">
           <span className="block text-base font-bold text-ink truncate" style={{ letterSpacing: '-0.01em' }}>{messages.common.app_name}</span>
@@ -299,7 +319,7 @@ export default async function HomePage() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <span className="text-3xl" aria-hidden="true">📭</span>
             <p className="text-sm text-muted-soft text-center">
-              {shouldCollectSchoolNotices
+              {isPreparingSchoolNotices
                 ? messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'
                 : messages.home.no_notices}
             </p>

@@ -268,7 +268,12 @@ def _save_success(notice: dict[str, Any], result: Any) -> None:
     }
     get_supabase_client().table("notices").update(payload).eq("id", notice_id).execute()
     try:
-        replace_notice_cards(notice_id, extracted_content)
+        replace_notice_cards(
+            notice_id,
+            extracted_content,
+            title=_optional_str(notice.get("title")),
+            original_text=getattr(result, "raw_text", ""),
+        )
     except Exception as exc:  # noqa: BLE001 - cards are a rebuildable cache.
         LOGGER.error(
             "notice card generation failed: notice_id=%s exception=%s",
