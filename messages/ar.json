@@ -26,8 +26,14 @@
     "no_meal": "لا توجد وجبة",
     "range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "today": "اليوم",
+    "meal_tab": "الوجبات",
+    "timetable_tab": "الحصص",
+    "no_timetable": "لا توجد معلومات حصص",
+    "period_suffix": "الحصة {period}",
     "unsupported": "رمز المدرسة غير مسجل. يرجى إعادة اختيار المدرسة في الإعدادات.",
-    "error": "تعذر تحميل معلومات الوجبات."
+    "error": "تعذر تحميل معلومات الوجبات.",
+    "timetable_error": "تعذر تحميل معلومات الحصص.",
+    "timetable_unsupported": "لا يمكن عرض الحصص لأن الصف/الفصل أو نوع المدرسة غير مطابق."
   },
   "login": {
     "title": "نارانهي",
@@ -118,12 +124,21 @@
     "no_events": "لا توجد فعاليات في هذا اليوم.",
     "event_from_notice": "فعالية من الإشعار",
     "today": "اليوم",
+    "event_tab": "الجدول",
+    "timetable_tab": "الحصص",
     "month_year": "{month}/{year}",
     "weekdays": ["ح", "ن", "ث", "ر", "خ", "ج", "س"],
     "prev_month": "الشهر السابق",
     "next_month": "الشهر التالي",
+    "prev_week": "الأسبوع السابق",
+    "next_week": "الأسبوع التالي",
+    "week_range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "month_events_title": "فعاليات شهر {month}",
     "day_sheet_title": "فعاليات {day}/{month}",
+    "no_timetable": "لا توجد معلومات حصص",
+    "period_suffix": "الحصة {period}",
+    "timetable_error": "تعذر تحميل معلومات الحصص.",
+    "timetable_unsupported": "لا يمكن عرض الحصص لأن الصف/الفصل أو نوع المدرسة غير مطابق.",
     "gcal_error": "فشل الاتصال بتقويم Google. يرجى تسجيل الخروج ثم الدخول مرة أخرى."
   },
   "settings": {

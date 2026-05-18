@@ -110,14 +110,14 @@ export default function MealWeekView({ weekStartIso, days, labels }: Props) {
       {/* 일자별 카드 */}
       <div className="flex flex-col gap-4 px-6 pt-4 pb-24">
         {days.map(d => (
-          <DayCard key={d.isoDate} day={d} labels={labels} isToday={d.isoDate === todayIso} />
+          <MealDayCard key={d.isoDate} day={d} labels={labels} isToday={d.isoDate === todayIso} />
         ))}
       </div>
     </div>
   )
 }
 
-function DayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; isToday: boolean }) {
+function MealDayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; isToday: boolean }) {
   const { m, d, weekday } = isoToParts(day.isoDate)
   const weekdayIdx = weekday  // 0=일
   const md = `${m}/${d}`

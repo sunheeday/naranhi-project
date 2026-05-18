@@ -26,8 +26,14 @@
     "no_meal": "No meal",
     "range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "today": "Today",
+    "meal_tab": "Meals",
+    "timetable_tab": "Classes",
+    "no_timetable": "No class information",
+    "period_suffix": "Period {period}",
     "unsupported": "School code not registered. Please reselect your school in Settings.",
-    "error": "Could not load meal information."
+    "error": "Could not load meal information.",
+    "timetable_error": "Could not load class information.",
+    "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match."
   },
   "login": {
     "title": "Naranhi",
@@ -118,12 +124,21 @@
     "no_events": "No events for this day.",
     "event_from_notice": "Notice schedule",
     "today": "Today",
+    "event_tab": "Events",
+    "timetable_tab": "Classes",
     "month_year": "{month}/{year}",
     "weekdays": ["S", "M", "T", "W", "T", "F", "S"],
     "prev_month": "Previous month",
     "next_month": "Next month",
+    "prev_week": "Previous week",
+    "next_week": "Next week",
+    "week_range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "month_events_title": "Events in {month}",
     "day_sheet_title": "Events on {month}/{day}",
+    "no_timetable": "No class information",
+    "period_suffix": "Period {period}",
+    "timetable_error": "Could not load class information.",
+    "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match.",
     "gcal_error": "Google Calendar connection failed. Please log out and sign in again."
   },
   "settings": {

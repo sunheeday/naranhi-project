@@ -26,8 +26,14 @@
     "no_meal": "Tidak ada makanan",
     "range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "today": "Hari ini",
+    "meal_tab": "Makanan",
+    "timetable_tab": "Kelas",
+    "no_timetable": "Tidak ada informasi kelas",
+    "period_suffix": "Jam ke-{period}",
     "unsupported": "Kode sekolah belum terdaftar. Silakan pilih sekolah lagi di Pengaturan.",
-    "error": "Tidak dapat memuat informasi makanan."
+    "error": "Tidak dapat memuat informasi makanan.",
+    "timetable_error": "Tidak dapat memuat informasi kelas.",
+    "timetable_unsupported": "Informasi kelas tidak dapat ditampilkan karena tingkat/kelas atau jenis sekolah tidak cocok."
   },
   "login": {
     "title": "Naranhi",
@@ -118,12 +124,21 @@
     "no_events": "Tidak ada acara di hari ini.",
     "event_from_notice": "Acara dari pemberitahuan",
     "today": "Hari ini",
+    "event_tab": "Jadwal",
+    "timetable_tab": "Kelas",
     "month_year": "{month}/{year}",
     "weekdays": ["M", "S", "S", "R", "K", "J", "S"],
     "prev_month": "Bulan sebelumnya",
     "next_month": "Bulan berikutnya",
+    "prev_week": "Minggu sebelumnya",
+    "next_week": "Minggu berikutnya",
+    "week_range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "month_events_title": "Acara di {month}",
     "day_sheet_title": "Acara {day}/{month}",
+    "no_timetable": "Tidak ada informasi kelas",
+    "period_suffix": "Jam ke-{period}",
+    "timetable_error": "Tidak dapat memuat informasi kelas.",
+    "timetable_unsupported": "Informasi kelas tidak dapat ditampilkan karena tingkat/kelas atau jenis sekolah tidak cocok.",
     "gcal_error": "Gagal terhubung ke Google Calendar. Silakan keluar dan masuk lagi."
   },
   "settings": {

@@ -26,8 +26,14 @@
     "no_meal": "Không có bữa ăn",
     "range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "today": "Hôm nay",
+    "meal_tab": "Bữa ăn",
+    "timetable_tab": "Lớp học",
+    "no_timetable": "Không có thông tin lớp học",
+    "period_suffix": "Tiết {period}",
     "unsupported": "Chưa đăng ký mã trường. Vui lòng chọn lại trường trong cài đặt.",
-    "error": "Không thể tải thông tin bữa ăn."
+    "error": "Không thể tải thông tin bữa ăn.",
+    "timetable_error": "Không thể tải thông tin lớp học.",
+    "timetable_unsupported": "Không thể hiển thị lớp học vì khối/lớp hoặc loại trường không khớp."
   },
   "login": {
     "title": "나란히",
@@ -114,12 +120,21 @@
     "no_events": "Không có sự kiện nào hôm nay.",
     "event_from_notice": "Lịch từ thông báo",
     "today": "Hôm nay",
+    "event_tab": "Lịch",
+    "timetable_tab": "Lớp học",
     "month_year": "Tháng {month}/{year}",
     "weekdays": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
     "prev_month": "Tháng trước",
     "next_month": "Tháng sau",
+    "prev_week": "Tuần trước",
+    "next_week": "Tuần sau",
+    "week_range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "month_events_title": "Lịch tháng {month}",
     "day_sheet_title": "Lịch {day}/{month}",
+    "no_timetable": "Không có thông tin lớp học",
+    "period_suffix": "Tiết {period}",
+    "timetable_error": "Không thể tải thông tin lớp học.",
+    "timetable_unsupported": "Không thể hiển thị lớp học vì khối/lớp hoặc loại trường không khớp.",
     "gcal_error": "Kết nối Google Calendar thất bại. Vui lòng đăng xuất và đăng nhập lại."
   },
   "settings": {

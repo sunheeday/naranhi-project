@@ -26,8 +26,14 @@
     "no_meal": "Нет питания",
     "range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "today": "Сегодня",
+    "meal_tab": "Питание",
+    "timetable_tab": "Уроки",
+    "no_timetable": "Нет информации об уроках",
+    "period_suffix": "{period}-й урок",
     "unsupported": "Код школы не зарегистрирован. Выберите школу заново в настройках.",
-    "error": "Не удалось загрузить информацию о питании."
+    "error": "Не удалось загрузить информацию о питании.",
+    "timetable_error": "Не удалось загрузить информацию об уроках.",
+    "timetable_unsupported": "Невозможно показать уроки: не совпадает класс или тип школы."
   },
   "login": {
     "title": "Наранхи",
@@ -118,12 +124,21 @@
     "no_events": "В этот день событий нет.",
     "event_from_notice": "Событие из объявления",
     "today": "Сегодня",
+    "event_tab": "События",
+    "timetable_tab": "Уроки",
     "month_year": "{month}/{year}",
     "weekdays": ["В", "П", "В", "С", "Ч", "П", "С"],
     "prev_month": "Предыдущий месяц",
     "next_month": "Следующий месяц",
+    "prev_week": "Предыдущая неделя",
+    "next_week": "Следующая неделя",
+    "week_range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "month_events_title": "События в {month}",
     "day_sheet_title": "События {month}/{day}",
+    "no_timetable": "Нет информации об уроках",
+    "period_suffix": "{period}-й урок",
+    "timetable_error": "Не удалось загрузить информацию об уроках.",
+    "timetable_unsupported": "Невозможно показать уроки: не совпадает класс или тип школы.",
     "gcal_error": "Не удалось подключиться к Google Календарю. Выйдите и войдите снова."
   },
   "settings": {

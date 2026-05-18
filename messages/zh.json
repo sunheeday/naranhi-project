@@ -26,8 +26,14 @@
     "no_meal": "无午餐",
     "range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "today": "今天",
+    "meal_tab": "午餐",
+    "timetable_tab": "课程",
+    "no_timetable": "无课程信息",
+    "period_suffix": "第{period}节",
     "unsupported": "未注册学校代码。请在设置中重新选择学校。",
-    "error": "无法获取午餐信息。"
+    "error": "无法获取午餐信息。",
+    "timetable_error": "无法获取课程信息。",
+    "timetable_unsupported": "年级/班级或学校类型不匹配，无法显示课程信息。"
   },
   "login": {
     "title": "나란히",
@@ -114,12 +120,21 @@
     "no_events": "今天没有安排。",
     "event_from_notice": "学校通知日程",
     "today": "今天",
+    "event_tab": "日程",
+    "timetable_tab": "课程",
     "month_year": "{year}年{month}月",
     "weekdays": ["日", "一", "二", "三", "四", "五", "六"],
     "prev_month": "上个月",
     "next_month": "下个月",
+    "prev_week": "上一周",
+    "next_week": "下一周",
+    "week_range": "{startMonth}/{startDay} – {endMonth}/{endDay}",
     "month_events_title": "{month}月日程",
     "day_sheet_title": "{month}月{day}日 日程",
+    "no_timetable": "无课程信息",
+    "period_suffix": "第{period}节",
+    "timetable_error": "无法获取课程信息。",
+    "timetable_unsupported": "年级/班级或学校类型不匹配，无法显示课程信息。",
     "gcal_error": "Google日历连接失败，请退出后重新登录。"
   },
   "settings": {
