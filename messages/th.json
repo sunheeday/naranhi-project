@@ -26,8 +26,14 @@
     "no_meal": "ไม่มีอาหาร",
     "range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "today": "วันนี้",
+    "meal_tab": "อาหาร",
+    "timetable_tab": "ชั้นเรียน",
+    "no_timetable": "ไม่มีข้อมูลชั้นเรียน",
+    "period_suffix": "คาบ {period}",
     "unsupported": "ยังไม่ได้ลงทะเบียนรหัสโรงเรียน กรุณาเลือกโรงเรียนใหม่ในตั้งค่า",
-    "error": "ไม่สามารถโหลดข้อมูลอาหารได้"
+    "error": "ไม่สามารถโหลดข้อมูลอาหารได้",
+    "timetable_error": "ไม่สามารถโหลดข้อมูลชั้นเรียนได้",
+    "timetable_unsupported": "ไม่สามารถแสดงข้อมูลชั้นเรียนได้ เพราะชั้น/ห้องหรือประเภทโรงเรียนไม่ตรงกัน"
   },
   "login": {
     "title": "นารันฮี",
@@ -117,12 +123,21 @@
     "no_events": "ไม่มีกิจกรรมในวันนี้",
     "event_from_notice": "กิจกรรมจากประกาศ",
     "today": "วันนี้",
+    "event_tab": "ตาราง",
+    "timetable_tab": "ชั้นเรียน",
     "month_year": "{month}/{year}",
     "weekdays": ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"],
     "prev_month": "เดือนก่อน",
     "next_month": "เดือนหน้า",
+    "prev_week": "สัปดาห์ก่อน",
+    "next_week": "สัปดาห์หน้า",
+    "week_range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "month_events_title": "กิจกรรมเดือน {month}",
     "day_sheet_title": "กิจกรรม {day}/{month}",
+    "no_timetable": "ไม่มีข้อมูลชั้นเรียน",
+    "period_suffix": "คาบ {period}",
+    "timetable_error": "ไม่สามารถโหลดข้อมูลชั้นเรียนได้",
+    "timetable_unsupported": "ไม่สามารถแสดงข้อมูลชั้นเรียนได้ เพราะชั้น/ห้องหรือประเภทโรงเรียนไม่ตรงกัน",
     "gcal_error": "เชื่อมต่อ Google Calendar ล้มเหลว กรุณาออกจากระบบและเข้าสู่ระบบอีกครั้ง"
   },
   "settings": {

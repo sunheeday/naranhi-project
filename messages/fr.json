@@ -26,8 +26,14 @@
     "no_meal": "Pas de repas",
     "range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "today": "Aujourd'hui",
+    "meal_tab": "Repas",
+    "timetable_tab": "Cours",
+    "no_timetable": "Aucune information de cours",
+    "period_suffix": "Période {period}",
     "unsupported": "Code de l'école non enregistré. Veuillez resélectionner l'école dans les paramètres.",
-    "error": "Impossible de charger les informations sur les repas."
+    "error": "Impossible de charger les informations sur les repas.",
+    "timetable_error": "Impossible de charger les informations de cours.",
+    "timetable_unsupported": "Les cours ne peuvent pas être affichés car la classe ou le type d'école ne correspond pas."
   },
   "login": {
     "title": "Naranhi",
@@ -117,12 +123,21 @@
     "no_events": "Aucun événement ce jour-là.",
     "event_from_notice": "Événement d'annonce",
     "today": "Aujourd'hui",
+    "event_tab": "Planning",
+    "timetable_tab": "Cours",
     "month_year": "{month}/{year}",
     "weekdays": ["D", "L", "M", "M", "J", "V", "S"],
     "prev_month": "Mois précédent",
     "next_month": "Mois suivant",
+    "prev_week": "Semaine précédente",
+    "next_week": "Semaine suivante",
+    "week_range": "{startDay}/{startMonth} – {endDay}/{endMonth}",
     "month_events_title": "Événements en {month}",
     "day_sheet_title": "Événements du {day}/{month}",
+    "no_timetable": "Aucune information de cours",
+    "period_suffix": "Période {period}",
+    "timetable_error": "Impossible de charger les informations de cours.",
+    "timetable_unsupported": "Les cours ne peuvent pas être affichés car la classe ou le type d'école ne correspond pas.",
     "gcal_error": "Échec de la connexion à Google Agenda. Veuillez vous déconnecter et vous reconnecter."
   },
   "settings": {

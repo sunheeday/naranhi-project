@@ -36,6 +36,22 @@ export interface Meal {
   origins: Array<{ ingredient: string; country: string }> | null
 }
 
+export interface TimetablePeriod {
+  date: string            // YYYY-MM-DD
+  period: number
+  subject: string
+  grade: number | null
+  className: string | null
+  classroom: string | null
+}
+
+export class UnsupportedTimetableError extends Error {
+  constructor(message = '지원하지 않는 학교 종류입니다.') {
+    super(message)
+    this.name = 'UnsupportedTimetableError'
+  }
+}
+
 export const ALLERGEN_NAMES: Record<number, string> = {
   1: '난류', 2: '우유', 3: '메밀', 4: '땅콩', 5: '대두',
   6: '밀', 7: '고등어', 8: '게', 9: '새우', 10: '돼지고기',
@@ -103,6 +119,91 @@ export async function searchSchools(query: string): Promise<SchoolSearchResult[]
     level: r.SCHUL_KND_SC_NM,
     address: r.ORG_RDNMA ?? '',
   }))
+}
+
+// ─── 시간표 ───────────────────────────────────────────────
+
+interface TimetableRow {
+  ALL_TI_YMD: string
+  GRADE?: string | null
+  CLASS_NM?: string | null
+  PERIO: string
+  ITRT_CNTNT: string | null
+  CLRM_NM?: string | null
+}
+
+type TimetableEndpoint = 'elsTimetable' | 'misTimetable' | 'hisTimetable' | 'spsTimetable'
+
+function resolveTimetableEndpoint(levelOrName: string | null | undefined): TimetableEndpoint | null {
+  const value = levelOrName ?? ''
+  if (value.includes('초등') || value.includes('초등학교')) return 'elsTimetable'
+  if (value.includes('중학') || value.includes('중학교')) return 'misTimetable'
+  if (value.includes('고등') || value.includes('고등학교')) return 'hisTimetable'
+  if (value.includes('특수')) return 'spsTimetable'
+  return null
+}
+
+async function fetchSchoolLevelFromNeis(
+  officeCode: string,
+  schoolCode: string,
+): Promise<string | null> {
+  const data = await neisFetch<NeisListEnvelope<SchoolInfoRow>>('schoolInfo', {
+    ATPT_OFCDC_SC_CODE: officeCode,
+    SD_SCHUL_CODE: schoolCode,
+  })
+  return extractRows(data, 'schoolInfo')[0]?.SCHUL_KND_SC_NM ?? null
+}
+
+function isoFromYmd(yyyymmdd: string): string {
+  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').trim()
+}
+
+/** 날짜 범위로 NEIS 시간표 조회. YYYYMMDD ~ YYYYMMDD (양 끝 포함). */
+export async function fetchTimetableRangeFromNeis(
+  officeCode: string,
+  schoolCode: string,
+  schoolName: string,
+  grade: number,
+  classNo: number,
+  fromYmd: string,
+  toYmd: string,
+): Promise<TimetablePeriod[]> {
+  let endpoint = resolveTimetableEndpoint(schoolName)
+  if (!endpoint) {
+    endpoint = resolveTimetableEndpoint(await fetchSchoolLevelFromNeis(officeCode, schoolCode))
+  }
+  if (!endpoint) throw new UnsupportedTimetableError()
+
+  try {
+    const data = await neisFetch<NeisListEnvelope<TimetableRow>>(endpoint, {
+      ATPT_OFCDC_SC_CODE: officeCode,
+      SD_SCHUL_CODE: schoolCode,
+      GRADE: String(grade),
+      CLASS_NM: String(classNo),
+      TI_FROM_YMD: fromYmd,
+      TI_TO_YMD: toYmd,
+    })
+    const rows = extractRows(data, endpoint)
+    return rows
+      .map(r => ({
+        date: isoFromYmd(r.ALL_TI_YMD),
+        period: parseInt(r.PERIO, 10),
+        subject: stripHtml(r.ITRT_CNTNT ?? ''),
+        grade: r.GRADE ? parseInt(r.GRADE, 10) : null,
+        className: r.CLASS_NM ?? null,
+        classroom: r.CLRM_NM ?? null,
+      }))
+      .filter(row => row.subject && Number.isFinite(row.period))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/INFO-200|해당 자료가 없습니다/.test(msg)) return []
+    throw e
+  }
 }
 
 // ─── 급식 ────────────────────────────────────────────────
