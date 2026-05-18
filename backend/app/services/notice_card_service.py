@@ -1,22 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-import logging
 from typing import Any
 
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
 
 
-LOGGER = logging.getLogger(__name__)
 CARD_META_SOURCE = "extracted_content"
 SUMMARY_FACT_LIMIT = 3
 CARD_ORDER = {
     "summary": 0,
-    "action": 1,
-    "schedule": 2,
-    "supplies": 3,
-    "info": 4,
 }
 
 
@@ -73,22 +67,6 @@ def build_notice_cards_from_extracted_content(extracted_content: Any) -> list[Ge
     summary_items = _summary_items(canonical, key_facts[:SUMMARY_FACT_LIMIT])
     if summary_items:
         cards.append(_card("summary", summary_items, confidence=confidence))
-
-    action_items = _action_items(canonical)
-    if action_items:
-        cards.append(_card("action", action_items, confidence=confidence))
-
-    schedule_items = _schedule_items(canonical)
-    if schedule_items:
-        cards.append(_card("schedule", schedule_items, confidence=confidence))
-
-    supply_items = _items_from_values(_string_list(canonical.get("preparation_items")))
-    if supply_items:
-        cards.append(_card("supplies", supply_items, confidence=confidence))
-
-    info_items = _info_items(canonical, key_facts[SUMMARY_FACT_LIMIT:])
-    if info_items:
-        cards.append(_card("info", info_items, confidence=confidence))
 
     return cards
 
@@ -153,6 +131,7 @@ def _fetch_backfill_targets(*, notice_id: str | None, limit: int) -> list[dict[s
         .select("id,extracted_content")
         .eq("source", "crawl")
         .eq("status", "done")
+        .order("id", desc=False)
     )
     if notice_id:
         query = query.eq("id", notice_id)
@@ -189,34 +168,6 @@ def _summary_items(canonical: dict[str, Any], key_facts: list[str]) -> list[Noti
     return _items_from_values(values)
 
 
-def _action_items(canonical: dict[str, Any]) -> list[NoticeCardItem]:
-    deadline = _clean_text(canonical.get("deadline"))
-    values: list[str] = []
-    values.extend(_string_list(canonical.get("required_actions")))
-    values.extend(_string_list(canonical.get("forms_to_submit")))
-    values.extend(_prefixed_values("비용", canonical.get("fees")))
-    return _items_from_values(values, hint=deadline)
-
-
-def _schedule_items(canonical: dict[str, Any]) -> list[NoticeCardItem]:
-    values: list[str] = []
-    values.extend(_string_list(canonical.get("important_dates")))
-    values.extend(_string_list(canonical.get("activity_summary")))
-    values.extend(_prefixed_values("장소", canonical.get("locations")))
-    return _items_from_values(values)
-
-
-def _info_items(canonical: dict[str, Any], remaining_key_facts: list[str]) -> list[NoticeCardItem]:
-    values: list[str] = []
-    values.extend(_string_list(canonical.get("supplement_summary")))
-    values.extend(_prefixed_values("연락처", canonical.get("contacts")))
-    values.extend(_prefixed_values("대상", canonical.get("targets")))
-    values.extend(_prefixed_values("주의", canonical.get("warnings")))
-    values.extend(_prefixed_values("링크", canonical.get("links")))
-    values.extend(remaining_key_facts)
-    return _items_from_values(values)
-
-
 def _card(card_type: str, items: list[NoticeCardItem], *, confidence: float | None) -> GeneratedNoticeCard:
     meta: dict[str, Any] = {"source": CARD_META_SOURCE}
     if confidence is not None:
@@ -241,10 +192,6 @@ def _items_from_values(values: list[str], *, hint: str | None = None) -> list[No
         seen.add(text)
         items.append(NoticeCardItem(text=text, hint=hint))
     return items
-
-
-def _prefixed_values(prefix: str, value: Any) -> list[str]:
-    return [f"{prefix}: {item}" for item in _string_list(value)]
 
 
 def _string_list(value: Any) -> list[str]:

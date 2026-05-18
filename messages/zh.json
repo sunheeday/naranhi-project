@@ -92,7 +92,6 @@
     "supplies_badge": "准备物品",
     "action_badge": "待办事项",
     "schedule_badge": "日程",
-    "info_badge": "参考信息",
     "swipe_hint": "左右滑动查看更多",
     "save_to_calendar": "保存到日历",
     "deadline_remaining": "还剩 {days} 天",

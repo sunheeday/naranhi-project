@@ -96,7 +96,6 @@
     "supplies_badge": "อุปกรณ์",
     "action_badge": "งานที่ต้องทำ",
     "schedule_badge": "ตารางเวลา",
-    "info_badge": "ข้อมูล",
     "swipe_hint": "ปัดเพื่อดูเพิ่มเติม",
     "save_to_calendar": "บันทึกในปฏิทิน",
     "deadline_remaining": "เหลืออีก {days} วัน",

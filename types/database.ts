@@ -3,7 +3,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 export type SupportedLocale = 'ko' | 'en' | 'zh' | 'vi' | 'ru' | 'ar' | 'fr' | 'id' | 'th'
 export type NoticeSource = 'upload' | 'crawl' | 'manual'
 export type NoticeStatus = 'pending' | 'processing' | 'done' | 'error'
-export type CardType = 'summary' | 'supplies' | 'action' | 'schedule' | 'info'
+export type CardType = 'summary' | 'supplies' | 'action' | 'schedule'
 export type SchoolCrawlBoardKind = 'family_notice' | 'announcement_fallback' | 'unknown'
 
 export interface Database {

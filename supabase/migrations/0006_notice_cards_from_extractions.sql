@@ -1,5 +1,4 @@
 alter type public.notice_card_type add value if not exists 'summary';
-alter type public.notice_card_type add value if not exists 'info';
 
 with ranked_cards as (
   select

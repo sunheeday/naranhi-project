@@ -26,7 +26,6 @@ export interface CardLabels {
   supplies: string
   action: string
   schedule: string
-  info: string
   deadlineRemaining: string
   deadlineToday: string
 }
@@ -42,10 +41,9 @@ const CARD_STYLE: Record<CardType, { icon: string; color: string; bg: string }> 
   action:   { icon: '✅', color: 'text-cat-action',   bg: 'bg-cat-action-bg' },
   schedule: { icon: '📅', color: 'text-cat-schedule', bg: 'bg-cat-schedule-bg' },
   supplies: { icon: '🎒', color: 'text-cat-supply',   bg: 'bg-cat-supply-bg' },
-  info:     { icon: 'ℹ️', color: 'text-muted',        bg: 'bg-surface-card' },
 }
 
-const CARD_ORDER: CardType[] = ['summary', 'action', 'schedule', 'supplies', 'info']
+const CARD_ORDER: CardType[] = ['summary', 'action', 'schedule', 'supplies']
 
 export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' })

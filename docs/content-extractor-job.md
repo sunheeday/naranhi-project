@@ -1,6 +1,8 @@
 # 콘텐츠 추출 Job 운영 메모
 
-이 Job은 `notices.source='crawl'` 공지의 상세 URL에 접속해 HTML, 첨부 PDF/HWP/HWPX, 인라인 이미지를 추출하고 `notices.original_text`, `summary_oneliner`, `extracted_content`를 채운다.
+이 Job은 `notices.source='crawl'` 공지의 상세 URL에 접속해 HTML, 첨부 PDF/HWP/HWPX, 인라인 이미지를 추출하고 `notices.original_text`, `summary_oneliner`, `extracted_content`, `notice_cards`를 채운다.
+
+학교 크롤러가 새 notice URL을 저장하면 이 Job이 뒤따라 실행되어야 한다. 사용자 관점의 "공지 가져오기"는 crawler URL 수집과 extractor 본문 분석이 함께 끝난 상태를 의미한다.
 
 이번 문서는 배포 준비용이다. 실제 Cloud Run Job 생성, Secret Manager 값 등록, Scheduler 연결은 GCP 권한자가 수행한다.
 

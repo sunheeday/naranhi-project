@@ -123,6 +123,7 @@ function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
 }
 
 function dominantCardType(cards: { type: string }[]): 'supplies' | 'action' | 'schedule' | null {
+  // 홈 badge는 행동 힌트용 3가지 type만 사용한다. summary는 상세 화면에서만 표시한다.
   const order: Array<'action' | 'schedule' | 'supplies'> = ['action', 'schedule', 'supplies']
   for (const t of order) {
     if (cards.some(c => c.type === t)) return t

@@ -96,7 +96,6 @@
     "supplies_badge": "Supplies",
     "action_badge": "To-do",
     "schedule_badge": "Schedule",
-    "info_badge": "Info",
     "swipe_hint": "Swipe to see more",
     "save_to_calendar": "Save to calendar",
     "deadline_remaining": "{days} days left",

@@ -46,49 +46,6 @@ function mapCommonCard(type: CardType, content: unknown, deadlineAt: string | nu
   }
 }
 
-function mapLegacySuppliesCard(content: unknown): NoticeCard | null {
-  const obj = asObject(content)
-  if (!obj) return null
-  const items = Array.isArray(obj.items) ? obj.items.map(asText).filter(Boolean) : []
-  if (items.length === 0) return null
-  return {
-    type: 'supplies',
-    items: items.map(text => ({ text })),
-  }
-}
-
-function mapLegacyActionCard(content: unknown, deadlineAt: string | null): NoticeCard | null {
-  const obj = asObject(content)
-  if (!obj) return null
-  const values = Array.isArray(obj.items) ? obj.items.map(asText).filter(Boolean) : []
-  const title = asText(obj.title)
-  const deadline = asText(obj.deadline)
-  const items = (values.length > 0 ? values : [title]).filter(Boolean)
-  if (items.length === 0) return null
-  return {
-    type: 'action',
-    items: items.map(text => (deadline ? { text, hint: deadline } : { text })),
-    deadlineAt,
-    deadlineDaysLeft: daysLeftFromDeadline(deadlineAt),
-  }
-}
-
-function mapLegacyScheduleCard(content: unknown): NoticeCard | null {
-  const obj = asObject(content)
-  if (!obj) return null
-  const date = asText(obj.date)
-  const title = asText(obj.title)
-  const location = asText(obj.location)
-  const description = asText(obj.description)
-  const text = date || title || description
-  const hint = [location, description && description !== text ? description : ''].filter(Boolean).join(' · ')
-  if (!text) return null
-  return {
-    type: 'schedule',
-    items: [hint ? { text, hint } : { text }],
-  }
-}
-
 function pickLocalized(content: unknown, locale: Locale): unknown {
   if (!content || typeof content !== 'object' || Array.isArray(content)) return content
   const c = content as Record<string, unknown>
@@ -107,11 +64,9 @@ function daysLeftFromDeadline(deadlineAt: string | null): number | null {
 function mapCards(rows: NoticeCardDto[], locale: Locale, deadlineAt: string | null): NoticeCard[] {
   const mapped: NoticeCard[] = []
   for (const r of rows) {
+    if (r.type !== 'summary') continue
     const localized = pickLocalized(r.content, locale)
     let card = mapCommonCard(r.type, localized, deadlineAt)
-    if (!card && r.type === 'supplies') card = mapLegacySuppliesCard(localized)
-    else if (!card && r.type === 'action') card = mapLegacyActionCard(localized, deadlineAt)
-    else if (!card && r.type === 'schedule') card = mapLegacyScheduleCard(localized)
     if (card) mapped.push(card)
   }
   return mapped
@@ -180,7 +135,7 @@ export default async function NoticePage({ params }: Props) {
     summary: summary ?? '',
     hint: dataCards.length > 0 ? messages.notice_detail.swipe_hint : undefined,
   }
-  const cards: NoticeCard[] = [intro, ...dataCards]
+  const cards: NoticeCard[] = dataCards.length > 0 ? dataCards : [intro]
 
   return (
     <main className="flex flex-col min-h-screen">
@@ -193,7 +148,6 @@ export default async function NoticePage({ params }: Props) {
           summary: messages.notice_detail.summary_badge,
           action: messages.notice_detail.action_badge,
           schedule: messages.notice_detail.schedule_badge,
-          info: messages.notice_detail.info_badge,
           deadlineRemaining: messages.notice_detail.deadline_remaining,
           deadlineToday: messages.notice_detail.deadline_today,
         }}

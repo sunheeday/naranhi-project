@@ -31,7 +31,7 @@ class NoticeCardServiceTests(unittest.TestCase):
         self.assertEqual(summary.content["meta"]["source"], "extracted_content")  # type: ignore[attr-defined]
         self.assertEqual(summary.content["meta"]["confidence"], 0.8)  # type: ignore[attr-defined]
 
-    def test_remaining_key_facts_go_to_info(self) -> None:
+    def test_remaining_key_facts_are_not_carded_in_summary_only_v1(self) -> None:
         cards = build_notice_cards_from_extracted_content(
             _content(
                 {
@@ -41,38 +41,32 @@ class NoticeCardServiceTests(unittest.TestCase):
             )
         )
 
-        info = _by_type(cards)["info"]
-        self.assertEqual([item["text"] for item in info.content["items"]], ["d", "e"])  # type: ignore[attr-defined]
+        summary = _by_type(cards)["summary"]
+        self.assertEqual([item["text"] for item in summary.content["items"]], ["공지", "a", "b", "c"])  # type: ignore[attr-defined]
+        self.assertEqual(len(cards), 1)
 
-    def test_requires_response_alone_does_not_create_action(self) -> None:
+    def test_action_fields_do_not_create_extra_cards_in_summary_only_v1(self) -> None:
         cards = build_notice_cards_from_extracted_content(
             _content(
                 {
                     "summary_oneliner": "응답 필요 안내",
                     "requires_response": True,
-                }
-            )
-        )
-
-        self.assertNotIn("action", _by_type(cards))
-
-    def test_required_action_creates_action_with_deadline_hint(self) -> None:
-        cards = build_notice_cards_from_extracted_content(
-            _content(
-                {
                     "required_actions": ["참가 동의서 제출"],
+                    "forms_to_submit": ["신청서"],
+                    "fees": ["50000원"],
                     "deadline": "5월 20일까지",
                 }
             )
         )
 
-        action = _by_type(cards)["action"]
-        self.assertEqual(action.content["items"], [{"text": "참가 동의서 제출", "hint": "5월 20일까지"}])  # type: ignore[attr-defined]
+        self.assertNotIn("action", _by_type(cards))
+        self.assertEqual([card.type for card in cards], ["summary"])
 
-    def test_schedule_supplies_and_info_cards(self) -> None:
+    def test_non_summary_fields_do_not_create_extra_cards(self) -> None:
         cards = build_notice_cards_from_extracted_content(
             _content(
                 {
+                    "summary_oneliner": "민방위 훈련 안내",
                     "important_dates": ["2026. 5. 12. 12:50 ~ 13:10"],
                     "activity_summary": ["민방위 훈련"],
                     "locations": ["운동장"],
@@ -86,17 +80,7 @@ class NoticeCardServiceTests(unittest.TestCase):
         )
 
         by_type = _by_type(cards)
-        self.assertIn("schedule", by_type)
-        self.assertIn("supplies", by_type)
-        self.assertIn("info", by_type)
-        self.assertEqual(
-            [item["text"] for item in by_type["supplies"].content["items"]],  # type: ignore[attr-defined]
-            ["도시락", "운동화"],
-        )
-        self.assertIn(
-            {"text": "연락처: 02-123-4567"},
-            by_type["info"].content["items"],  # type: ignore[attr-defined]
-        )
+        self.assertEqual(set(by_type), {"summary"})
 
     def test_omits_raw_text_and_uses_consistent_shape(self) -> None:
         cards = build_notice_cards_from_extracted_content(
@@ -114,6 +98,21 @@ class NoticeCardServiceTests(unittest.TestCase):
             self.assertEqual(set(card.content.keys()), {"items", "meta"})
             self.assertIsInstance(card.content["items"], list)
             self.assertNotIn("raw_text", card.content)
+
+    def test_empty_input_returns_no_cards(self) -> None:
+        self.assertEqual(build_notice_cards_from_extracted_content({}), [])
+
+    def test_omits_confidence_when_missing(self) -> None:
+        cards = build_notice_cards_from_extracted_content(_content({"summary_oneliner": "요약"}))
+
+        self.assertNotIn("confidence", cards[0].content["meta"])
+
+    def test_keeps_zero_confidence(self) -> None:
+        cards = build_notice_cards_from_extracted_content(
+            _content({"summary_oneliner": "요약", "confidence": 0.0})
+        )
+
+        self.assertEqual(cards[0].content["meta"]["confidence"], 0.0)
 
 
 if __name__ == "__main__":

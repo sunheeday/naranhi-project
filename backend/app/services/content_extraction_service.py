@@ -270,7 +270,7 @@ def _save_success(notice: dict[str, Any], result: Any) -> None:
     try:
         replace_notice_cards(notice_id, extracted_content)
     except Exception as exc:  # noqa: BLE001 - cards are a rebuildable cache.
-        LOGGER.warning(
+        LOGGER.error(
             "notice card generation failed: notice_id=%s exception=%s",
             notice_id,
             sanitize_error(exc),
