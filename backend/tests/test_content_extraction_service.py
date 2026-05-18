@@ -7,6 +7,7 @@ from app.services.content_extraction_service import (
     EXTRACTED_CONTENT_SCHEMA_VERSION,
     build_extracted_content,
     classify_extraction_error,
+    _is_successful_extraction,
     _failure_payload,
 )
 
@@ -68,6 +69,12 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         result = FakeResult(status="partial_success", errors=["unsupported_or_spoofed_file"])
 
         self.assertEqual(classify_extraction_error(result), "unsupported_file")
+
+    def test_empty_or_unreadable_is_not_success(self) -> None:
+        result = FakeResult(content_kind="empty_or_unreadable", raw_text="게시판 상세보기")
+
+        self.assertFalse(_is_successful_extraction(result))
+        self.assertEqual(classify_extraction_error(result), "empty_or_unreadable")
 
     def test_quota_failure_does_not_adjust_attempts(self) -> None:
         payload = _failure_payload(

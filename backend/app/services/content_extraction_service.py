@@ -17,6 +17,14 @@ EXTRACTED_CONTENT_SCHEMA_VERSION = "1"
 SUCCESS_STATUSES = {"success", "partial_success"}
 IMMEDIATE_GIVEUP_CODES = {"budget_exhausted", "permanent_not_found", "unsupported_file"}
 LOGGER = logging.getLogger(__name__)
+_HAYSTACK_ERROR_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("empty_or_unreadable", ("empty_or_unreadable",)),
+    ("budget_exhausted", ("budget_exhausted",)),
+    ("gemini_quota_exhausted", ("quota", "429", "resource_exhausted", "rate limit", "rate_limit")),
+    ("permanent_not_found", ("404", "not found", "not_found")),
+    ("unsupported_file", ("unsupported_or_spoofed_file", "unsupported_file_type", "unsupported_file", "file_type_check")),
+    ("transient_network", ("timeout", "timed out", "connecterror", "readerror", "network", "content_fetch_failed", "download_failed")),
+)
 
 
 @dataclass(frozen=True)
@@ -150,7 +158,7 @@ class ContentExtractionService:
         try:
             result = await asyncio.wait_for(
                 extract_case(
-                    CaseConfig(id=notice_id, detail_url=detail_url),
+                    CaseConfig(id=notice_id, detail_url=detail_url, fetch_context=_fetch_context_from_notice(notice)),
                     gemini_client=gemini_client,
                 ),
                 timeout=notice_timeout_seconds,
@@ -173,7 +181,7 @@ class ContentExtractionService:
             )
 
         gemini_calls_used = _gemini_calls_used(result)
-        if result.status in SUCCESS_STATUSES and result.raw_text.strip():
+        if _is_successful_extraction(result):
             _save_success(notice, result)
             return ContentExtractionItem(
                 notice_id=notice_id,
@@ -192,36 +200,15 @@ class ContentExtractionService:
 
 
 def classify_extraction_error(result: Any) -> str:
-    haystack = _result_haystack(result)
-    if _metadata_bool(getattr(result, "metadata", {}), "budget_exhausted") or "budget_exhausted" in haystack:
+    if getattr(result, "content_kind", "") == "empty_or_unreadable":
+        return "empty_or_unreadable"
+    if _metadata_bool(getattr(result, "metadata", {}), "budget_exhausted"):
         return "budget_exhausted"
-    if any(term in haystack for term in ("quota", "429", "resource_exhausted", "rate limit", "rate_limit")):
-        return "gemini_quota_exhausted"
-    if any(term in haystack for term in ("404", "not found", "not_found")):
-        return "permanent_not_found"
-    if any(
-        term in haystack
-        for term in (
-            "unsupported_or_spoofed_file",
-            "unsupported_file_type",
-            "unsupported_file",
-            "file_type_check",
-        )
-    ):
-        return "unsupported_file"
-    if any(
-        term in haystack
-        for term in (
-            "timeout",
-            "timed out",
-            "connecterror",
-            "readerror",
-            "network",
-            "content_fetch_failed",
-            "download_failed",
-        )
-    ):
-        return "transient_network"
+
+    haystack = _result_haystack(result)
+    for code, terms in _HAYSTACK_ERROR_RULES:
+        if any(term in haystack for term in terms):
+            return code
     return "internal_error"
 
 
@@ -299,6 +286,8 @@ def _failure_payload(notice: dict[str, Any], *, error_code: str, error_message: 
 
     if error_code == "transient_network":
         next_run_at = (now + timedelta(minutes=30)).isoformat()
+    elif error_code == "empty_or_unreadable":
+        next_run_at = (now + timedelta(hours=6)).isoformat()
     elif error_code == "gemini_quota_exhausted":
         next_run_at = (now + timedelta(hours=24)).isoformat()
     elif error_code == "internal_error":
@@ -361,6 +350,29 @@ def _dry_run_targets(*, notice_id: str | None, limit: int) -> list[dict[str, Any
         for row in rows
         if row.get("detail_url")
     ]
+
+
+def _is_successful_extraction(result: Any) -> bool:
+    return (
+        getattr(result, "status", "") in SUCCESS_STATUSES
+        and bool(str(getattr(result, "raw_text", "")).strip())
+        and getattr(result, "content_kind", "") != "empty_or_unreadable"
+    )
+
+
+def _fetch_context_from_notice(notice: dict[str, Any]) -> dict[str, Any]:
+    crawl_result = notice.get("crawl_result")
+    context: dict[str, Any] = {}
+    if isinstance(crawl_result, dict):
+        context.update(crawl_result)
+        context["crawl_result"] = crawl_result
+    source_post_id = notice.get("source_post_id")
+    if source_post_id:
+        context["source_post_id"] = str(source_post_id)
+    detail_url = notice.get("detail_url")
+    if detail_url:
+        context["detail_url"] = str(detail_url)
+    return context
 
 
 def _build_summary(

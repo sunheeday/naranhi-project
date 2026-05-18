@@ -85,7 +85,7 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
         with tempfile.TemporaryDirectory(prefix="naranhi-extract-") as temp_name:
             temp_dir = Path(temp_name)
             try:
-                fetched = await fetch_detail(case.detail_url)
+                fetched = await fetch_detail(case.detail_url, context=case.fetch_context)
             except Exception as exc:
                 return _failed_result(
                     case,

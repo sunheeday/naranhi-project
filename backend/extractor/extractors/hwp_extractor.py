@@ -46,18 +46,7 @@ async def extract_hwp_text(
             metadata={"quality": _text_quality(prv_text), "is_preview_text_only": True},
         )
 
-    text = _try_hwplib(path, warnings)
-    if _quality_ok(text, min_text_chars=min_text_chars):
-        return ExtractedText(
-            source=source_name,
-            method="hwp_hwplib_py",
-            text=text,
-            status="success",
-            warnings=warnings,
-            metadata={"quality": _text_quality(text)},
-        )
-    if text.strip():
-        warnings.append("hwplib_py_low_quality")
+    warnings.append("hwplib_py_disabled_broken_dependency")
 
     text = _try_hwp5txt(path, warnings)
     if _quality_ok(text, min_text_chars=min_text_chars):
@@ -89,18 +78,33 @@ def _try_hwp_ole_bodytext(path: Path, warnings: list[str]) -> str:
                 warnings.append("hwp_ole_bodytext_failed: FileHeader stream not found")
                 return ""
             header = ole.openstream("FileHeader").read()
-            compressed = bool(int.from_bytes(header[36:40], "little") & 1) if len(header) >= 40 else False
-            section_names = sorted(
-                "/".join(item)
-                for item in ole.listdir(streams=True, storages=False)
-                if len(item) == 2 and item[0] == "BodyText" and item[1].startswith("Section")
-            )
+            flags = _hwp_header_flags(header)
+            if flags["password"] or flags["drm"]:
+                warnings.append(
+                    "hwp_ole_bodytext_failed: protected document "
+                    f"password={flags['password']} drm={flags['drm']}"
+                )
+                return ""
+            if flags["distribution"]:
+                warnings.append("hwp_distribution_document")
+
             texts: list[str] = []
-            for section_name in section_names:
-                data = ole.openstream(section_name).read()
-                if compressed:
-                    data = zlib.decompress(data, -15)
-                texts.extend(_extract_para_text_records(data))
+            for storage_name in _hwp_text_storages(flags):
+                section_names = _section_names(ole, storage_name)
+                if not section_names:
+                    continue
+                storage_texts: list[str] = []
+                for section_name in section_names:
+                    try:
+                        data = ole.openstream(section_name).read()
+                        if flags["compressed"]:
+                            data = zlib.decompress(data, -15)
+                        storage_texts.extend(_extract_para_text_records(data))
+                    except Exception as exc:  # noqa: BLE001 - continue with other sections/storages.
+                        warnings.append(f"hwp_ole_section_failed: {section_name}: {type(exc).__name__}: {exc}")
+                if storage_texts:
+                    warnings.append(f"hwp_ole_storage_used: {storage_name}")
+                    texts.extend(storage_texts)
         return _clean_hwp_text("\n".join(texts), aggressive=False)
     except Exception as exc:
         warnings.append(f"hwp_ole_bodytext_failed: {type(exc).__name__}: {exc}")
@@ -138,10 +142,62 @@ def _extract_para_text_records(data: bytes) -> list[str]:
         body = data[offset:offset + size]
         offset += size
         if tag_id == 67:
-            text = body.decode("utf-16le", errors="ignore")
+            text = _decode_para_text_body(body)
             if text.strip():
                 paragraphs.append(text)
     return paragraphs
+
+
+def _hwp_header_flags(header: bytes) -> dict[str, bool]:
+    properties = int.from_bytes(header[36:40], "little") if len(header) >= 40 else 0
+    return {
+        "compressed": bool(properties & 0b1),
+        "password": bool(properties & 0b10),
+        "distribution": bool(properties & 0b100),
+        "script": bool(properties & 0b1000),
+        "drm": bool(properties & 0b10000),
+    }
+
+
+def _hwp_text_storages(flags: dict[str, bool]) -> tuple[str, ...]:
+    if flags["distribution"]:
+        return ("ViewText", "BodyText")
+    return ("BodyText", "ViewText")
+
+
+def _section_names(ole: object, storage_name: str) -> list[str]:
+    return sorted(
+        "/".join(item)
+        for item in ole.listdir(streams=True, storages=False)
+        if len(item) == 2 and item[0] == storage_name and item[1].startswith("Section")
+    )
+
+
+def _decode_para_text_body(body: bytes) -> str:
+    chars: list[str] = []
+    offset = 0
+    while offset + 2 <= len(body):
+        code = int.from_bytes(body[offset:offset + 2], "little")
+        offset += 2
+        if code == 0:
+            continue
+        if code in {0x0A, 0x0D}:
+            chars.append("\n")
+            continue
+        if code == 0x09:
+            chars.append("\t")
+            offset = min(len(body), offset + 6)
+            continue
+        if _is_hwp_extended_control_code(code):
+            chars.append(" ")
+            offset = min(len(body), offset + 6)
+            continue
+        chars.append(chr(code))
+    return "".join(chars)
+
+
+def _is_hwp_extended_control_code(code: int) -> bool:
+    return 0x01 <= code <= 0x08 or 0x0B <= code <= 0x12 or 0x14 <= code <= 0x1F
 
 
 def _decode_best(data: bytes) -> str:
@@ -154,8 +210,7 @@ def _decode_best(data: bytes) -> str:
 
 
 def _clean_hwp_text(value: str, *, aggressive: bool) -> str:
-    for token in ("捤獥", "汤捯", "氠瑢", "漠杳", "潴景", "灡", "摨", "汴", "畮", "汰"):
-        value = value.replace(token, " ")
+    # PrvText fallback can still leak CJK-looking decoder noise even after PARA_TEXT cleanup.
     value = re.sub(r"[\u4e00-\u9fff╣ॣ]", " ", value)
     value = re.sub(r"[\x00-\x08\x0b-\x1f]", " ", value)
     lines: list[str] = []
@@ -221,17 +276,6 @@ def _cleanup_stats(before: str, after: str) -> dict[str, float]:
         "cjk_garbage_after": after_quality["cjk_garbage"],
         "chars_dropped": max(0, before_quality["chars"] - after_quality["chars"]),
     }
-
-
-def _try_hwplib(path: Path, warnings: list[str]) -> str:
-    try:
-        from hwplib.hwp5.api import load  # type: ignore
-
-        document = load(str(path))
-        return document.get_text() or ""
-    except Exception as exc:
-        warnings.append(f"hwplib_py_failed: {type(exc).__name__}: {exc}")
-        return ""
 
 
 def _try_hwp5txt(path: Path, warnings: list[str]) -> str:

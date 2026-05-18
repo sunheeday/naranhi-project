@@ -10,6 +10,7 @@ class CaseConfig:
     id: str
     detail_url: str
     expected_kind: str | None = None
+    fetch_context: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

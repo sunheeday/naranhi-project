@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 
+from extractor.fetch_variants.sen_ajax import maybe_fetch_via_ajax
 from extractor.http_security import assert_public_url, tls_metadata, tls_verify_for_url
 from extractor.models import FetchedDetail
 
@@ -22,7 +24,7 @@ DEFAULT_HEADERS = {
 REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
 
 
-async def fetch_detail(url: str, *, timeout: float = 20.0) -> FetchedDetail:
+async def fetch_detail(url: str, *, timeout: float = 20.0, context: dict[str, Any] | None = None) -> FetchedDetail:
     assert_public_url(url)
     async with httpx.AsyncClient(
         timeout=timeout,
@@ -31,6 +33,16 @@ async def fetch_detail(url: str, *, timeout: float = 20.0) -> FetchedDetail:
         verify=tls_verify_for_url(url),
     ) as client:
         response = await _get_following_js_redirect(client, url, max_bytes=_max_fetch_bytes())
+        enriched = await maybe_fetch_via_ajax(
+            client,
+            url,
+            response,
+            context or {},
+            max_bytes=_max_fetch_bytes(),
+            send_limited=_send_limited,
+        )
+        if enriched is not None and _html_richness_score(enriched) > _html_richness_score(response):
+            response = enriched
         assert_public_url(str(response.url))
         metadata = tls_metadata(str(response.url))
         return FetchedDetail(
@@ -79,6 +91,10 @@ async def _get_following_js_redirect(
 
 async def _stream_get_limited(client: httpx.AsyncClient, url: str, *, max_bytes: int) -> httpx.Response:
     request = client.build_request("GET", url)
+    return await _send_limited(client, request, max_bytes=max_bytes)
+
+
+async def _send_limited(client: httpx.AsyncClient, request: httpx.Request, *, max_bytes: int) -> httpx.Response:
     response = await client.send(request, stream=True)
     try:
         content_length = _content_length(response.headers)
@@ -142,3 +158,26 @@ def _max_fetch_bytes() -> int:
         return int(os.getenv("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024
     except ValueError:
         return 50 * 1024 * 1024
+
+
+def _html_richness_score(response: httpx.Response) -> int:
+    content_type = response.headers.get("content-type", "").lower()
+    if "text/html" not in content_type:
+        return 0
+    text = response.text
+    attachment_markers = sum(
+        text.count(marker)
+        for marker in (
+            "serverFileObj",
+            "serverFileObjArray",
+            "DEXT5UPLOAD.AddUploadedFile",
+            "atchFileId",
+            "fileSn",
+            "fn_egov_downFile",
+            "downFile.do",
+            "파일첨부",
+            "다운로드",
+        )
+    )
+    plain_chars = len(_strip_tags(text))
+    return attachment_markers * 500 + min(plain_chars, 5000)
