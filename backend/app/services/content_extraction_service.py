@@ -139,6 +139,62 @@ class ContentExtractionService:
             gemini_call_cap_reached=gemini_call_cap_reached,
         )
 
+    async def run_for_school(
+        self,
+        school_id: str,
+        *,
+        max_notices: int,
+    ) -> ContentExtractionSummary:
+        settings = get_settings()
+        _ensure_supabase_configured(settings)
+        started_at = _utc_now()
+        notice_ids = _pending_notice_ids_for_school(school_id, limit=max_notices)
+
+        from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
+
+        results: list[ContentExtractionItem] = []
+        total_gemini_calls = 0
+        gemini_call_cap_reached = False
+        async with GeminiDocumentExtractor() as gemini_client:
+            for notice_id in notice_ids:
+                if _cap_reached(total_gemini_calls, settings.extractor_max_gemini_calls_per_run):
+                    gemini_call_cap_reached = True
+                    break
+
+                notice = _claim_notice(
+                    notice_id=notice_id,
+                    force=True,
+                    stale_minutes=settings.extractor_stale_minutes,
+                )
+                if notice is None:
+                    continue
+
+                item = await self._process_notice(
+                    notice,
+                    gemini_client=gemini_client,
+                    notice_timeout_seconds=settings.extractor_notice_timeout_seconds,
+                )
+                total_gemini_calls += item.gemini_calls_used
+                results.append(item)
+                LOGGER.info(
+                    "school content extractor result: school_id=%s notice_id=%s status=%s error_code=%s gemini_calls=%s",
+                    school_id,
+                    item.notice_id,
+                    item.status,
+                    item.extraction_error_code,
+                    item.gemini_calls_used,
+                )
+
+        return _build_summary(
+            started_at=started_at,
+            dry_run=False,
+            force=True,
+            max_notices=max_notices,
+            targets=[],
+            results=results,
+            gemini_call_cap_reached=gemini_call_cap_reached,
+        )
+
     async def _process_notice(
         self,
         notice: dict[str, Any],
@@ -547,6 +603,23 @@ def _dry_run_targets(*, notice_id: str | None, limit: int) -> list[dict[str, Any
         for row in rows
         if row.get("detail_url")
     ]
+
+
+def _pending_notice_ids_for_school(school_id: str, *, limit: int) -> list[str]:
+    rows = (
+        get_supabase_client()
+        .table("notices")
+        .select("id,detail_url")
+        .eq("school_id", school_id)
+        .eq("source", "crawl")
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+        .data
+        or []
+    )
+    return [str(row["id"]) for row in rows if row.get("id") and row.get("detail_url")]
 
 
 def _is_successful_extraction(result: Any) -> bool:
