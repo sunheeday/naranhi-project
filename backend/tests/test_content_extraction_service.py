@@ -50,11 +50,27 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         payload = build_extracted_content(FakeResult())
 
         self.assertEqual(payload["schema_version"], EXTRACTED_CONTENT_SCHEMA_VERSION)
+        self.assertNotIn("summary_card", payload)
         self.assertNotIn("raw_text", payload)
         self.assertNotIn("combined_text", payload)
         self.assertNotIn("structured", payload["sources"][0])
         self.assertNotIn("raw_text", payload["sources"][0])
         self.assertEqual(payload["sources"][0]["raw_text_chars"], 5)
+
+    def test_extracted_content_can_store_gemini_summary_card(self) -> None:
+        payload = build_extracted_content(
+            FakeResult(),
+            summary_card={
+                "schema_version": "1",
+                "source": "gemini_summary",
+                "model": "gemini-2.5-flash-lite",
+                "items": [{"text": "본문 전체를 기반으로 만든 핵심 요약"}],
+                "confidence": 0.9,
+            },
+        )
+
+        self.assertEqual(payload["summary_card"]["source"], "gemini_summary")
+        self.assertEqual(payload["summary_card"]["items"][0]["text"], "본문 전체를 기반으로 만든 핵심 요약")
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})

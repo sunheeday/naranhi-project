@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
+    gemini_api_keys: str | None = Field(default=None, alias="GEMINI_API_KEYS")
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
@@ -89,6 +90,20 @@ class Settings(BaseSettings):
         ge=0,
         alias="EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN",
     )
+    extractor_enable_gemini_summary: bool = Field(
+        default=True,
+        alias="EXTRACTOR_ENABLE_GEMINI_SUMMARY",
+    )
+    extractor_summary_model: str = Field(
+        default="gemini-2.5-flash-lite",
+        alias="GEMINI_SUMMARY_MODEL",
+    )
+    extractor_summary_input_chars: int = Field(
+        default=50000,
+        ge=1000,
+        le=200000,
+        alias="EXTRACTOR_SUMMARY_INPUT_CHARS",
+    )
 
     @property
     def cors_origins(self) -> list[str]:
@@ -108,7 +123,7 @@ class Settings(BaseSettings):
 
     @property
     def gemini_configured(self) -> bool:
-        return bool(self.gemini_api_key)
+        return bool(self.gemini_api_key or self.gemini_api_keys)
 
 
 @lru_cache

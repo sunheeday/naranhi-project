@@ -9,7 +9,7 @@ from app.core.supabase import get_supabase_client
 
 
 CARD_META_SOURCE = "extracted_content"
-SUMMARY_ITEM_LIMIT = 5
+SUMMARY_ITEM_LIMIT = 8
 RAW_SUMMARY_LINE_LIMIT = 220
 CARD_ORDER = {
     "summary": 0,
@@ -181,12 +181,24 @@ def build_notice_cards(
     extracted_content: Any,
 ) -> list[GeneratedNoticeCard]:
     canonical = _canonical_summary(extracted_content)
-    confidence = _float_or_none(canonical.get("confidence"))
+    summary_card_items = _summary_card_items(extracted_content)
+    summary_card_meta = _summary_card_meta(extracted_content)
+    confidence = _float_or_none(summary_card_meta.get("confidence"))
+    if confidence is None:
+        confidence = _float_or_none(canonical.get("confidence"))
     cards: list[GeneratedNoticeCard] = []
 
-    summary_items = _summary_candidate_items(canonical, title=title, original_text=original_text)
+    summary_items = summary_card_items or _summary_candidate_items(canonical, title=title, original_text=original_text)
     if summary_items:
-        cards.append(_card("summary", summary_items, confidence=confidence))
+        cards.append(
+            _card(
+                "summary",
+                summary_items,
+                confidence=confidence,
+                source=str(summary_card_meta.get("source") or CARD_META_SOURCE),
+                model=_clean_text(summary_card_meta.get("model")),
+            )
+        )
 
     return cards
 
@@ -292,6 +304,36 @@ def _canonical_summary(extracted_content: Any) -> dict[str, Any]:
         return {}
     canonical = extracted_content.get("canonical_summary")
     return canonical if isinstance(canonical, dict) else {}
+
+
+def _summary_card_items(extracted_content: Any) -> list[NoticeCardItem]:
+    if not isinstance(extracted_content, dict):
+        return []
+    summary_card = extracted_content.get("summary_card")
+    if not isinstance(summary_card, dict):
+        return []
+    raw_items = summary_card.get("items")
+    if not isinstance(raw_items, list):
+        return []
+    items: list[NoticeCardItem] = []
+    for raw_item in raw_items:
+        text = ""
+        hint = None
+        if isinstance(raw_item, dict):
+            text = _clean_text(raw_item.get("text"))
+            hint = _clean_text(raw_item.get("hint")) or None
+        else:
+            text = _clean_text(raw_item)
+        if text:
+            items.append(NoticeCardItem(text=text, hint=hint))
+    return _dedupe_items(items)[:SUMMARY_ITEM_LIMIT]
+
+
+def _summary_card_meta(extracted_content: Any) -> dict[str, Any]:
+    if not isinstance(extracted_content, dict):
+        return {}
+    summary_card = extracted_content.get("summary_card")
+    return summary_card if isinstance(summary_card, dict) else {}
 
 
 def _summary_candidate_items(
@@ -545,10 +587,19 @@ def _normalize_for_compare(value: str) -> str:
     return "".join(ch for ch in _clean_text(value).lower() if ch.isalnum())
 
 
-def _card(card_type: str, items: list[NoticeCardItem], *, confidence: float | None) -> GeneratedNoticeCard:
-    meta: dict[str, Any] = {"source": CARD_META_SOURCE}
+def _card(
+    card_type: str,
+    items: list[NoticeCardItem],
+    *,
+    confidence: float | None,
+    source: str = CARD_META_SOURCE,
+    model: str | None = None,
+) -> GeneratedNoticeCard:
+    meta: dict[str, Any] = {"source": source or CARD_META_SOURCE}
     if confidence is not None:
         meta["confidence"] = confidence
+    if model:
+        meta["model"] = model
     return GeneratedNoticeCard(
         type=card_type,
         order=CARD_ORDER[card_type],

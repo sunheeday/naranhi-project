@@ -138,6 +138,39 @@ class NoticeCardServiceTests(unittest.TestCase):
         self.assertEqual(summary.content["meta"]["source"], "extracted_content")  # type: ignore[attr-defined]
         self.assertEqual(summary.content["meta"]["confidence"], 0.8)  # type: ignore[attr-defined]
 
+    def test_prefers_gemini_summary_card_items(self) -> None:
+        cards = build_notice_cards(
+            title="원문 제목",
+            original_text="규칙 기반으로는 이 문장이 잡힐 수 있습니다.",
+            extracted_content={
+                "summary_card": {
+                    "source": "gemini_summary",
+                    "model": "gemini-2.5-flash-lite",
+                    "confidence": 0.91,
+                    "items": [
+                        {"text": "Gemini가 본문 전체에서 고른 첫 번째 핵심 내용"},
+                        {"text": "학교명과 주소를 제외하고 실제 안내 내용만 정리했습니다."},
+                    ],
+                },
+                "canonical_summary": {
+                    "summary_oneliner": "원문 제목",
+                    "key_facts": ["규칙 기반 fallback 문장"],
+                },
+            },
+        )
+
+        summary = _by_type(cards)["summary"]
+        self.assertEqual(
+            [item["text"] for item in summary.content["items"]],  # type: ignore[attr-defined]
+            [
+                "Gemini가 본문 전체에서 고른 첫 번째 핵심 내용",
+                "학교명과 주소를 제외하고 실제 안내 내용만 정리했습니다.",
+            ],
+        )
+        self.assertEqual(summary.content["meta"]["source"], "gemini_summary")  # type: ignore[attr-defined]
+        self.assertEqual(summary.content["meta"]["model"], "gemini-2.5-flash-lite")  # type: ignore[attr-defined]
+        self.assertEqual(summary.content["meta"]["confidence"], 0.91)  # type: ignore[attr-defined]
+
     def test_key_facts_are_limited_after_summary(self) -> None:
         cards = build_notice_cards_from_extracted_content(
             _content(
@@ -151,7 +184,7 @@ class NoticeCardServiceTests(unittest.TestCase):
         summary = _by_type(cards)["summary"]
         self.assertEqual(
             [item["text"] for item in summary.content["items"]],
-            ["현장체험학습 안내", "대상: 2학년 전체", "일시: 5월 11일", "장소: 한성아트홀", "준비물: 도시락"],
+            ["현장체험학습 안내", "대상: 2학년 전체", "일시: 5월 11일", "장소: 한성아트홀", "준비물: 도시락", "문의: 담임교사"],
         )  # type: ignore[attr-defined]
         self.assertEqual(len(cards), 1)
 
@@ -267,6 +300,7 @@ class NoticeCardServiceTests(unittest.TestCase):
                 "○ 훈련내용 : 공습 대비 대피방법 숙달, 비상시 국민행동요령 교육 및 과제물 부여",
                 "○ 자녀에게 민방위 훈련의 필요성과 대피방법을 지도하여 주시기 바랍니다.",
                 "○ 화재 및 지진대피 방법을 확인해 주시기 바랍니다.",
+                "방법을 확인하는 등 예방훈련이 성공적으로 실시되어 미래의 주역인 학생들이 안전하게 자라날",
             ],
         )
 
