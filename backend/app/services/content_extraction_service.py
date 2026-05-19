@@ -3,20 +3,16 @@ from __future__ import annotations
 import asyncio
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
-import json
 import logging
 from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
-from app.services.notice_card_service import replace_notice_cards
-from app.utils.korean_date_parser import parse_korean_deadline, to_iso_or_none
 from extractor.http_security import sanitize_error
 
 
 EXTRACTED_CONTENT_SCHEMA_VERSION = "1"
-SUMMARY_CARD_SCHEMA_VERSION = "1"
 SUCCESS_STATUSES = {"success", "partial_success"}
 IMMEDIATE_GIVEUP_CODES = {"budget_exhausted", "permanent_not_found", "unsupported_file"}
 LOGGER = logging.getLogger(__name__)
@@ -242,13 +238,7 @@ class ContentExtractionService:
 
         gemini_calls_used = _gemini_calls_used(result)
         if _is_successful_extraction(result):
-            summary_card, summary_calls_used = await _generate_summary_card(
-                notice,
-                result,
-                gemini_client=gemini_client,
-            )
-            gemini_calls_used += summary_calls_used
-            _save_success(notice, result, summary_card=summary_card)
+            _save_success(notice, result)
             return ContentExtractionItem(
                 notice_id=notice_id,
                 status="done",
@@ -293,215 +283,32 @@ def _missing_supabase_config_names(settings: Any) -> list[str]:
     return missing
 
 
-def build_extracted_content(result: Any, *, summary_card: dict[str, Any] | None = None) -> dict[str, Any]:
+def build_extracted_content(result: Any) -> dict[str, Any]:
     payload = {
         "schema_version": EXTRACTED_CONTENT_SCHEMA_VERSION,
         "final_url": getattr(result, "final_url", ""),
         "content_kind": getattr(result, "content_kind", ""),
-        "canonical_summary": getattr(result, "canonical_summary", {}) or {},
         "canonical_source_ids": getattr(result, "canonical_source_ids", []) or [],
         "sources": [_source_summary(source) for source in getattr(result, "sources", []) or []],
         "metadata": getattr(result, "metadata", {}) or {},
         "errors": getattr(result, "errors", []) or [],
     }
-    if summary_card:
-        payload["summary_card"] = summary_card
     return _jsonable(payload)
 
 
-def _save_success(notice: dict[str, Any], result: Any, *, summary_card: dict[str, Any] | None = None) -> None:
+def _save_success(notice: dict[str, Any], result: Any) -> None:
     notice_id = str(notice["id"])
-    canonical_summary = getattr(result, "canonical_summary", {}) if isinstance(getattr(result, "canonical_summary", {}), dict) else {}
-    summary_oneliner = _optional_str(canonical_summary.get("summary_oneliner"))
-    deadline = _optional_str(canonical_summary.get("deadline"))
-    deadline_at = to_iso_or_none(parse_korean_deadline(deadline, reference=notice.get("created_at")))
-    extracted_content = build_extracted_content(result, summary_card=summary_card)
+    extracted_content = build_extracted_content(result)
 
     payload = {
         "status": "done",
         "original_text": getattr(result, "raw_text", ""),
-        "summary_oneliner": summary_oneliner,
-        "summary_translations": _merge_ko_summary(notice.get("summary_translations"), summary_oneliner),
-        "document_type": _optional_str(canonical_summary.get("document_type")),
-        "urgency": _optional_str(canonical_summary.get("urgency")),
-        "deadline_at": deadline_at,
         "extracted_content": extracted_content,
-        "extraction_finished_at": _utc_now().isoformat(),
         "extraction_next_run_at": None,
         "extraction_error_code": None,
         "error_message": None,
     }
     get_supabase_client().table("notices").update(payload).eq("id", notice_id).execute()
-    try:
-        replace_notice_cards(
-            notice_id,
-            extracted_content,
-            title=_optional_str(notice.get("title")),
-            original_text=getattr(result, "raw_text", ""),
-        )
-    except Exception as exc:  # noqa: BLE001 - cards are a rebuildable cache.
-        LOGGER.error(
-            "notice card generation failed: notice_id=%s exception=%s",
-            notice_id,
-            sanitize_error(exc),
-        )
-
-
-async def _generate_summary_card(
-    notice: dict[str, Any],
-    result: Any,
-    *,
-    gemini_client: Any,
-) -> tuple[dict[str, Any] | None, int]:
-    settings = get_settings()
-    if not settings.extractor_enable_gemini_summary:
-        return None, 0
-    if not getattr(gemini_client, "api_keys", []):
-        LOGGER.info("Gemini summary skipped because GEMINI_API_KEY(S) is not configured.")
-        return None, 0
-
-    raw_text = str(getattr(result, "raw_text", "") or "")
-    prompt_text = _summary_prompt_text(raw_text, max_chars=settings.extractor_summary_input_chars)
-    if len(prompt_text) < 20:
-        return None, 0
-
-    title = _optional_str(notice.get("title")) or _optional_str(
-        (getattr(result, "canonical_summary", {}) or {}).get("summary_oneliner")
-        if isinstance(getattr(result, "canonical_summary", {}), dict)
-        else None
-    )
-    model = settings.extractor_summary_model
-    try:
-        parsed = await gemini_client.generate_json(
-            _summary_card_prompt(
-                title=title,
-                raw_text=prompt_text,
-                content_kind=str(getattr(result, "content_kind", "") or ""),
-            ),
-            model=model,
-        )
-    except Exception as exc:  # noqa: BLE001 - deterministic card fallback remains available.
-        LOGGER.warning(
-            "Gemini summary generation failed: notice_id=%s exception=%s",
-            notice.get("id"),
-            sanitize_error(exc),
-        )
-        return None, 1
-
-    items = _summary_card_items_from_gemini(parsed)
-    if not items:
-        LOGGER.warning("Gemini summary generation returned no usable items: notice_id=%s", notice.get("id"))
-        return None, 1
-
-    return (
-        {
-            "schema_version": SUMMARY_CARD_SCHEMA_VERSION,
-            "source": "gemini_summary",
-            "model": model,
-            "items": items,
-            "confidence": _summary_confidence(parsed),
-        },
-        1,
-    )
-
-
-def _summary_card_prompt(*, title: str | None, raw_text: str, content_kind: str) -> str:
-    schema = {
-        "items": [{"text": "학부모가 바로 이해해야 하는 핵심 내용"}],
-        "confidence": 0.0,
-    }
-    return f"""
-너는 한국 학교 공지를 학부모 앱의 "핵심 요약" 카드로 바꾸는 편집자다.
-
-목표:
-- 원문에 있는 실질적인 내용은 가능한 한 많이 보존한다.
-- 너무 짧게 요약하지 말고, 학부모가 알아야 할 사실을 4~8개 항목으로 정리한다.
-- 원문에 중요한 내용이 8개보다 적으면 적은 개수만 반환한다.
-- 학교명, 교장명, 작성자, 등록일, 주소, 우편번호, 전화/FAX, 홈페이지, 게시판 UI, 파일첨부 표, 공익제보센터 안내처럼 사용자가 행동 판단에 필요 없는 잡음은 제외한다.
-
-반드시 포함하려고 노력할 항목:
-- 일정, 기간, 시간, 날짜
-- 대상 학년/반/학생/학부모
-- 장소
-- 제출/신청/동의/납부/참여/확인 같은 해야 할 일
-- 준비물, 비용, 문의처가 본문 맥락상 중요한 경우
-- 변경 사항, 예외 사항, 주의할 점
-- 본문 설명 문단의 핵심 내용
-
-규칙:
-- 원문에 없는 내용을 만들지 않는다.
-- 날짜, 시간, 금액, 전화번호, 장소는 원문 표현을 최대한 유지한다.
-- 각 item.text는 한 문장 또는 한 항목으로 쓴다.
-- 제목만 반복하지 말고 본문 정보를 넣는다.
-- 한국어 JSON만 반환한다.
-
-반환 JSON schema:
-{json.dumps(schema, ensure_ascii=False)}
-
-공지 제목:
-{title or ""}
-
-content_kind:
-{content_kind}
-
-원문:
-{raw_text}
-""".strip()
-
-
-def _summary_prompt_text(raw_text: str, *, max_chars: int) -> str:
-    lines: list[str] = []
-    seen: set[str] = set()
-    for raw_line in raw_text.splitlines():
-        line = " ".join(str(raw_line).split()).strip()
-        if not line or line == "---":
-            continue
-        if line.startswith("[") and "]" in line:
-            continue
-        lower = line.lower()
-        if any(token in lower for token in ("cleanedu@sen.go.kr", "공익제보센터", "신고내용", "신고방법")):
-            continue
-        if line in seen:
-            continue
-        seen.add(line)
-        lines.append(line)
-        if sum(len(item) + 1 for item in lines) >= max_chars:
-            break
-    return "\n".join(lines)[:max_chars]
-
-
-def _summary_card_items_from_gemini(parsed: Any) -> list[dict[str, str]]:
-    if not isinstance(parsed, dict):
-        return []
-    raw_items = parsed.get("items")
-    if not isinstance(raw_items, list):
-        return []
-    items: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for item in raw_items:
-        text = ""
-        if isinstance(item, dict):
-            text = str(item.get("text") or "").strip()
-        elif isinstance(item, str):
-            text = item.strip()
-        text = " ".join(text.split())
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        items.append({"text": text})
-        if len(items) >= 8:
-            break
-    return items
-
-
-def _summary_confidence(parsed: Any) -> float | None:
-    if not isinstance(parsed, dict):
-        return None
-    value = parsed.get("confidence")
-    try:
-        return max(0.0, min(float(value), 1.0))
-    except (TypeError, ValueError):
-        return None
 
 
 def _save_failure(
@@ -554,7 +361,6 @@ def _failure_payload(notice: dict[str, Any], *, error_code: str, error_message: 
     return {
         "status": "error",
         "extraction_attempts": next_attempts,
-        "extraction_finished_at": now.isoformat(),
         "extraction_next_run_at": next_run_at,
         "extraction_error_code": error_code,
         "error_message": _truncate_error(error_message),
@@ -726,13 +532,6 @@ def _metadata_bool(metadata: Any, key: str) -> bool:
     return isinstance(metadata, dict) and bool(metadata.get(key))
 
 
-def _merge_ko_summary(value: Any, summary_oneliner: str | None) -> dict[str, str]:
-    result = {str(key): str(item) for key, item in value.items()} if isinstance(value, dict) else {}
-    if summary_oneliner:
-        result["ko"] = summary_oneliner
-    return result
-
-
 def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
@@ -745,13 +544,6 @@ def _jsonable(value: Any) -> Any:
     if value is None or isinstance(value, str | int | float | bool):
         return value
     return str(value)
-
-
-def _optional_str(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
 
 
 def _int_value(value: Any) -> int:

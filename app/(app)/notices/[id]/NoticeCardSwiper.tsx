@@ -17,17 +17,12 @@ export interface NoticeCard {
   summary?: string
   hint?: string
   items?: NoticeCardItem[]
-  deadlineAt?: string | null
-  deadlineDaysLeft?: number | null
 }
 
 export interface CardLabels {
-  summary: string
   supplies: string
   action: string
   schedule: string
-  deadlineRemaining: string
-  deadlineToday: string
 }
 
 interface Props {
@@ -37,13 +32,12 @@ interface Props {
 }
 
 const CARD_STYLE: Record<CardType, { icon: string; color: string; bg: string }> = {
-  summary:  { icon: '📌', color: 'text-ink',          bg: 'bg-surface-card' },
   action:   { icon: '✅', color: 'text-cat-action',   bg: 'bg-cat-action-bg' },
   schedule: { icon: '📅', color: 'text-cat-schedule', bg: 'bg-cat-schedule-bg' },
   supplies: { icon: '🎒', color: 'text-cat-supply',   bg: 'bg-cat-supply-bg' },
 }
 
-const CARD_ORDER: CardType[] = ['summary', 'action', 'schedule', 'supplies']
+const CARD_ORDER: CardType[] = ['action', 'schedule', 'supplies']
 
 export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' })
@@ -141,10 +135,6 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
         {labelFor(card.type, labels)}
       </span>
 
-      {card.type === 'action' && card.deadlineDaysLeft !== undefined && card.deadlineDaysLeft !== null ? (
-        <DeadlineBadge daysLeft={card.deadlineDaysLeft} labels={labels} />
-      ) : null}
-
       {items.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {items.map((item, i) => (
@@ -158,19 +148,6 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
         <p className="text-sm text-muted-soft">표시할 항목이 없어요.</p>
       )}
     </div>
-  )
-}
-
-function DeadlineBadge({ daysLeft, labels }: { daysLeft: number; labels: CardLabels }) {
-  const label =
-    daysLeft <= 0
-      ? labels.deadlineToday
-      : labels.deadlineRemaining.replace('{days}', String(daysLeft))
-
-  return (
-    <span className="inline-flex items-center px-3 py-1 rounded-pill bg-cat-action-bg text-cat-action text-xs font-semibold w-fit">
-      {label}
-    </span>
   )
 }
 

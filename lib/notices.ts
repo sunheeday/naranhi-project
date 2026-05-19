@@ -13,7 +13,6 @@ export interface NoticeDetailDto {
   errorMessage: string | null
   childId: string | null
   createdAt: string
-  deadlineAt: string | null
   summary: string | null
   /** 사용자 locale에 해당 번역이 캐시돼 있는지 (lazy 번역 트리거용) */
   hasLocaleTranslation: boolean
@@ -41,7 +40,7 @@ export async function getNoticeDetail(
   const { data: notice, error } = await supabase
     .from('notices')
     .select(
-      'id, child_id, status, error_message, created_at, deadline_at, summary_translations'
+      'id, child_id, status, error_message, created_at, summary_translations'
     )
     .eq('id', noticeId)
     .single()
@@ -70,7 +69,6 @@ export async function getNoticeDetail(
     errorMessage: notice.error_message,
     childId: notice.child_id,
     createdAt: notice.created_at,
-    deadlineAt: notice.deadline_at,
     summary,
     hasLocaleTranslation: !!translations[locale],
     summaryTranslations: translations,

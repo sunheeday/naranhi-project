@@ -23,7 +23,7 @@ function asText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function mapCommonCard(type: CardType, content: unknown, deadlineAt: string | null): NoticeCard | null {
+function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
   const obj = asObject(content)
   if (!obj) return null
   const rawItems = Array.isArray(obj.items) ? obj.items : []
@@ -41,8 +41,6 @@ function mapCommonCard(type: CardType, content: unknown, deadlineAt: string | nu
   return {
     type,
     items,
-    deadlineAt: type === 'action' ? deadlineAt : undefined,
-    deadlineDaysLeft: type === 'action' ? daysLeftFromDeadline(deadlineAt) : undefined,
   }
 }
 
@@ -56,17 +54,11 @@ function pickLocalized(content: unknown, locale: Locale): unknown {
   return content
 }
 
-function daysLeftFromDeadline(deadlineAt: string | null): number | null {
-  if (!deadlineAt) return null
-  return Math.ceil((new Date(deadlineAt).getTime() - Date.now()) / 86400000)
-}
-
-function mapCards(rows: NoticeCardDto[], locale: Locale, deadlineAt: string | null): NoticeCard[] {
+function mapCards(rows: NoticeCardDto[], locale: Locale): NoticeCard[] {
   const mapped: NoticeCard[] = []
   for (const r of rows) {
-    if (r.type !== 'summary') continue
     const localized = pickLocalized(r.content, locale)
-    let card = mapCommonCard(r.type, localized, deadlineAt)
+    let card = mapCommonCard(r.type, localized)
     if (card) mapped.push(card)
   }
   return mapped
@@ -127,7 +119,7 @@ export default async function NoticePage({ params }: Props) {
   const summary = detail.summary
   const cardRows = detail.cards
 
-  const dataCards = mapCards(cardRows, locale, detail.deadlineAt)
+  const dataCards = mapCards(cardRows, locale)
   const intro: NoticeCard = {
     type: 'intro',
     emoji: messages.notice_detail.intro_emoji,
@@ -145,11 +137,8 @@ export default async function NoticePage({ params }: Props) {
         cards={cards}
         labels={{
           supplies: messages.notice_detail.supplies_badge,
-          summary: messages.notice_detail.summary_badge,
           action: messages.notice_detail.action_badge,
           schedule: messages.notice_detail.schedule_badge,
-          deadlineRemaining: messages.notice_detail.deadline_remaining,
-          deadlineToday: messages.notice_detail.deadline_today,
         }}
       />
     </main>

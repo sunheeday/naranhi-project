@@ -323,13 +323,13 @@ export default async function HomePage() {
                 ? messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'
                 : messages.home.no_notices}
             </p>
-            {shouldCollectSchoolNotices && schoolCrawlerState ? (
+            {isPreparingSchoolNotices && schoolCrawlerState ? (
               <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} />
             ) : null}
           </div>
         ) : (
           <>
-            {shouldCollectSchoolNotices && schoolCrawlerState ? (
+            {isPreparingSchoolNotices && schoolCrawlerState ? (
               <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} showFailure={false} />
             ) : null}
             <ul className="flex flex-col gap-3">

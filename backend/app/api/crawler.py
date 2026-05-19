@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 
 from app.core.config import get_settings
 from app.services.content_extraction_service import ContentExtractionService
@@ -75,6 +75,30 @@ async def discover_school_board(
         "extraction": {
             "queued": extraction_queued,
             "max_notices": result.success_count if extraction_queued else 0,
+        },
+    }
+
+
+@router.post(
+    "/schools/{school_id}/extract-pending",
+    dependencies=[Depends(_require_internal_token)],
+)
+async def extract_pending_school_notices(
+    school_id: str,
+    background_tasks: BackgroundTasks,
+    max_notices: int | None = Query(default=None, ge=1, le=50),
+) -> dict[str, object]:
+    notice_limit = max_notices or get_settings().extractor_max_notices_per_run
+    background_tasks.add_task(
+        _extract_initial_school_notices,
+        school_id,
+        notice_limit,
+    )
+    return {
+        "ok": True,
+        "extraction": {
+            "queued": True,
+            "max_notices": notice_limit,
         },
     }
 

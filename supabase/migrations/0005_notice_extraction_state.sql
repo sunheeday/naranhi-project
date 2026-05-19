@@ -1,12 +1,7 @@
 alter table public.notices
-  add column if not exists extracted_content jsonb not null default '{}'::jsonb,
-  add column if not exists summary_oneliner text,
-  add column if not exists document_type text,
-  add column if not exists urgency text,
-  add column if not exists deadline_at timestamptz,
+  add column if not exists extracted_content jsonb,
   add column if not exists extraction_attempts int not null default 0,
   add column if not exists extraction_started_at timestamptz,
-  add column if not exists extraction_finished_at timestamptz,
   add column if not exists extraction_next_run_at timestamptz,
   add column if not exists extraction_error_code text;
 
@@ -44,7 +39,6 @@ as $$
     status = 'processing',
     extraction_attempts = notices.extraction_attempts + 1,
     extraction_started_at = now(),
-    extraction_finished_at = null,
     extraction_next_run_at = null,
     extraction_error_code = null,
     error_message = null

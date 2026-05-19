@@ -19,7 +19,7 @@ export default function SchoolCrawlerKickoff({ schoolId, showFailure = true }: P
     if (startedRef.current) return
     startedRef.current = true
 
-    const key = `naranhi:crawl-kickoff:${schoolId}`
+    const key = `naranhi:crawl-or-extract-kickoff:v2:${schoolId}`
     const previousAttempt = Number(window.localStorage.getItem(key) ?? '0')
     if (Number.isFinite(previousAttempt) && Date.now() - previousAttempt < RETRY_COOLDOWN_MS) {
       return

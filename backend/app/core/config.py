@@ -90,20 +90,6 @@ class Settings(BaseSettings):
         ge=0,
         alias="EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN",
     )
-    extractor_enable_gemini_summary: bool = Field(
-        default=True,
-        alias="EXTRACTOR_ENABLE_GEMINI_SUMMARY",
-    )
-    extractor_summary_model: str = Field(
-        default="gemini-2.5-flash-lite",
-        alias="GEMINI_SUMMARY_MODEL",
-    )
-    extractor_summary_input_chars: int = Field(
-        default=50000,
-        ge=1000,
-        le=200000,
-        alias="EXTRACTOR_SUMMARY_INPUT_CHARS",
-    )
 
     @property
     def cors_origins(self) -> list[str]:

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import unittest
+from unittest.mock import MagicMock, patch
 
 from app.services.content_extraction_service import (
     EXTRACTED_CONTENT_SCHEMA_VERSION,
     build_extracted_content,
     classify_extraction_error,
+    _save_success,
     _is_successful_extraction,
     _failure_payload,
     _missing_supabase_config_names,
@@ -51,26 +53,32 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(payload["schema_version"], EXTRACTED_CONTENT_SCHEMA_VERSION)
         self.assertNotIn("summary_card", payload)
+        self.assertNotIn("canonical_summary", payload)
         self.assertNotIn("raw_text", payload)
         self.assertNotIn("combined_text", payload)
         self.assertNotIn("structured", payload["sources"][0])
         self.assertNotIn("raw_text", payload["sources"][0])
         self.assertEqual(payload["sources"][0]["raw_text_chars"], 5)
 
-    def test_extracted_content_can_store_gemini_summary_card(self) -> None:
-        payload = build_extracted_content(
-            FakeResult(),
-            summary_card={
-                "schema_version": "1",
-                "source": "gemini_summary",
-                "model": "gemini-2.5-flash-lite",
-                "items": [{"text": "본문 전체를 기반으로 만든 핵심 요약"}],
-                "confidence": 0.9,
-            },
-        )
+    def test_save_success_payload_excludes_summary_fields(self) -> None:
+        client = MagicMock()
 
-        self.assertEqual(payload["summary_card"]["source"], "gemini_summary")
-        self.assertEqual(payload["summary_card"]["items"][0]["text"], "본문 전체를 기반으로 만든 핵심 요약")
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            _save_success({"id": "notice-1", "summary_translations": {"en": "old"}}, FakeResult())
+
+        payload = client.table.return_value.update.call_args.args[0]
+        self.assertEqual(payload["status"], "done")
+        self.assertEqual(payload["original_text"], "전체 원문입니다")
+        self.assertIn("extracted_content", payload)
+        for removed in (
+            "summary_oneliner",
+            "summary_translations",
+            "document_type",
+            "urgency",
+            "deadline_at",
+            "extraction_finished_at",
+        ):
+            self.assertNotIn(removed, payload)
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})
@@ -102,6 +110,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(payload["extraction_attempts"], 7)
         self.assertIsNotNone(payload["extraction_next_run_at"])
+        self.assertNotIn("extraction_finished_at", payload)
 
     def test_immediate_giveup_sets_attempts_to_three(self) -> None:
         payload = _failure_payload(
