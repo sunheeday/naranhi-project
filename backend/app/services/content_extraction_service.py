@@ -441,7 +441,6 @@ def _fetch_context_from_notice(notice: dict[str, Any]) -> dict[str, Any]:
     context: dict[str, Any] = {}
     if isinstance(crawl_result, dict):
         context.update(crawl_result)
-        context["crawl_result"] = crawl_result
     source_post_id = notice.get("source_post_id")
     if source_post_id:
         context["source_post_id"] = str(source_post_id)
