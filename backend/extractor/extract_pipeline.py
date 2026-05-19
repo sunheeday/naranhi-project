@@ -114,9 +114,9 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
         for source in sources:
             source.structured = await structure_source(source, gemini=gemini, budget=budget)
 
-        sources, canonical_source_ids = assign_roles_and_dedupe(sources)
-        canonical_summary = build_canonical_summary(sources, canonical_source_ids)
-        raw_text = combined_raw_text(sources, canonical_source_ids)
+        sources, included_source_ids = assign_roles_and_dedupe(sources)
+        canonical_summary = build_canonical_summary(sources, included_source_ids)
+        raw_text = combined_raw_text(sources, included_source_ids)
         content_kind = _classify_content_kind(sources)
         status = _status_from_sources(sources, raw_text)
 
@@ -138,7 +138,7 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
             status=status,
             raw_text=raw_text,
             sources=sources,
-            canonical_source_ids=canonical_source_ids,
+            included_source_ids=included_source_ids,
             canonical_summary=canonical_summary,
             errors=errors,
             metadata={**budget.metadata(), "fetch": fetched.metadata},
@@ -625,7 +625,7 @@ def _failed_result(
         status=status,
         raw_text="",
         sources=[],
-        canonical_source_ids=[],
+        included_source_ids=[],
         canonical_summary={},
         errors=[error],
         metadata=metadata or {},

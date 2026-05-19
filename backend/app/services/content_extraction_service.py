@@ -288,7 +288,7 @@ def build_extracted_content(result: Any) -> dict[str, Any]:
         "schema_version": EXTRACTED_CONTENT_SCHEMA_VERSION,
         "final_url": getattr(result, "final_url", ""),
         "content_kind": getattr(result, "content_kind", ""),
-        "canonical_source_ids": getattr(result, "canonical_source_ids", []) or [],
+        "included_source_ids": getattr(result, "included_source_ids", []) or [],
         "sources": [_source_summary(source) for source in getattr(result, "sources", []) or []],
         "metadata": getattr(result, "metadata", {}) or {},
         "errors": getattr(result, "errors", []) or [],

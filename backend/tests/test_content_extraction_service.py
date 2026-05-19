@@ -41,7 +41,7 @@ class FakeResult:
     raw_text: str = "전체 원문입니다"
     final_url: str = "https://example.edu/detail"
     canonical_summary: dict[str, object] = field(default_factory=lambda: {"summary_oneliner": "요약"})
-    canonical_source_ids: list[str] = field(default_factory=lambda: ["source-1"])
+    included_source_ids: list[str] = field(default_factory=lambda: ["source-1"])
     sources: list[FakeSource] = field(default_factory=lambda: [FakeSource()])
     metadata: dict[str, object] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
@@ -54,6 +54,8 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], EXTRACTED_CONTENT_SCHEMA_VERSION)
         self.assertNotIn("summary_card", payload)
         self.assertNotIn("canonical_summary", payload)
+        self.assertNotIn("canonical" + "_source_ids", payload)
+        self.assertEqual(payload["included_source_ids"], ["source-1"])
         self.assertNotIn("raw_text", payload)
         self.assertNotIn("combined_text", payload)
         self.assertNotIn("structured", payload["sources"][0])

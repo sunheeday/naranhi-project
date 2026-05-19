@@ -48,8 +48,8 @@ async def structure_source(
     return _heuristic_structure(source).to_dict()
 
 
-def build_canonical_summary(sources: list[SourceExtraction], canonical_source_ids: list[str]) -> dict[str, Any]:
-    selected = [source for source in sources if source.source_id in canonical_source_ids]
+def build_canonical_summary(sources: list[SourceExtraction], included_source_ids: list[str]) -> dict[str, Any]:
+    selected = [source for source in sources if source.source_id in included_source_ids]
     summary = CanonicalSummary()
     if not selected:
         unreadable = [source.source_id for source in sources if source.status not in {"success", "partial_success"}]
@@ -102,10 +102,10 @@ def build_canonical_summary(sources: list[SourceExtraction], canonical_source_id
     return summary.to_dict()
 
 
-def combined_raw_text(sources: list[SourceExtraction], canonical_source_ids: list[str]) -> str:
+def combined_raw_text(sources: list[SourceExtraction], included_source_ids: list[str]) -> str:
     by_id = {source.source_id: source for source in sources}
     parts: list[str] = []
-    for source_id in canonical_source_ids:
+    for source_id in included_source_ids:
         source = by_id.get(source_id)
         if not source:
             continue

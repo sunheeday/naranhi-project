@@ -198,7 +198,7 @@ class ExtractionResult:
     status: str
     raw_text: str = ""
     sources: list[SourceExtraction] = field(default_factory=list)
-    canonical_source_ids: list[str] = field(default_factory=list)
+    included_source_ids: list[str] = field(default_factory=list)
     canonical_summary: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)

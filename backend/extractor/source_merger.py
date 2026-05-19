@@ -34,13 +34,13 @@ def assign_roles_and_dedupe(sources: list[SourceExtraction]) -> tuple[list[Sourc
         source.source_role = _initial_role(source)
 
     _mark_duplicates(sources)
-    canonical_ids = _canonical_ids(sources)
-    if not any(source.source_role == "primary" and source.source_id in canonical_ids for source in sources):
-        best = _best_source([source for source in sources if source.source_id in canonical_ids])
+    included_source_ids = _included_source_ids(sources)
+    if not any(source.source_role == "primary" and source.source_id in included_source_ids for source in sources):
+        best = _best_source([source for source in sources if source.source_id in included_source_ids])
         if best:
             best.source_role = "primary"
 
-    return sources, canonical_ids
+    return sources, included_source_ids
 
 
 def _initial_role(source: SourceExtraction) -> str:
@@ -114,7 +114,7 @@ def _best_source(sources: list[SourceExtraction]) -> SourceExtraction | None:
     )
 
 
-def _canonical_ids(sources: list[SourceExtraction]) -> list[str]:
+def _included_source_ids(sources: list[SourceExtraction]) -> list[str]:
     readable = [
         source
         for source in sources
