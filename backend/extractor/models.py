@@ -108,65 +108,6 @@ class SourceCandidate:
 
 
 @dataclass
-class StructuredSource:
-    title: str = ""
-    document_type: str = "other"
-    summary_oneliner: str = ""
-    requires_response: bool = False
-    urgency: str = "normal"
-    deadline: str = ""
-    targets: list[str] = field(default_factory=list)
-    key_facts: list[str] = field(default_factory=list)
-    sections: list[dict[str, Any]] = field(default_factory=list)
-    required_actions: list[str] = field(default_factory=list)
-    important_dates: list[str] = field(default_factory=list)
-    preparation_items: list[str] = field(default_factory=list)
-    fees: list[str] = field(default_factory=list)
-    contacts: list[str] = field(default_factory=list)
-    links: list[str] = field(default_factory=list)
-    locations: list[str] = field(default_factory=list)
-    forms_to_submit: list[str] = field(default_factory=list)
-    tables: list[dict[str, Any]] = field(default_factory=list)
-    supplement_summary: list[str] = field(default_factory=list)
-    activity_summary: list[str] = field(default_factory=list)
-    unclassified: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    confidence: float = 0.0
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class CanonicalSummary:
-    document_type: str = "other"
-    summary_oneliner: str = ""
-    requires_response: bool = False
-    urgency: str = "normal"
-    deadline: str = ""
-    targets: list[str] = field(default_factory=list)
-    key_facts: list[str] = field(default_factory=list)
-    sections: list[dict[str, Any]] = field(default_factory=list)
-    required_actions: list[str] = field(default_factory=list)
-    important_dates: list[str] = field(default_factory=list)
-    preparation_items: list[str] = field(default_factory=list)
-    fees: list[str] = field(default_factory=list)
-    contacts: list[str] = field(default_factory=list)
-    links: list[str] = field(default_factory=list)
-    locations: list[str] = field(default_factory=list)
-    forms_to_submit: list[str] = field(default_factory=list)
-    tables: list[dict[str, Any]] = field(default_factory=list)
-    supplement_summary: list[str] = field(default_factory=list)
-    activity_summary: list[str] = field(default_factory=list)
-    unclassified: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    confidence: float = 0.0
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
 class SourceExtraction:
     source_id: str
     source_type: str
@@ -179,7 +120,6 @@ class SourceExtraction:
     extraction_method: str
     status: str
     raw_text: str
-    structured: dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.0
     quality_score: float = 0.0
     errors: list[str] = field(default_factory=list)
@@ -199,7 +139,6 @@ class ExtractionResult:
     raw_text: str = ""
     sources: list[SourceExtraction] = field(default_factory=list)
     included_source_ids: list[str] = field(default_factory=list)
-    canonical_summary: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     expected_kind: str | None = None
