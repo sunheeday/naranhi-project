@@ -412,7 +412,6 @@ def _source_from_text(
         extraction_method=method,
         status=final_status,
         raw_text=raw_text,
-        structured={},
         confidence=confidence,
         quality_score=quality_score,
         errors=errors or [],
