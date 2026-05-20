@@ -31,7 +31,7 @@ from extractor.models import (
     SourceCandidate,
     SourceExtraction,
 )
-from extractor.notice_structurer import build_canonical_summary, combined_raw_text, structure_source
+from extractor.notice_structurer import combined_raw_text
 from extractor.quality import file_sha256, text_fingerprint, text_quality_score
 from extractor.source_inventory import attach_direct_file, build_source_inventory
 from extractor.source_merger import assign_roles_and_dedupe
@@ -111,11 +111,7 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
                 )
                 sources.append(source)
 
-        for source in sources:
-            source.structured = await structure_source(source, gemini=gemini, budget=budget)
-
         sources, included_source_ids = assign_roles_and_dedupe(sources)
-        canonical_summary = build_canonical_summary(sources, included_source_ids)
         raw_text = combined_raw_text(sources, included_source_ids)
         content_kind = _classify_content_kind(sources)
         status = _status_from_sources(sources, raw_text)
@@ -139,7 +135,7 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
             raw_text=raw_text,
             sources=sources,
             included_source_ids=included_source_ids,
-            canonical_summary=canonical_summary,
+            canonical_summary={},
             errors=errors,
             metadata={**budget.metadata(), "fetch": fetched.metadata},
             expected_kind=case.expected_kind,
