@@ -1,22 +1,11 @@
 from __future__ import annotations
 
-from collections import defaultdict
-
 from extractor.models import SourceExtraction
 from extractor.quality import jaccard_similarity
 
 
-ROLE_PRIORITY = {
-    "form": 90,
-    "primary": 80,
-    "supplement": 60,
-    "activity": 45,
-    "metadata_only": 20,
-    "unknown": 10,
-    "unreadable": 0,
-    "duplicate": -10,
-}
-
+# 파일 종류별 추출 신뢰도/정보량 우선순위.
+# 중복 그룹에서 어느 source를 대표로 살릴지 결정할 때 사용.
 TYPE_PRIORITY = {
     "attachment_hwp": 90,
     "attachment_hwpx": 88,
@@ -28,107 +17,110 @@ TYPE_PRIORITY = {
     "attachment": 35,
 }
 
+MIN_TEXT_FOR_JACCARD = 120
+JACCARD_THRESHOLD = 0.9
 
-def assign_roles_and_dedupe(sources: list[SourceExtraction]) -> tuple[list[SourceExtraction], list[str]]:
+
+def assign_roles_and_dedupe(
+    sources: list[SourceExtraction],
+) -> tuple[list[SourceExtraction], list[str]]:
+    """텍스트 추출 결과를 단순 분류한다.
+
+    역할은 다음 3가지 중 하나로만 부여한다:
+      - "primary"   : 본문(combined raw_text)에 포함되는 대표 source
+      - "duplicate" : 다른 source와 내용이 거의 같아 본문 포함 X
+      - "excluded"  : 추출 실패 또는 텍스트 비어있어서 본문 포함 X
+
+    중복 판단은 두 가지로만 한다:
+      1) text_fingerprint 동일
+      2) Jaccard 유사도 >= 0.9 (최소 120자 이상)
+    """
+    # 1. 후보 추리기: 추출 성공 + 텍스트 있음
+    candidates = [
+        source
+        for source in sources
+        if source.raw_text.strip()
+        and source.status in {"success", "partial_success"}
+    ]
+    candidate_ids = {source.source_id for source in candidates}
+
+    # 후보가 아닌 것들은 모두 excluded
     for source in sources:
-        source.source_role = _initial_role(source)
+        if source.source_id not in candidate_ids:
+            source.source_role = "excluded"
 
-    _mark_duplicates(sources)
-    included_source_ids = _included_source_ids(sources)
-    if not any(source.source_role == "primary" and source.source_id in included_source_ids for source in sources):
-        best = _best_source([source for source in sources if source.source_id in included_source_ids])
-        if best:
-            best.source_role = "primary"
+    # 2. 후보들을 중복 그룹으로 묶기
+    groups = _build_duplicate_groups(candidates)
+
+    # 3. 각 그룹에서 대표 1개씩 → primary, 나머지 → duplicate
+    included_groups: list[SourceExtraction] = []
+    for group in groups:
+        best = _best_source(group)
+        best.source_role = "primary"
+        included_groups.append(best)
+        for source in group:
+            if source.source_id == best.source_id:
+                continue
+            source.source_role = "duplicate"
+            source.duplicate_of = best.source_id
+
+    # 4. 본문에 포함될 source ID 순서 (TYPE_PRIORITY 높은 순, 길이 긴 순)
+    included_groups.sort(
+        key=lambda source: (
+            -TYPE_PRIORITY.get(source.source_type, 0),
+            -len(source.raw_text),
+        )
+    )
+    included_source_ids = [source.source_id for source in included_groups]
 
     return sources, included_source_ids
 
 
-def _initial_role(source: SourceExtraction) -> str:
-    if source.status in {"skipped", "unsupported_file_type"}:
-        return "unknown"
-    if source.status not in {"success", "partial_success"} and not source.raw_text.strip():
-        return "unreadable"
-    if source.quality_score < 12:
-        return "metadata_only"
-
-    structured = source.structured or {}
-    doc_type = str(structured.get("document_type") or "").lower()
-    if doc_type in {"consent_form", "application_form", "survey"}:
-        return "form"
-
-    text = source.raw_text
-    if any(term in text for term in ("활동지", "워크시트", "학습지", "미로", "색칠", "붙임")):
-        return "activity"
-    if any(term in text for term in ("참고", "붙임", "홍보자료", "보도자료")) and source.source_type != "html_body":
-        return "supplement"
-    return "primary" if source.source_type in {"html_body", "attachment_hwp", "attachment_hwpx", "attachment_pdf", "direct_file"} else "supplement"
+def _build_duplicate_groups(
+    candidates: list[SourceExtraction],
+) -> list[list[SourceExtraction]]:
+    """후보 source들을 중복끼리 같은 그룹으로 묶는다."""
+    groups: list[list[SourceExtraction]] = []
+    for source in candidates:
+        placed = False
+        for group in groups:
+            if any(_is_duplicate(source, member) for member in group):
+                group.append(source)
+                placed = True
+                break
+        if not placed:
+            groups.append([source])
+    return groups
 
 
-def _mark_duplicates(sources: list[SourceExtraction]) -> None:
-    hash_groups: dict[str, list[SourceExtraction]] = defaultdict(list)
-    fingerprint_groups: dict[str, list[SourceExtraction]] = defaultdict(list)
-    for source in sources:
-        if source.file_hash:
-            hash_groups[source.file_hash].append(source)
-        if source.text_fingerprint and len(source.raw_text.strip()) >= 80:
-            fingerprint_groups[source.text_fingerprint].append(source)
+def _is_duplicate(a: SourceExtraction, b: SourceExtraction) -> bool:
+    """두 source가 같은 내용인지 판단."""
+    # 1. 정규화된 텍스트의 지문이 같으면 → 같은 내용
+    if a.text_fingerprint and a.text_fingerprint == b.text_fingerprint:
+        return True
 
-    for group in list(hash_groups.values()) + list(fingerprint_groups.values()):
-        _mark_duplicate_group(group)
+    # 2. 충분히 긴 텍스트끼리 Jaccard 유사도 검사
+    if (
+        len(a.raw_text.strip()) >= MIN_TEXT_FOR_JACCARD
+        and len(b.raw_text.strip()) >= MIN_TEXT_FOR_JACCARD
+    ):
+        if jaccard_similarity(a.raw_text, b.raw_text) >= JACCARD_THRESHOLD:
+            return True
 
-    for index, source in enumerate(sources):
-        if source.duplicate_of or len(source.raw_text.strip()) < 120:
-            continue
-        for other in sources[index + 1 :]:
-            if other.duplicate_of or len(other.raw_text.strip()) < 120:
-                continue
-            if jaccard_similarity(source.raw_text, other.raw_text) >= 0.92:
-                _mark_duplicate_group([source, other])
+    return False
 
 
-def _mark_duplicate_group(group: list[SourceExtraction]) -> None:
-    unique = {source.source_id: source for source in group}
-    if len(unique) <= 1:
-        return
-    best = _best_source(list(unique.values()))
-    if not best:
-        return
-    for source in unique.values():
-        if source.source_id == best.source_id:
-            continue
-        source.duplicate_of = best.source_id
-        source.source_role = "duplicate"
+def _best_source(sources: list[SourceExtraction]) -> SourceExtraction:
+    """중복 그룹에서 대표 source 선정.
 
-
-def _best_source(sources: list[SourceExtraction]) -> SourceExtraction | None:
-    if not sources:
-        return None
+    기준 (위에서 아래로):
+      1. TYPE_PRIORITY (파일 종류별 신뢰도)
+      2. raw_text 길이
+    """
     return max(
         sources,
         key=lambda source: (
-            ROLE_PRIORITY.get(source.source_role, 0),
             TYPE_PRIORITY.get(source.source_type, 0),
-            source.quality_score,
             len(source.raw_text),
         ),
     )
-
-
-def _included_source_ids(sources: list[SourceExtraction]) -> list[str]:
-    readable = [
-        source
-        for source in sources
-        if not source.duplicate_of
-        and source.status in {"success", "partial_success"}
-        and source.raw_text.strip()
-        and source.source_role not in {"metadata_only", "unreadable"}
-    ]
-    readable.sort(
-        key=lambda source: (
-            -ROLE_PRIORITY.get(source.source_role, 0),
-            -TYPE_PRIORITY.get(source.source_type, 0),
-            -source.quality_score,
-            int(source.metadata.get("order_index") or 0),
-        )
-    )
-    return [source.source_id for source in readable]
