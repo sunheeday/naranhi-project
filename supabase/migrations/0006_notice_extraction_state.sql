@@ -11,7 +11,7 @@ on public.notices (
   extraction_next_run_at,
   created_at
 )
-where source = 'crawl'
+where school_id is not null
   and detail_url is not null
   and status in ('pending', 'error');
 
@@ -19,7 +19,7 @@ create index if not exists notices_extraction_stale_processing_idx
 on public.notices (
   extraction_started_at
 )
-where source = 'crawl'
+where school_id is not null
   and detail_url is not null
   and status = 'processing';
 
@@ -45,7 +45,7 @@ as $$
   where notices.id in (
     select candidate.id
     from public.notices as candidate
-    where candidate.source = 'crawl'
+    where candidate.school_id is not null
       and candidate.detail_url is not null
       and (p_notice_id is null or candidate.id = p_notice_id)
       and (

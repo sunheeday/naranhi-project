@@ -70,7 +70,6 @@ export async function POST(_request: Request, context: RouteContext) {
     .from('notices')
     .select('id', { count: 'exact', head: true })
     .eq('school_id', schoolId)
-    .eq('source', 'crawl')
     .eq('status', 'pending')
 
   if (pendingCountError) {

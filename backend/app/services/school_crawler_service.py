@@ -608,13 +608,10 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
             "post": asdict(post),
         }
         payload = {
-            "child_id": None,
             "school_id": result.school_id,
-            "source": "crawl",
             "title": post.title or None,
             "status": "pending",
             "detail_url": post.detail_url,
-            "source_post_id": post.post_id or None,
             "source_post_uid": post.post_uid or None,
             "crawl_result": crawl_result,
         }
@@ -645,7 +642,6 @@ def _update_existing_notice_candidate(
         .table("notices")
         .select("id,crawl_result")
         .eq("school_id", result.school_id)
-        .eq("source", "crawl")
         .limit(1)
     )
     if post.post_uid:
@@ -684,7 +680,6 @@ def _update_existing_notice_candidate(
     payload = {
         "title": post.title or None,
         "detail_url": post.detail_url,
-        "source_post_id": post.post_id or None,
         "source_post_uid": post.post_uid or None,
         "crawl_result": next_crawl_result,
     }
@@ -701,7 +696,6 @@ def _trim_school_notice_cache(school_id: str) -> None:
                 .table("notices")
                 .select("id")
                 .eq("school_id", school_id)
-                .eq("source", "crawl")
                 .order("created_at", desc=True)
                 .range(limit, limit + 499)
                 .execute()

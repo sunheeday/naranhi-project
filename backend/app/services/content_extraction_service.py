@@ -390,7 +390,6 @@ def _dry_run_targets(*, notice_id: str | None, limit: int) -> list[dict[str, Any
         get_supabase_client()
         .table("notices")
         .select("id,status,detail_url,created_at,extraction_error_code,extraction_next_run_at")
-        .eq("source", "crawl")
         .in_("status", ["pending", "error", "processing"])
         .limit(limit)
     )
@@ -417,7 +416,6 @@ def _pending_notice_ids_for_school(school_id: str, *, limit: int) -> list[str]:
         .table("notices")
         .select("id,detail_url")
         .eq("school_id", school_id)
-        .eq("source", "crawl")
         .eq("status", "pending")
         .order("created_at", desc=True)
         .limit(limit)
@@ -441,9 +439,6 @@ def _fetch_context_from_notice(notice: dict[str, Any]) -> dict[str, Any]:
     context: dict[str, Any] = {}
     if isinstance(crawl_result, dict):
         context.update(crawl_result)
-    source_post_id = notice.get("source_post_id")
-    if source_post_id:
-        context["source_post_id"] = str(source_post_id)
     detail_url = notice.get("detail_url")
     if detail_url:
         context["detail_url"] = str(detail_url)

@@ -50,7 +50,7 @@ def sen_ajax_post_data(url: str, context: dict[str, Any]) -> dict[str, str] | No
         return None
 
     params = parse_qs(parsed.query)
-    ntt_id = _first(params.get("nttId")) or _context_value(context, "post_id") or _context_value(context, "source_post_id")
+    ntt_id = _first(params.get("nttId")) or _context_value(context, "post_id")
     board_key = _context_value(context, "board_key")
     bbs_id = _context_value(context, "bbsId") or _value_from_board_key(board_key, "bbsId")
     menu_no = _context_value(context, "menuNo") or _value_from_board_key(board_key, "menuNo") or _menu_no_from_url(
