@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         alias="CRAWLER_SCHEDULE_CONCURRENCY",
     )
     crawler_schedule_notice_count: int = Field(
-        default=10,
+        default=5,
         ge=1,
         le=50,
         alias="CRAWLER_SCHEDULE_NOTICE_COUNT",
