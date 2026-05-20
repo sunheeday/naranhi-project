@@ -9,7 +9,10 @@ from bs4 import BeautifulSoup
 from extractor.models import AttachmentRef
 
 
-FILE_EXT_RE = re.compile(r"\.(pdf|hwp|hwpx|png|jpe?g)(?:[?#].*)?$", re.IGNORECASE)
+FILE_EXT_RE = re.compile(
+    r"\.(pdf|hwp|hwpx|xlsx|xlsm|png|jpe?g|gif|bmp|webp)(?:[?#].*)?$",
+    re.IGNORECASE,
+)
 DOWNLOAD_TERMS = (
     "download",
     "filedown",
