@@ -65,13 +65,13 @@ create policy "notice cards select own school"
 drop table if exists public.document_files;
 
 -- ── drop columns ──────────────────────────────────────────────────────────────
--- 주의: summary_translations 는 프론트/타입 호환 위해 유지 (v4 plan)
 alter table public.notices
   drop column if exists child_id,
   drop column if exists source,
   drop column if exists source_post_id,
   drop column if exists storage_path,
-  drop column if exists created_by;
+  drop column if exists created_by,
+  drop column if exists summary_translations;
 
 -- ── school_id: NOT NULL 설정 + FK ON DELETE RESTRICT 으로 변경 ────────────────
 alter table public.notices
