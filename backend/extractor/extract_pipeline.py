@@ -40,12 +40,13 @@ from extractor.extractors.hwp_extractor import extract_hwp_text
 from extractor.extractors.hwpx_extractor import extract_hwpx_text
 from extractor.extractors.image_gemini_extractor import extract_image_text
 from extractor.extractors.pdf_extractor import extract_pdf_text
+from extractor.extractors.xlsx_extractor import extract_xlsx_text
 
 
 OUTPUT_DIR = Path("outputs")
 MIN_TEXT_CHARS = 20
 MIN_HTML_BODY_CHARS = 120
-SOURCE_ATTACHMENT_TYPES = {"attachment", "attachment_pdf", "attachment_hwp", "attachment_hwpx", "attachment_image", "direct_file"}
+SOURCE_ATTACHMENT_TYPES = {"attachment", "attachment_pdf", "attachment_hwp", "attachment_hwpx", "attachment_xlsx", "attachment_image", "direct_file"}
 SOURCE_IMAGE_TYPES = {"inline_image", "attachment_image"}
 CONTENT_IMAGE_TERMS = ("안내", "가정통신문", "첨부", "본문", "홍보", "포스터", "교육", "신청", "제출", "기간", "대상", "일시", "준비")
 NOISE_IMAGE_TERMS = ("logo", "icon", "banner", "btn", "button", "spacer", "blank", "로고", "배너", "아이콘")
@@ -300,6 +301,11 @@ async def _extract_downloaded_file(
             )
         elif file_type == "hwp":
             extracted = await extract_hwp_text(downloaded.path, source_name=downloaded.filename, gemini=gemini, work_dir=work_dir)
+        elif file_type == "xlsx":
+            extracted = await extract_xlsx_text(
+                downloaded.path,
+                source_name=downloaded.filename,
+            )
         elif file_type == "html":
             extracted = ExtractedText(
                 source=downloaded.filename,
@@ -527,6 +533,7 @@ def _expected_file_type_matches(source_type: str, file_type: str) -> bool:
         "attachment_pdf": {"pdf"},
         "attachment_hwp": {"hwp"},
         "attachment_hwpx": {"hwpx"},
+        "attachment_xlsx": {"xlsx"},
         "attachment_image": {"image"},
         "inline_image": {"image"},
     }.get(source_type)

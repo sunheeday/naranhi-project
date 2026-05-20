@@ -12,6 +12,7 @@ TYPE_PRIORITY = {
     "attachment_pdf": 82,
     "html_body": 70,
     "direct_file": 65,
+    "attachment_xlsx": 60,
     "attachment_image": 50,
     "inline_image": 45,
     "attachment": 35,

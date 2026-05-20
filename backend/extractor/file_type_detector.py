@@ -7,6 +7,7 @@ from extractor.archive_security import validate_zip_limits
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
+XLSX_EXTENSIONS = {".xlsx", ".xlsm"}
 
 
 def detect_file_type(path: Path, filename: str, content_type: str = "") -> str:
@@ -23,6 +24,8 @@ def detect_file_type(path: Path, filename: str, content_type: str = "") -> str:
         return "hwpx"
     if suffix == ".hwp" or head.startswith(b"\xd0\xcf\x11\xe0"):
         return "hwp"
+    if suffix in XLSX_EXTENSIONS or _looks_like_xlsx(path):
+        return "xlsx"
     if "html" in lowered_type or suffix in {".html", ".htm"}:
         return "html"
     return "unknown"
@@ -40,5 +43,17 @@ def _looks_like_hwpx(path: Path) -> bool:
                 if "hwp" in mimetype.lower() or "owpml" in mimetype.lower():
                     return True
             return any(name.startswith("Contents/section") and name.endswith(".xml") for name in names)
+    except Exception:
+        return False
+
+
+def _looks_like_xlsx(path: Path) -> bool:
+    """xlsx는 zip 컨테이너이고 안에 xl/workbook.xml 이 있다."""
+    try:
+        if not zipfile.is_zipfile(path):
+            return False
+        validate_zip_limits(path)
+        with zipfile.ZipFile(path) as archive:
+            return "xl/workbook.xml" in archive.namelist()
     except Exception:
         return False

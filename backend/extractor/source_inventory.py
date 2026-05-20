@@ -9,6 +9,7 @@ from extractor.models import DownloadedFile, FetchedDetail, SourceCandidate
 
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
+XLSX_EXTS = {".xlsx", ".xlsm"}
 
 
 def build_source_inventory(fetched: FetchedDetail) -> list[SourceCandidate]:
@@ -91,6 +92,8 @@ def _attachment_source_type(filename: str, url: str) -> str:
         return "attachment_hwp"
     if suffix == ".hwpx":
         return "attachment_hwpx"
+    if suffix in XLSX_EXTS:
+        return "attachment_xlsx"
     if suffix in IMAGE_EXTS:
         return "attachment_image"
     return "attachment"
@@ -104,6 +107,8 @@ def _kind_from_filename(filename: str) -> str:
         return "hwp"
     if suffix == ".hwpx":
         return "hwpx"
+    if suffix in XLSX_EXTS:
+        return "xlsx"
     if suffix in IMAGE_EXTS:
         return "image"
     if suffix in {".html", ".htm"}:
