@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import fitz
@@ -7,6 +8,10 @@ import fitz
 from extractor.budget import ExtractionBudget
 from extractor.models import ExtractedText
 from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor, ocr_prompt
+
+
+_PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
+_SYMBOL_ONLY_RE = re.compile(r"^[\*\.\-\=\#\_]+$")
 
 
 async def extract_pdf_text(
@@ -99,13 +104,34 @@ async def extract_pdf_text(
 
 
 def _extract_selectable_text(path: Path) -> str:
-    lines: list[str] = []
+    """PDF에서 텍스트 추출 (블록 단위 + 노이즈 필터).
+
+    - blocks 모드: 페이지 위→아래, 왼쪽→오른쪽 위치 순으로 정렬해 표/캘릿아웃의
+      셀이 짝지어 나오도록 한다.
+    - 노이즈 필터: 단독 페이지 번호와 기호만 있는 줄을 제거한다.
+    """
+    pages: list[str] = []
     with fitz.open(path) as document:
         for page in document:
-            text = page.get_text("text").strip()
-            if text:
-                lines.append(text)
-    return "\n\n".join(lines)
+            blocks = page.get_text("blocks")
+            text_blocks = sorted(
+                [b for b in blocks if b[6] == 0],
+                key=lambda b: (round(b[1], 1), round(b[0], 1)),
+            )
+            clean_lines: list[str] = []
+            for block in text_blocks:
+                for raw_line in block[4].splitlines():
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    if _PAGE_NUMBER_RE.match(line):
+                        continue
+                    if _SYMBOL_ONLY_RE.match(line):
+                        continue
+                    clean_lines.append(line)
+            if clean_lines:
+                pages.append("\n".join(clean_lines))
+    return "\n\n".join(pages)
 
 
 def _page_count(path: Path) -> int:
