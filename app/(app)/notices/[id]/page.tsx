@@ -93,6 +93,7 @@ export default async function NoticePage({ params }: Props) {
       <main className="flex flex-col min-h-screen">
         {Header}
         <NoticeProcessingView
+          noticeId={id}
           title={messages.notice_detail.processing_title}
           description={messages.notice_detail.processing_desc}
         />

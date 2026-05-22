@@ -4,12 +4,28 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Props {
+  noticeId: string
   title: string
   description: string
 }
 
-export default function NoticeProcessingView({ title, description }: Props) {
+export default function NoticeProcessingView({ noticeId, title, description }: Props) {
   const router = useRouter()
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch(`/api/notices/${noticeId}/process`, {
+      method: 'POST',
+      signal: controller.signal,
+    })
+      .then(() => router.refresh())
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          router.refresh()
+        }
+      })
+    return () => controller.abort()
+  }, [noticeId, router])
 
   // 5초마다 페이지 refresh로 상태 재확인
   useEffect(() => {

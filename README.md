@@ -51,7 +51,7 @@
 | 데이터베이스 | Supabase Postgres |
 | 인증 | Supabase Auth |
 | 파일 저장 | Supabase Storage |
-| AI/OCR | FastAPI에서 외부 AI/OCR API 연동 |
+| AI/OCR | FastAPI에서 Gemini 기반 AI/OCR/번역 파이프라인 연동 |
 | 배포 | Docker, GitHub Actions, Google Cloud Run |
 | 다국어 | FastAPI 번역 파이프라인 |
 
@@ -80,6 +80,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+FASTAPI_INTERNAL_URL=http://localhost:8000
 SUPABASE_URL=https://your-project-ref.supabase.co
 CORS_ORIGINS=http://localhost:3000
 ```
@@ -98,7 +99,7 @@ supabase db push
 
 ## FastAPI
 
-FastAPI는 공지 수집, 문서 분석, AI/OCR 호출, 번역 처리, NEIS API 연동, Google Calendar 연동처럼 Next.js 화면 서버와 분리하는 편이 좋은 서버 로직을 담당합니다.
+FastAPI는 공지 수집, 문서 분석, Gemini AI/OCR 호출, 번역 처리, NEIS API 연동, Google Calendar 연동처럼 Next.js 화면 서버와 분리하는 편이 좋은 서버 로직을 담당합니다.
 
 ```bash
 cd backend

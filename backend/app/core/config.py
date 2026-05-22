@@ -5,7 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=(".env", ".env.local", "../.env.local"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     environment: str = Field(default="local", alias="ENVIRONMENT")
     cors_origins_raw: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
@@ -16,9 +20,10 @@ class Settings(BaseSettings):
         alias="SUPABASE_SERVICE_ROLE_KEY",
     )
 
-    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     gemini_api_keys: str | None = Field(default=None, alias="GEMINI_API_KEYS")
+    gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
+    gemini_timeout_seconds: float = Field(default=60.0, alias="GEMINI_TIMEOUT_SECONDS")
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
@@ -105,11 +110,15 @@ class Settings(BaseSettings):
 
     @property
     def ai_configured(self) -> bool:
-        return bool(self.openai_api_key)
+        return self.gemini_configured
 
     @property
     def gemini_configured(self) -> bool:
         return bool(self.gemini_api_key or self.gemini_api_keys)
+
+    @property
+    def gemini_key_material(self) -> str | None:
+        return self.gemini_api_keys or self.gemini_api_key
 
 
 @lru_cache
