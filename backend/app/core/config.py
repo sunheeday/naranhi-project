@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
+    gemini_api_keys: str | None = Field(default=None, alias="GEMINI_API_KEYS")
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
         alias="CRAWLER_SCHEDULE_CONCURRENCY",
     )
     crawler_schedule_notice_count: int = Field(
-        default=10,
+        default=5,
         ge=1,
         le=50,
         alias="CRAWLER_SCHEDULE_NOTICE_COUNT",
@@ -68,6 +69,26 @@ class Settings(BaseSettings):
         ge=0.0,
         le=1.0,
         alias="CRAWLER_SCHEDULE_FAIL_RATE_THRESHOLD",
+    )
+    extractor_max_notices_per_run: int = Field(
+        default=20,
+        ge=1,
+        alias="EXTRACTOR_MAX_NOTICES_PER_RUN",
+    )
+    extractor_notice_timeout_seconds: float = Field(
+        default=600.0,
+        ge=1.0,
+        alias="EXTRACTOR_NOTICE_TIMEOUT_SECONDS",
+    )
+    extractor_stale_minutes: int = Field(
+        default=180,
+        ge=1,
+        alias="EXTRACTOR_STALE_MINUTES",
+    )
+    extractor_max_gemini_calls_per_run: int = Field(
+        default=80,
+        ge=0,
+        alias="EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN",
     )
 
     @property
@@ -88,7 +109,7 @@ class Settings(BaseSettings):
 
     @property
     def gemini_configured(self) -> bool:
-        return bool(self.gemini_api_key)
+        return bool(self.gemini_api_key or self.gemini_api_keys)
 
 
 @lru_cache

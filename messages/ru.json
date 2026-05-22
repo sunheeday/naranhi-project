@@ -98,6 +98,7 @@
     "meal_allergy_prefix": "⚠ Аллергены:"
   },
   "notice_detail": {
+    "summary_badge": "Кратко",
     "supplies_badge": "Принадлежности",
     "action_badge": "Дела",
     "schedule_badge": "Расписание",

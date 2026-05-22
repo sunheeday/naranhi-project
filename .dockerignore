@@ -13,3 +13,24 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .DS_Store
+
+# Python build/runtime noise
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local tooling and Supabase runtime state
+.claude/
+supabase/
+
+# Runtime images do not need tests.
+backend/tests/
+tests/

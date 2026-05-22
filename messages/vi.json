@@ -94,6 +94,7 @@
     "meal_allergy_prefix": "⚠ Dị ứng:"
   },
   "notice_detail": {
+    "summary_badge": "Tóm tắt",
     "supplies_badge": "Đồ dùng",
     "action_badge": "Việc cần làm",
     "schedule_badge": "Lịch",

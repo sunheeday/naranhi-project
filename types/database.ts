@@ -1,7 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[]
 
 export type SupportedLocale = 'ko' | 'en' | 'zh' | 'vi' | 'ru' | 'ar' | 'fr' | 'id' | 'th'
-export type NoticeSource = 'upload' | 'crawl' | 'manual'
 export type NoticeStatus = 'pending' | 'processing' | 'done' | 'error'
 export type CardType = 'supplies' | 'action' | 'schedule'
 export type SchoolCrawlBoardKind = 'family_notice' | 'announcement_fallback' | 'unknown'
@@ -131,56 +130,57 @@ export interface Database {
       notices: {
         Row: {
           id: string
-          child_id: string | null
-          school_id: string | null
-          source: NoticeSource
+          school_id: string
           title: string | null
           original_text: string | null
-          source_post_id: string | null
           source_post_uid: string | null
           detail_url: string | null
           crawl_result: Json
+          extracted_content: Json | null
           summary_translations: { [locale: string]: string }
-          storage_path: string | null
           status: NoticeStatus
           error_message: string | null
-          created_by: string | null
+          extraction_attempts: number
+          extraction_started_at: string | null
+          extraction_next_run_at: string | null
+          extraction_error_code: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          child_id?: string | null
-          school_id?: string | null
-          source: NoticeSource
+          school_id: string
           title?: string | null
           original_text?: string | null
-          source_post_id?: string | null
           source_post_uid?: string | null
           detail_url?: string | null
           crawl_result?: Json
+          extracted_content?: Json | null
           summary_translations?: { [locale: string]: string }
-          storage_path?: string | null
           status?: NoticeStatus
           error_message?: string | null
-          created_by?: string | null
+          extraction_attempts?: number
+          extraction_started_at?: string | null
+          extraction_next_run_at?: string | null
+          extraction_error_code?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
-          child_id?: string | null
-          school_id?: string | null
+          school_id?: string
           title?: string | null
           original_text?: string | null
-          source_post_id?: string | null
           source_post_uid?: string | null
           detail_url?: string | null
           crawl_result?: Json
+          extracted_content?: Json | null
           summary_translations?: { [locale: string]: string }
-          storage_path?: string | null
           status?: NoticeStatus
           error_message?: string | null
-          created_by?: string | null
+          extraction_attempts?: number
+          extraction_started_at?: string | null
+          extraction_next_run_at?: string | null
+          extraction_error_code?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -292,40 +292,20 @@ export interface Database {
         }
         Relationships: []
       }
-      document_files: {
-        Row: {
-          id: string
-          notice_id: string | null
-          storage_bucket: string
-          storage_path: string
-          mime_type: string | null
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          notice_id?: string | null
-          storage_bucket?: string
-          storage_path: string
-          mime_type?: string | null
-          created_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          notice_id?: string | null
-          storage_bucket?: string
-          storage_path?: string
-          mime_type?: string | null
-          created_by?: string | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_notice_extractions: {
+        Args: {
+          p_limit?: number
+          p_stale_minutes?: number
+          p_notice_id?: string | null
+          p_force?: boolean
+        }
+        Returns: Database['public']['Tables']['notices']['Row'][]
+      }
     }
     Enums: {
       [_ in never]: never

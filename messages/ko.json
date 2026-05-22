@@ -98,6 +98,7 @@
     "meal_allergy_prefix": "⚠ 알레르기:"
   },
   "notice_detail": {
+    "summary_badge": "핵심 요약",
     "supplies_badge": "준비물",
     "action_badge": "해야 할 일",
     "schedule_badge": "일정",

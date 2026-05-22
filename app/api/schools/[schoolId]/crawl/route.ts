@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { schoolNeedsInitialCrawl, triggerInitialSchoolCrawl } from '@/lib/school-crawler-trigger'
+import {
+  schoolNeedsInitialCrawl,
+  triggerInitialSchoolCrawl,
+  triggerPendingSchoolExtraction,
+} from '@/lib/school-crawler-trigger'
 
 interface RouteContext {
   params: Promise<{ schoolId: string }>
@@ -62,10 +66,36 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'school_not_found' }, { status: 404 })
   }
 
-  if (!schoolNeedsInitialCrawl(school)) {
-    return NextResponse.json({ ok: true, skipped: true })
+  const { count: pendingNoticeCount, error: pendingCountError } = await supabase
+    .from('notices')
+    .select('id', { count: 'exact', head: true })
+    .eq('school_id', schoolId)
+    .eq('status', 'pending')
+
+  if (pendingCountError) {
+    return NextResponse.json({ ok: false, error: 'pending_notice_lookup_failed' }, { status: 500 })
   }
 
-  await triggerInitialSchoolCrawl(schoolId)
-  return NextResponse.json({ ok: true, skipped: false })
+  const pendingCount = pendingNoticeCount ?? 0
+
+  if (!schoolNeedsInitialCrawl(school)) {
+    const extractionQueued = pendingCount > 0
+      ? await triggerPendingSchoolExtraction(schoolId, Math.min(pendingCount, 20))
+      : false
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      extractionQueued,
+      pendingCount,
+    })
+  }
+
+  const crawlQueued = await triggerInitialSchoolCrawl(schoolId)
+  return NextResponse.json({
+    ok: true,
+    skipped: false,
+    crawlQueued,
+    extractionQueued: crawlQueued,
+    pendingCount,
+  })
 }

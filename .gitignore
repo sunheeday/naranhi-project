@@ -48,6 +48,7 @@ __pycache__/
 naranhi-demo/
 naranhi-crawler-lab/
 naranhi-crawler-lab.zip
+naranhi-content-extract-lab.zip
 
 # local product/spec drafts
 docs/기능명세서.md
@@ -56,6 +57,7 @@ docs/기능명세서.md
 supabase/.branches/
 supabase/.temp/
 supabase/config.toml
+supabase/snippets/
 
 # local assistant/tooling state
 .claude/

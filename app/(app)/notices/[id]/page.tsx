@@ -3,29 +3,13 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { getNoticeDetail, type NoticeCardDto } from '@/lib/notices'
+import type { CardType } from '@/types/database'
 import NoticeCardSwiper, { type NoticeCard } from './NoticeCardSwiper'
 import NoticeProcessingView from './NoticeProcessingView'
 import NoticeErrorView from './NoticeErrorView'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-interface GeminiSupplies {
-  title?: string
-  items?: string[]
-  deadline?: string | null
-}
-interface GeminiActions {
-  title?: string
-  items?: string[]
-  deadline?: string | null
-}
-interface GeminiSchedule {
-  title?: string
-  date?: string
-  location?: string | null
-  description?: string | null
 }
 
 function asObject(content: unknown): Record<string, unknown> | null {
@@ -35,47 +19,28 @@ function asObject(content: unknown): Record<string, unknown> | null {
   return null
 }
 
-function mapSuppliesCard(content: unknown): NoticeCard | null {
-  const obj = asObject(content) as GeminiSupplies | null
-  if (!obj) return null
-  const items = Array.isArray(obj.items) ? obj.items : []
-  return {
-    type: 'supplies',
-    supplies: items.map(name => ({ icon: '📦', name, amount: '' })),
-  }
+function asText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
-function mapActionCard(content: unknown): NoticeCard | null {
-  const obj = asObject(content) as GeminiActions | null
+function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
+  const obj = asObject(content)
   if (!obj) return null
-  const items = Array.isArray(obj.items) ? obj.items : []
-  const first = items[0] ?? obj.title ?? '제출 필요'
-  const deadline = obj.deadline ?? ''
-  const daysLeft = deadline ? Math.max(0, Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000)) : 0
-  const reason = items.slice(1).join(' · ') || (obj.title ?? '')
+  const rawItems = Array.isArray(obj.items) ? obj.items : []
+  const items = rawItems
+    .map(item => {
+      const itemObj = asObject(item)
+      if (!itemObj) return null
+      const text = asText(itemObj.text)
+      if (!text) return null
+      const hint = asText(itemObj.hint)
+      return hint ? { text, hint } : { text }
+    })
+    .filter((item): item is { text: string; hint?: string } => Boolean(item))
+  if (items.length === 0) return null
   return {
-    type: 'action',
-    action: {
-      action: first,
-      deadline: deadline || '-',
-      daysLeft,
-      reason,
-    },
-  }
-}
-
-function mapScheduleCard(content: unknown): NoticeCard | null {
-  const obj = asObject(content) as GeminiSchedule | null
-  if (!obj) return null
-  return {
-    type: 'schedule',
-    schedules: [
-      {
-        date: obj.date ?? '',
-        location: obj.location ?? undefined,
-        description: obj.description ?? obj.title ?? '',
-      },
-    ],
+    type,
+    items,
   }
 }
 
@@ -93,10 +58,7 @@ function mapCards(rows: NoticeCardDto[], locale: Locale): NoticeCard[] {
   const mapped: NoticeCard[] = []
   for (const r of rows) {
     const localized = pickLocalized(r.content, locale)
-    let card: NoticeCard | null = null
-    if (r.type === 'supplies') card = mapSuppliesCard(localized)
-    else if (r.type === 'action') card = mapActionCard(localized)
-    else if (r.type === 'schedule') card = mapScheduleCard(localized)
+    let card = mapCommonCard(r.type, localized)
     if (card) mapped.push(card)
   }
   return mapped
@@ -165,7 +127,7 @@ export default async function NoticePage({ params }: Props) {
     summary: summary ?? '',
     hint: dataCards.length > 0 ? messages.notice_detail.swipe_hint : undefined,
   }
-  const cards: NoticeCard[] = [intro, ...dataCards]
+  const cards: NoticeCard[] = dataCards.length > 0 ? dataCards : [intro]
 
   return (
     <main className="flex flex-col min-h-screen">
@@ -177,8 +139,6 @@ export default async function NoticePage({ params }: Props) {
           supplies: messages.notice_detail.supplies_badge,
           action: messages.notice_detail.action_badge,
           schedule: messages.notice_detail.schedule_badge,
-          deadlineRemaining: messages.notice_detail.deadline_remaining,
-          deadlineToday: messages.notice_detail.deadline_today,
         }}
       />
     </main>

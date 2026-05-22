@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
-import type { Json, NoticeSource, NoticeStatus } from '@/types/database'
+import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
 import HomePoller from './HomePoller'
 import NoticeCardItem from './NoticeCardItem'
@@ -13,7 +13,6 @@ import SchoolCrawlerKickoff from './SchoolCrawlerKickoff'
 interface NoticeRow {
   id: string
   status: NoticeStatus
-  source: NoticeSource
   title: string | null
   summary_translations: { [locale: string]: string }
   crawl_result: Json
@@ -26,7 +25,6 @@ interface DisplayNotice {
   cardType: 'supplies' | 'action' | 'schedule' | null
   title: string
   status: NoticeStatus
-  source: NoticeSource
   arrivedAt: string
 }
 
@@ -80,12 +78,10 @@ function jsonString(value: Json | undefined): string | null {
 }
 
 function noticeSortTime(row: NoticeRow): number {
-  if (row.source === 'crawl') {
-    const crawl = jsonObject(row.crawl_result)
-    const checkedAt = jsonString(crawl.crawl_checked_at)
-    if (checkedAt) {
-      return new Date(checkedAt).getTime()
-    }
+  const crawl = jsonObject(row.crawl_result)
+  const checkedAt = jsonString(crawl.crawl_checked_at)
+  if (checkedAt) {
+    return new Date(checkedAt).getTime()
   }
   return new Date(row.created_at).getTime()
 }
@@ -99,10 +95,8 @@ function compareNoticeRows(a: NoticeRow, b: NoticeRow): number {
   const timeDiff = noticeSortTime(b) - noticeSortTime(a)
   if (timeDiff !== 0) return timeDiff
 
-  if (a.source === 'crawl' && b.source === 'crawl') {
-    const rankDiff = crawlPostRank(a) - crawlPostRank(b)
-    if (rankDiff !== 0) return rankDiff
-  }
+  const rankDiff = crawlPostRank(a) - crawlPostRank(b)
+  if (rankDiff !== 0) return rankDiff
 
   return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
 }
@@ -123,6 +117,7 @@ function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
 }
 
 function dominantCardType(cards: { type: string }[]): 'supplies' | 'action' | 'schedule' | null {
+  // 홈 badge는 행동 힌트용 3가지 type만 사용한다. summary는 상세 화면에서만 표시한다.
   const order: Array<'action' | 'schedule' | 'supplies'> = ['action', 'schedule', 'supplies']
   for (const t of order) {
     if (cards.some(c => c.type === t)) return t
@@ -137,7 +132,6 @@ function previewNotices(): DisplayNotice[] {
       cardType: 'action',
       title: '현장체험학습 참가 동의서 제출',
       status: 'done',
-      source: 'manual',
       arrivedAt: '12분 전',
     },
     {
@@ -145,7 +139,6 @@ function previewNotices(): DisplayNotice[] {
       cardType: 'supplies',
       title: '봄 소풍 준비물 안내',
       status: 'done',
-      source: 'manual',
       arrivedAt: '2시간 전',
     },
     {
@@ -153,7 +146,6 @@ function previewNotices(): DisplayNotice[] {
       cardType: 'schedule',
       title: '학부모 상담주간 일정 안내',
       status: 'processing',
-      source: 'manual',
       arrivedAt: '어제',
     },
   ]
@@ -182,6 +174,7 @@ export default async function HomePage() {
   let childInfo = ''
   let notices: DisplayNotice[] = []
   let schoolCrawlerState: SchoolCrawlerState | null = null
+  let hasProcessingNotices = false
 
   if (isUiPreviewEnabled()) {
     childInfo = previewChildInfo()
@@ -223,25 +216,28 @@ export default async function HomePage() {
       .eq('user_id', user.id)
     const hiddenIds = new Set((hiddenRows ?? []).map(row => row.notice_id))
 
-    const { data: personalRows } = await supabase
-      .from('notices')
-      .select('id, source, status, title, summary_translations, crawl_result, created_at')
-      .eq('child_id', child.id)
-      .order('created_at', { ascending: false })
-      .limit(50)
-
     const { data: schoolRows } = child.school_id
       ? await supabase
           .from('notices')
-          .select('id, source, status, title, summary_translations, crawl_result, created_at')
+          .select('id, status, title, summary_translations, crawl_result, created_at')
           .eq('school_id', child.school_id)
-          .eq('source', 'crawl')
+          .eq('status', 'done')
           .order('created_at', { ascending: false })
           .limit(50)
       : { data: [] }
 
+    const { count: schoolProcessingCount } = child.school_id
+      ? await supabase
+          .from('notices')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', child.school_id)
+          .in('status', ['pending', 'processing'])
+      : { count: 0 }
+
+    hasProcessingNotices = Boolean(schoolProcessingCount ?? 0)
+
     const rowMap = new Map<string, NoticeRow>()
-    for (const row of [...(personalRows ?? []), ...(schoolRows ?? [])]) {
+    for (const row of schoolRows ?? []) {
       if (!hiddenIds.has(row.id)) {
         rowMap.set(row.id, row as NoticeRow)
       }
@@ -265,18 +261,17 @@ export default async function HomePage() {
         cardType: dominantCardType(cardsByNotice[row.id] ?? []),
         title: pickTitle(row as NoticeRow, locale, homeMsg),
         status: row.status,
-        source: row.source,
         arrivedAt: relativeTime(row.created_at, homeMsg),
       }))
     }
   }
 
-  const hasPending = notices.some(n => n.status === 'pending' || n.status === 'processing')
   const shouldCollectSchoolNotices = schoolCrawlerState ? schoolNeedsInitialCrawl(schoolCrawlerState) : false
+  const isPreparingSchoolNotices = shouldCollectSchoolNotices || hasProcessingNotices
 
   return (
     <main className="flex flex-col min-h-screen pb-24">
-      <HomePoller hasPending={hasPending} />
+      <HomePoller hasPending={hasProcessingNotices} />
       <header className="sticky top-0 bg-canvas border-b border-hairline-soft px-6 py-4 flex items-center justify-between z-10">
         <div className="min-w-0">
           <span className="block text-base font-bold text-ink truncate" style={{ letterSpacing: '-0.01em' }}>{messages.common.app_name}</span>
@@ -298,17 +293,17 @@ export default async function HomePage() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <span className="text-3xl" aria-hidden="true">📭</span>
             <p className="text-sm text-muted-soft text-center">
-              {shouldCollectSchoolNotices
+              {isPreparingSchoolNotices
                 ? messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'
                 : messages.home.no_notices}
             </p>
-            {shouldCollectSchoolNotices && schoolCrawlerState ? (
+            {isPreparingSchoolNotices && schoolCrawlerState ? (
               <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} />
             ) : null}
           </div>
         ) : (
           <>
-            {shouldCollectSchoolNotices && schoolCrawlerState ? (
+            {isPreparingSchoolNotices && schoolCrawlerState ? (
               <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} showFailure={false} />
             ) : null}
             <ul className="flex flex-col gap-3">
@@ -328,16 +323,8 @@ export default async function HomePage() {
                       badgeText={badge.text}
                       badgeLabel={badgeLabel}
                       deleteLabel={messages.home.delete ?? '삭제'}
-                      confirmTitle={
-                        notice.source === 'crawl'
-                          ? messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?'
-                          : messages.home.delete_confirm_title ?? '이 공지를 삭제할까요?'
-                      }
-                      confirmBody={
-                        notice.source === 'crawl'
-                          ? messages.home.hide_confirm_body
-                          : messages.home.delete_confirm_body ?? '삭제하면 복구할 수 없어요.'
-                      }
+                      confirmTitle={messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?'}
+                      confirmBody={messages.home.hide_confirm_body}
                       confirmCancel={messages.common.cancel ?? '취소'}
                       confirmDelete={messages.home.delete ?? '삭제'}
                       deletingLabel={messages.home.deleting ?? '삭제 중...'}

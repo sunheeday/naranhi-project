@@ -2,50 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
+import type { CardType } from '@/types/database'
 
-export type CardType = 'supplies' | 'action' | 'schedule'
-
-export interface SupplyItem {
-  icon: string
-  name: string
-  amount: string
-  warning?: boolean
-}
-
-export interface ActionItem {
-  action: string
-  deadline: string
-  daysLeft: number
-  reason: string
-}
-
-export interface ScheduleItem {
-  date: string
-  time?: string
-  location?: string
-  description: string
+export interface NoticeCardItem {
+  text: string
+  hint?: string
 }
 
 export interface NoticeCard {
   type: 'intro' | CardType
-  title?: string
-  subtitle?: string
   emoji?: string
+  title?: string
   dateRange?: string
   summary?: string
   hint?: string
-  supplies?: SupplyItem[]
-  warningNote?: string
-  action?: ActionItem
-  schedules?: ScheduleItem[]
+  items?: NoticeCardItem[]
 }
 
 export interface CardLabels {
   supplies: string
   action: string
   schedule: string
-  deadlineRemaining: string  // "D-{days}일 남음" 형식 (값은 로케일별 템플릿)
-  deadlineToday: string
 }
 
 interface Props {
@@ -54,15 +31,19 @@ interface Props {
   labels: CardLabels
 }
 
-const BADGE_STYLE = {
-  supplies: { color: 'text-cat-supply',   bg: 'bg-cat-supply-bg' },
-  action:   { color: 'text-cat-action',   bg: 'bg-cat-action-bg' },
-  schedule: { color: 'text-cat-schedule', bg: 'bg-cat-schedule-bg' },
-} as const
+const CARD_STYLE: Record<CardType, { icon: string; color: string; bg: string }> = {
+  action:   { icon: '✅', color: 'text-cat-action',   bg: 'bg-cat-action-bg' },
+  schedule: { icon: '📅', color: 'text-cat-schedule', bg: 'bg-cat-schedule-bg' },
+  supplies: { icon: '🎒', color: 'text-cat-supply',   bg: 'bg-cat-supply-bg' },
+}
+
+const CARD_ORDER: CardType[] = ['action', 'schedule', 'supplies']
 
 export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' })
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  const orderedCards = [...cards].sort((a, b) => cardSortIndex(a.type) - cardSortIndex(b.type))
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return
@@ -79,20 +60,19 @@ export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
     <div className="flex flex-col min-h-screen">
       <div className="overflow-hidden flex-1" ref={emblaRef}>
         <div className="flex h-full">
-          {cards.map((card, i) => (
+          {orderedCards.map((card, i) => (
             <div
-              key={i}
+              key={`${noticeId}-${card.type}-${i}`}
               className="flex-[0_0_100%] min-w-0 px-6 pt-6 pb-24"
             >
-              <CardContent card={card} noticeId={noticeId} labels={labels} />
+              <CardContent card={card} labels={labels} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* 도트 인디케이터 */}
-      <div className="flex justify-center gap-2 py-4 pb-20" aria-label={`${selectedIndex + 1} / ${cards.length}`} role="status">
-        {cards.map((_, i) => (
+      <div className="flex justify-center gap-2 py-4 pb-20" aria-label={`${selectedIndex + 1} / ${orderedCards.length}`} role="status">
+        {orderedCards.map((_, i) => (
           <button
             key={i}
             onClick={() => emblaApi?.scrollTo(i)}
@@ -107,12 +87,9 @@ export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
   )
 }
 
-function CardContent({ card, noticeId, labels }: { card: NoticeCard; noticeId: string; labels: CardLabels }) {
+function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels }) {
   if (card.type === 'intro') {
-    const paragraphs = (card.summary ?? '')
-      .split(/\n+/)
-      .map(s => s.trim())
-      .filter(Boolean)
+    const paragraphs = splitParagraphs(card.summary)
 
     return (
       <div className="bg-canvas rounded-card shadow-soft p-6 flex flex-col gap-5 min-h-[360px] border border-hairline-soft">
@@ -124,31 +101,16 @@ function CardContent({ card, noticeId, labels }: { card: NoticeCard; noticeId: s
         </div>
 
         {card.dateRange && (
-          <p className="text-base text-ink font-semibold" style={{ letterSpacing: '-0.01em' }}>{card.dateRange}</p>
+          <p className="text-base text-ink font-semibold">{card.dateRange}</p>
         )}
 
         <div className="flex flex-col gap-3">
           {paragraphs.length > 0 ? (
-            paragraphs.map((p, i) => {
-              const isWarning = /^⚠️?|^주의/.test(p)
-              if (isWarning) {
-                return (
-                  <div
-                    key={i}
-                    className="bg-cat-action-bg border-s-4 border-cat-action rounded-btn px-4 py-3"
-                  >
-                    <p className="text-[15px] leading-[1.65] text-cat-action font-semibold">
-                      {p}
-                    </p>
-                  </div>
-                )
-              }
-              return (
-                <p key={i} className="text-[16px] leading-[1.7] text-body">
-                  {p}
-                </p>
-              )
-            })
+            paragraphs.map((p, i) => (
+              <p key={i} className="text-[16px] leading-[1.7] text-body">
+                {p}
+              </p>
+            ))
           ) : (
             <p className="text-sm text-muted-soft">요약 정보가 없어요.</p>
           )}
@@ -163,87 +125,45 @@ function CardContent({ card, noticeId, labels }: { card: NoticeCard; noticeId: s
     )
   }
 
-  const t = card.type as CardType
-  const badge = BADGE_STYLE[t]
-  const badgeLabel = t === 'supplies' ? labels.supplies : t === 'action' ? labels.action : labels.schedule
+  const style = CARD_STYLE[card.type]
+  const items = card.items ?? []
 
   return (
     <div className="bg-canvas rounded-card shadow-soft p-5 flex flex-col gap-4 border border-hairline-soft">
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-pill text-xs font-semibold w-fit ${badge.bg} ${badge.color}`}>
-        {t === 'supplies' && '🎒'}
-        {t === 'action' && '✅'}
-        {t === 'schedule' && '📅'}
-        {badgeLabel}
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-pill text-xs font-semibold w-fit ${style.bg} ${style.color}`}>
+        <span aria-hidden="true">{style.icon}</span>
+        {labelFor(card.type, labels)}
       </span>
 
-      {t === 'supplies' && card.supplies && (
-        <SuppliesContent items={card.supplies} warningNote={card.warningNote} />
-      )}
-      {t === 'action' && card.action && (
-        <ActionContent item={card.action} labels={labels} />
-      )}
-      {t === 'schedule' && card.schedules && (
-        <ScheduleContent items={card.schedules} />
-      )}
-    </div>
-  )
-}
-
-function SuppliesContent({ items, warningNote }: { items: SupplyItem[]; warningNote?: string }) {
-  return (
-    <div className="flex flex-col gap-3">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center justify-between py-2 border-b border-hairline-soft last:border-0">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl" aria-hidden="true">{item.icon}</span>
-            <span className={`text-base ${item.warning ? 'text-cat-action font-semibold' : 'text-ink'}`}>
-              {item.name}
-            </span>
-          </div>
-          <span className="text-base font-bold text-ink">{item.amount}</span>
-        </div>
-      ))}
-      {warningNote && (
-        <div className="mt-2 bg-cat-action-bg rounded-btn px-4 py-3 flex items-start gap-2">
-          <span aria-hidden="true">⚠️</span>
-          <p className="text-sm text-cat-action font-semibold">{warningNote}</p>
-        </div>
+      {items.length > 0 ? (
+        <ul className="flex flex-col gap-3">
+          {items.map((item, i) => (
+            <li key={i} className="py-3 border-b border-hairline-soft last:border-0">
+              <p className="text-base font-semibold text-ink leading-snug">{item.text}</p>
+              {item.hint ? <p className="text-sm text-muted mt-1.5 leading-relaxed">{item.hint}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-soft">표시할 항목이 없어요.</p>
       )}
     </div>
   )
 }
 
-function ActionContent({ item, labels }: { item: ActionItem; labels: CardLabels }) {
-  const dLabel =
-    item.daysLeft <= 0
-      ? labels.deadlineToday
-      : labels.deadlineRemaining.replace('{days}', String(item.daysLeft))
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-lg font-semibold text-ink leading-snug" style={{ letterSpacing: '-0.01em' }}>{item.action}</p>
-      <div className="flex flex-col gap-1.5">
-        <p className="text-2xl font-bold text-ink" style={{ letterSpacing: '-0.02em' }}>{item.deadline}</p>
-        <span className="inline-flex items-center px-3 py-1 rounded-pill bg-cat-action-bg text-cat-action text-xs font-semibold w-fit">
-          {dLabel}
-        </span>
-      </div>
-      <p className="text-sm text-muted">{item.reason}</p>
-    </div>
-  )
+function labelFor(type: CardType, labels: CardLabels): string {
+  return labels[type]
 }
 
-function ScheduleContent({ items }: { items: ScheduleItem[] }) {
-  return (
-    <div className="flex flex-col gap-3">
-      {items.map((item, i) => (
-        <div key={i} className="flex flex-col gap-1 py-3 border-b border-hairline-soft last:border-0">
-          <p className="text-2xl font-bold text-ink" style={{ letterSpacing: '-0.02em' }}>{item.date}</p>
-          {item.time && <p className="text-sm text-muted">{item.time}</p>}
-          {item.location && <p className="text-sm text-muted">{item.location}</p>}
-          <p className="text-sm text-body mt-1">{item.description}</p>
-        </div>
-      ))}
-    </div>
-  )
+function cardSortIndex(type: 'intro' | CardType): number {
+  if (type === 'intro') return -1
+  const index = CARD_ORDER.indexOf(type)
+  return index >= 0 ? index : CARD_ORDER.length
+}
+
+function splitParagraphs(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(/\n+/)
+    .map(s => s.trim())
+    .filter(Boolean)
 }

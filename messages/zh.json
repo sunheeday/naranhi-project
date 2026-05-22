@@ -94,6 +94,7 @@
     "meal_allergy_prefix": "⚠ 过敏:"
   },
   "notice_detail": {
+    "summary_badge": "核心摘要",
     "supplies_badge": "准备物品",
     "action_badge": "待办事项",
     "schedule_badge": "日程",

@@ -98,6 +98,7 @@
     "meal_allergy_prefix": "⚠ Alergen:"
   },
   "notice_detail": {
+    "summary_badge": "Ringkasan",
     "supplies_badge": "Perlengkapan",
     "action_badge": "Tugas",
     "schedule_badge": "Jadwal",

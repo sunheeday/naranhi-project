@@ -21,9 +21,18 @@ export function schoolNeedsInitialCrawl(school: SchoolCrawlerState): boolean {
   return RETRYABLE_INITIAL_CRAWL_STATUSES.has(school.crawl_status ?? 'pending')
 }
 
-export async function triggerInitialSchoolCrawl(schoolId: string): Promise<void> {
+export async function triggerInitialSchoolCrawl(schoolId: string): Promise<boolean> {
+  return postCrawlerApi(`/crawler/schools/${encodeURIComponent(schoolId)}/discover-board`, 'Initial school crawler')
+}
+
+export async function triggerPendingSchoolExtraction(schoolId: string, maxNotices?: number): Promise<boolean> {
+  const query = maxNotices ? `?max_notices=${encodeURIComponent(String(maxNotices))}` : ''
+  return postCrawlerApi(`/crawler/schools/${encodeURIComponent(schoolId)}/extract-pending${query}`, 'Initial content extractor')
+}
+
+async function postCrawlerApi(path: string, label: string): Promise<boolean> {
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, '')
-  if (!apiBase) return
+  if (!apiBase) return false
 
   const headers: Record<string, string> = {}
   const token = process.env.CRAWLER_INTERNAL_TOKEN?.trim()
@@ -32,18 +41,18 @@ export async function triggerInitialSchoolCrawl(schoolId: string): Promise<void>
   }
 
   try {
-    const response = await fetch(
-      `${apiBase}/crawler/schools/${encodeURIComponent(schoolId)}/discover-board`,
-      {
-        method: 'POST',
-        headers,
-        cache: 'no-store',
-      }
-    )
+    const response = await fetch(`${apiBase}${path}`, {
+      method: 'POST',
+      headers,
+      cache: 'no-store',
+    })
     if (!response.ok) {
-      console.warn(`Initial school crawler failed with HTTP ${response.status}`)
+      console.warn(`${label} failed with HTTP ${response.status}`)
+      return false
     }
+    return true
   } catch (error) {
-    console.warn('Initial school crawler request failed', error)
+    console.warn(`${label} request failed`, error)
+    return false
   }
 }

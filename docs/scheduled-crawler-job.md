@@ -2,6 +2,8 @@
 
 이 Job은 사용자가 등록한 모든 학교를 순차적으로 크롤링해 새 공지 후보 URL을 `notices`에 저장한다.
 
+중요: 사용자 관점에서 "공지 가져오기"는 URL 저장만으로 끝나면 안 된다. 이 Job 다음에는 반드시 `naranhi-content-extractor` Job이 실행되어 `original_text`, `summary_oneliner`, `extracted_content`, `notice_cards`까지 채워져야 한다. 크롤러는 URL 후보 수집, extractor는 본문 분석을 담당한다.
+
 ## 로컬 실행
 
 ```powershell
@@ -11,6 +13,12 @@ python -m app.jobs.scheduled_school_crawler --school-id "<school_id>" --force
 ```
 
 운영 정기 실행에서는 `--limit`을 쓰지 않는다. `--limit`은 로컬 테스트 전용이다.
+
+수동으로 크롤러를 실제 실행했다면 이어서 분석 Job도 실행한다.
+
+```powershell
+python -m app.jobs.scheduled_content_extractor --max-notices 20
+```
 
 ## 기본 정책
 
@@ -78,3 +86,5 @@ gcloud scheduler jobs create http naranhi-school-crawler-1800 \
 ```
 
 Scheduler service account에는 Cloud Run Job 실행 권한이 필요하다. 최소한 `run.jobs.run` 권한이 포함된 역할을 Job 리소스에 부여한다.
+
+콘텐츠 분석 Scheduler는 크롤러보다 뒤에 둔다. 권장 시간은 `07:00`, `19:00` KST다. 이렇게 해야 06:00/18:00 크롤러가 새 notice URL을 저장한 뒤 extractor가 같은 batch의 pending 공지를 분석한다.
