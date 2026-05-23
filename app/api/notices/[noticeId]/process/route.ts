@@ -29,11 +29,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'notice_not_found' }, { status: 404 })
   }
 
-  if (notice.status === 'done') {
-    return NextResponse.json({ ok: true, skipped: true, status: notice.status })
+  const targetLanguage = await resolveTargetLanguage(request, user.id)
+  if (targetLanguage === 'ko' && notice.status === 'done') {
+    return NextResponse.json({ ok: true, skipped: true, status: notice.status, targetLanguage })
   }
 
-  const targetLanguage = await resolveTargetLanguage(request, user.id)
+  const { data: cachedTranslation } = await supabase
+    .from('notice_ai_translations')
+    .select('id, translated_text, validation_status, requires_admin_review')
+    .eq('notice_id', noticeId)
+    .eq('target_language', targetLanguage)
+    .maybeSingle()
+
+  if (
+    cachedTranslation?.translated_text
+    && cachedTranslation.validation_status !== 'failed'
+  ) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      status: notice.status,
+      targetLanguage,
+      translationStatus: cachedTranslation.validation_status,
+      requiresAdminReview: cachedTranslation.requires_admin_review,
+    })
+  }
+
   const apiBase = (
     process.env.FASTAPI_INTERNAL_URL
     || process.env.NEXT_PUBLIC_API_BASE_URL

@@ -1,9 +1,9 @@
 /**
  * 다국어 번역 jsonb 헬퍼.
  *
- * 모든 번역 가능한 콘텐츠 (notices.summary_translations, notice_cards.content)는
- * { [locale]: string } 형태의 jsonb로 저장된다. 사용자 locale에 해당 키가 있으면
- * 그 값을, 없으면 ko로 fallback. ko도 없으면 첫 번째 키.
+ * notice_ai_translations는 언어별 row로 저장되고, notice_cards.content는
+ * { [locale]: content } 형태의 jsonb로 저장된다. 화면에서는 필요한 값을
+ * Record 형태로 모아 사용자 locale -> ko -> 첫 번째 키 순서로 fallback한다.
  *
  * Lazy 번역: 사용자 locale 키가 없으면 클라이언트가 /api/notices/[id]/translate 를
  * 호출해 Gemini로 즉시 번역 후 jsonb에 캐시한다.

@@ -39,12 +39,21 @@ export async function getNoticeDetail(
   const { data: notice, error } = await supabase
     .from('notices')
     .select(
-      'id, status, error_message, created_at, summary_translations'
+      'id, status, error_message, created_at, title, original_text'
     )
     .eq('id', noticeId)
     .single()
 
   if (error || !notice) return null
+
+  const translationQuery = supabase
+    .from('notice_ai_translations')
+    .select('target_language, translated_text')
+    .eq('notice_id', noticeId)
+
+  const { data: translationRows } = locale === 'ko'
+    ? { data: [] }
+    : await translationQuery.eq('target_language', locale)
 
   const { data: cardRows } = await supabase
     .from('notice_cards')
@@ -59,8 +68,14 @@ export async function getNoticeDetail(
     content: r.content,
   }))
 
-  const translations = (notice.summary_translations ?? {}) as Translations
-  const summary = pickTranslation(translations, locale)
+  const translations: Translations = {}
+  if (notice.original_text) translations.ko = notice.original_text
+  for (const row of translationRows ?? []) {
+    if (row.target_language && row.translated_text) {
+      translations[row.target_language] = row.translated_text
+    }
+  }
+  const summary = pickTranslation(translations, locale) ?? notice.title ?? null
 
   return {
     id: notice.id,
@@ -68,7 +83,7 @@ export async function getNoticeDetail(
     errorMessage: notice.error_message,
     createdAt: notice.created_at,
     summary,
-    hasLocaleTranslation: !!translations[locale],
+    hasLocaleTranslation: locale === 'ko' ? Boolean(notice.original_text || notice.title) : !!translations[locale],
     summaryTranslations: translations,
     cards,
   }

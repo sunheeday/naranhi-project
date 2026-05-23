@@ -29,6 +29,10 @@ function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
   const rawItems = Array.isArray(obj.items) ? obj.items : []
   const items = rawItems
     .map(item => {
+      if (typeof item === 'string') {
+        const text = asText(item)
+        return text ? { text } : null
+      }
       const itemObj = asObject(item)
       if (!itemObj) return null
       const text = asText(itemObj.text)
@@ -112,6 +116,19 @@ export default async function NoticePage({ params }: Props) {
           errorMessage={detail.errorMessage}
           retryLabel={messages.notice_detail.retry}
           retryingLabel={messages.notice_detail.retrying}
+        />
+      </main>
+    )
+  }
+
+  if (detail.status === 'done' && !detail.hasLocaleTranslation) {
+    return (
+      <main className="flex flex-col min-h-screen">
+        {Header}
+        <NoticeProcessingView
+          noticeId={id}
+          title={messages.notice_detail.processing_title}
+          description={messages.notice_detail.processing_desc}
         />
       </main>
     )
