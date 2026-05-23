@@ -8,9 +8,9 @@ router = APIRouter()
 
 class NoticeCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
+    school_id: str = Field(min_length=1)
     raw_text: str | None = None
     source_url: str | None = None
-    school_id: str | None = None
 
 
 class NoticeAnalyzeRequest(BaseModel):

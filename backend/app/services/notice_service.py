@@ -1,4 +1,7 @@
 from typing import Any
+
+from app.core.config import get_settings
+from app.core.supabase import get_supabase_client
 from app.crawler.detail_content_extractor import fetch_notice_detail_content
 from app.translation.gemini_client import GeminiJsonClient
 from app.translation.orchestrator import TranslationPipeline, TranslationPipelineInput
@@ -11,6 +14,10 @@ class NoticeService:
         if not settings.supabase_configured:
             raise RuntimeError("Supabase is not configured.")
 
+        school_id = _optional_str(payload.get("school_id"))
+        if not school_id:
+            raise RuntimeError("school_id is required for school-only notices.")
+
         supabase = get_supabase_client()
         result = (
             supabase.table("notices")
@@ -18,9 +25,8 @@ class NoticeService:
                 {
                     "title": payload["title"],
                     "original_text": payload.get("raw_text"),
-                    "child_id": payload.get("child_id"),
-                    "school_id": payload.get("school_id"),
-                    "source": "manual",
+                    "school_id": school_id,
+                    "detail_url": _optional_str(payload.get("source_url")),
                     "status": "pending",
                 }
             )
@@ -65,8 +71,8 @@ class NoticeService:
         notice_result = (
             supabase.table("notices")
             .select(
-                "id,title,original_text,summary_translations,status,"
-                "source,detail_url,source_post_id,source_post_uid,crawl_result"
+                "id,school_id,title,original_text,extracted_content,status,"
+                "detail_url,source_post_uid,crawl_result"
             )
             .eq("id", notice_id)
             .single()
@@ -76,10 +82,8 @@ class NoticeService:
         if not notice:
             raise RuntimeError("Notice was not found.")
 
-        supabase.table("notices").update({"status": "processing"}).eq("id", notice_id).execute()
-
         try:
-            notice = await self._ensure_crawled_notice_text(
+            notice = await self._ensure_notice_text(
                 supabase=supabase,
                 notice=notice,
                 timeout_seconds=settings.crawler_timeout_seconds,
@@ -113,14 +117,10 @@ class NoticeService:
                 notice_id=notice_id,
                 target_language=target_language,
                 pipeline_result=result,
-                existing_summary_translations=notice.get("summary_translations") or {},
                 source_metadata=self._build_source_metadata(notice),
             )
         except Exception as exc:  # noqa: BLE001 - normalize external fetch/AI failures.
             message = f"{type(exc).__name__}: {exc}"
-            supabase.table("notices").update(
-                {"status": "error", "error_message": message}
-            ).eq("id", notice_id).execute()
             raise RuntimeError(message) from exc
 
         return {
@@ -141,12 +141,11 @@ class NoticeService:
         notice_id: str,
         target_language: str,
         pipeline_result: dict[str, Any],
-        existing_summary_translations: dict[str, Any],
         source_metadata: dict[str, Any],
     ) -> dict[str, Any]:
         metadata = dict(pipeline_result.get("metadata") or {})
         if source_metadata:
-            metadata["source"] = source_metadata
+            metadata["notice_context"] = source_metadata
         admin_review = pipeline_result.get("admin_review") or {}
         validation = pipeline_result.get("validation") or {}
         status = pipeline_result.get("status")
@@ -185,29 +184,14 @@ class NoticeService:
             target_language=target_language,
             pipeline_result=pipeline_result,
         )
-        schedules = self._replace_schedules_from_pipeline(
-            supabase=supabase,
-            notice=notice,
-            notice_id=notice_id,
-            pipeline_result=pipeline_result,
-        )
+        schedules: list[dict[str, Any]] = []
 
-        summary = metadata.get("summary_target_language") or pipeline_result.get("final_translation")
-        next_summaries = dict(existing_summary_translations)
-        if isinstance(summary, str) and summary.strip() and not admin_review.get("required"):
-            next_summaries[target_language] = summary.strip()
-
-        notice_patch: dict[str, Any] = {
-            "summary_translations": next_summaries,
-            "status": "done" if status == "ready_to_save" else "error",
-            "error_message": None
-            if status == "ready_to_save"
-            else row["admin_review_reason"] or "translation_requires_admin_review",
-        }
+        notice_patch: dict[str, Any] = {}
         if metadata.get("title"):
             notice_patch["title"] = metadata["title"]
 
-        supabase.table("notices").update(notice_patch).eq("id", notice_id).execute()
+        if notice_patch:
+            supabase.table("notices").update(notice_patch).eq("id", notice_id).execute()
 
         return {
             "translation_row": upsert.data[0] if upsert.data else None,
@@ -216,14 +200,14 @@ class NoticeService:
             "notice_patch": notice_patch,
         }
 
-    async def _ensure_crawled_notice_text(
+    async def _ensure_notice_text(
         self,
         *,
         supabase: Any,
         notice: dict[str, Any],
         timeout_seconds: float,
     ) -> dict[str, Any]:
-        if notice.get("source") != "crawl" or _optional_str(notice.get("original_text")):
+        if _optional_str(notice.get("original_text")):
             return notice
 
         detail_url = _optional_str(notice.get("detail_url"))
@@ -272,16 +256,13 @@ class NoticeService:
         if crawler_text:
             return crawler_text
 
-        if notice.get("source") == "crawl":
-            detail_url = _optional_str(notice.get("detail_url"))
-            suffix = f" detail_url={detail_url}" if detail_url else ""
-            raise RuntimeError(
-                "크롤링 공지의 본문이 아직 추출되지 않았습니다. "
-                "번역 전에 detail page fetch/OCR 단계가 original_text를 채워야 합니다."
-                f"{suffix}"
-            )
-
-        return _optional_str(notice.get("title")) or ""
+        detail_url = _optional_str(notice.get("detail_url"))
+        suffix = f" detail_url={detail_url}" if detail_url else ""
+        raise RuntimeError(
+            "번역할 공지 본문이 아직 추출되지 않았습니다. "
+            "번역 전에 content extraction 단계가 original_text를 채워야 합니다."
+            f"{suffix}"
+        )
 
     def _extract_crawler_text(self, notice: dict[str, Any]) -> str:
         crawl_result = notice.get("crawl_result")
@@ -313,10 +294,10 @@ class NoticeService:
 
     def _build_source_metadata(self, notice: dict[str, Any]) -> dict[str, Any]:
         metadata = {
-            "notice_source": notice.get("source"),
+            "school_id": notice.get("school_id"),
             "detail_url": notice.get("detail_url"),
-            "source_post_id": notice.get("source_post_id"),
             "source_post_uid": notice.get("source_post_uid"),
+            "extracted_content": _extraction_metadata(notice.get("extracted_content")),
         }
         crawl_result = notice.get("crawl_result")
         if isinstance(crawl_result, dict):
@@ -347,34 +328,84 @@ class NoticeService:
             target_language=target_language,
             pipeline_result=pipeline_result,
         )
-        supabase.table("notice_cards").delete().eq("notice_id", notice_id).execute()
+
+        existing_rows = (
+            supabase.table("notice_cards")
+            .select("id,type,order,content")
+            .eq("notice_id", notice_id)
+            .execute()
+            .data
+            or []
+        )
+        existing_rows = _remove_target_language_from_existing_cards(
+            supabase=supabase,
+            rows=existing_rows,
+            target_language=target_language,
+        )
         if not cards:
             return []
-        result = supabase.table("notice_cards").insert(cards).execute()
-        return list(result.data or [])
 
-    def _replace_schedules_from_pipeline(
-        self,
-        *,
-        supabase: Any,
-        notice: dict[str, Any],
-        notice_id: str,
-        pipeline_result: dict[str, Any],
-    ) -> list[dict[str, Any]]:
-        child_id = _optional_str(notice.get("child_id"))
-        if pipeline_result.get("status") != "ready_to_save" or not child_id:
-            return []
+        existing_by_slot = {
+            (row.get("type"), row.get("order")): row
+            for row in existing_rows
+            if row.get("id")
+        }
 
-        schedules = _build_schedule_rows(
-            notice_id=notice_id,
-            child_id=child_id,
-            pipeline_result=pipeline_result,
-        )
-        supabase.table("schedules").delete().eq("notice_id", notice_id).execute()
-        if not schedules:
-            return []
-        result = supabase.table("schedules").insert(schedules).execute()
-        return list(result.data or [])
+        saved: list[dict[str, Any]] = []
+        inserts: list[dict[str, Any]] = []
+        for card in cards:
+            slot = (card["type"], card["order"])
+            existing = existing_by_slot.get(slot)
+            if not existing:
+                inserts.append(card)
+                continue
+
+            merged_content = _merge_card_content(
+                existing.get("content"),
+                card["content"],
+            )
+            result = (
+                supabase.table("notice_cards")
+                .update({"content": merged_content})
+                .eq("id", existing["id"])
+                .execute()
+            )
+            saved.extend(result.data or [])
+
+        if inserts:
+            result = supabase.table("notice_cards").insert(inserts).execute()
+            saved.extend(result.data or [])
+
+        return saved
+
+
+def _remove_target_language_from_existing_cards(
+    *,
+    supabase: Any,
+    rows: list[dict[str, Any]],
+    target_language: str,
+) -> list[dict[str, Any]]:
+    remaining: list[dict[str, Any]] = []
+    for row in rows:
+        content = row.get("content")
+        if not isinstance(content, dict) or target_language not in content:
+            remaining.append(row)
+            continue
+
+        next_content = dict(content)
+        next_content.pop(target_language, None)
+        if next_content:
+            supabase.table("notice_cards").update({"content": next_content}).eq(
+                "id",
+                row["id"],
+            ).execute()
+            next_row = dict(row)
+            next_row["content"] = next_content
+            remaining.append(next_row)
+        else:
+            supabase.table("notice_cards").delete().eq("id", row["id"]).execute()
+
+    return remaining
 
 
 def _optional_str(value: object) -> str | None:
@@ -382,6 +413,30 @@ def _optional_str(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _extraction_metadata(value: object) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        key: value.get(key)
+        for key in (
+            "schema_version",
+            "final_url",
+            "content_kind",
+            "included_source_ids",
+            "metadata",
+            "errors",
+        )
+        if value.get(key) not in (None, "", [])
+    }
+
+
+def _merge_card_content(existing: object, incoming: object) -> dict[str, Any]:
+    merged = dict(existing) if isinstance(existing, dict) else {}
+    if isinstance(incoming, dict):
+        merged.update(incoming)
+    return merged
 
 
 def _build_notice_cards(
@@ -461,35 +516,6 @@ def _build_notice_cards(
         )
 
     return cards
-
-
-def _build_schedule_rows(
-    *,
-    notice_id: str,
-    child_id: str,
-    pipeline_result: dict[str, Any],
-) -> list[dict[str, Any]]:
-    source_facts = _hard_facts(pipeline_result.get("source_hard_facts"))
-    metadata = pipeline_result.get("metadata") if isinstance(pipeline_result.get("metadata"), dict) else {}
-    title = _optional_str(metadata.get("title")) or "학교 공지 일정"
-    location = _first_value(source_facts.get("locations"))
-    description = _optional_str(metadata.get("summary_ko")) or _optional_str(pipeline_result.get("source_text"))
-    rows = []
-    for date in _values(source_facts.get("dates")):
-        normalized = _iso_date(date)
-        if not normalized:
-            continue
-        rows.append(
-            {
-                "notice_id": notice_id,
-                "child_id": child_id,
-                "title": title,
-                "event_date": normalized,
-                "location": location,
-                "description": description[:500] if description else None,
-            }
-        )
-    return rows
 
 
 def _card_row(
