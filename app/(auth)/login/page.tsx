@@ -4,7 +4,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import LoginButtons from './LoginButtons'
 
 interface Props {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; next?: string }>
 }
 
 interface LoginMessages {
@@ -50,7 +50,7 @@ export default async function LoginPage({ searchParams }: Props) {
   const messages = (await import(`@/messages/${locale}.json`)).default
   const loginMessages: LoginMessages = messages.login
 
-  const { error: errorCode } = await searchParams
+  const { error: errorCode, next } = await searchParams
   const initialError = mapErrorMessage(errorCode, loginMessages)
 
   return (
@@ -76,7 +76,15 @@ export default async function LoginPage({ searchParams }: Props) {
         <p className="text-sm text-muted mt-2">{loginMessages.subtitle}</p>
       </div>
 
-      <LoginButtons messages={loginMessages} initialError={initialError} />
+      <LoginButtons
+        messages={loginMessages}
+        initialError={initialError}
+        nextPath={next}
+        googleLoginEnabled={process.env.AUTH_GOOGLE_ENABLED !== 'false'}
+        devLoginEnabled={
+          process.env.NODE_ENV !== 'production' && process.env.DEV_LOGIN_ENABLED === 'true'
+        }
+      />
 
       <p className="text-xs text-muted-soft text-center mt-8 leading-relaxed">
         {loginMessages.terms}

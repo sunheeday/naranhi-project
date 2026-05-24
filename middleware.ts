@@ -1,8 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isUiPreviewEnabled } from './lib/ui-preview'
+import { appendNextParam } from './lib/auth/redirect'
 
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/api/health', '/api/supabase/health']
+const PUBLIC_PATHS = [
+  '/login',
+  '/auth/callback',
+  '/api/auth/dev-login',
+  '/api/health',
+  '/api/supabase/health',
+]
 
 export async function middleware(request: NextRequest) {
   if (isUiPreviewEnabled()) {
@@ -35,7 +42,9 @@ export async function middleware(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
   if (!user && !isPublic) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(
+      new URL(appendNextParam('/login', `${pathname}${request.nextUrl.search}`), request.url)
+    )
   }
 
   return response

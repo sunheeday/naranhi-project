@@ -1,14 +1,26 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
+import { safeNextPath } from '@/lib/auth/redirect'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  const callbackError = searchParams.get('error')
+  const next = safeNextPath(searchParams.get('next'))
+
+  if (callbackError) {
+    const loginUrl = new URL('/login', origin)
+    loginUrl.searchParams.set('error', callbackError)
+    if (next !== '/') loginUrl.searchParams.set('next', next)
+    return NextResponse.redirect(loginUrl)
+  }
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+    const loginUrl = new URL('/login', origin)
+    loginUrl.searchParams.set('error', 'auth_callback_failed')
+    if (next !== '/') loginUrl.searchParams.set('next', next)
+    return NextResponse.redirect(loginUrl)
   }
 
   const response = NextResponse.redirect(`${origin}${next}`)
@@ -31,9 +43,12 @@ export async function GET(request: NextRequest) {
     }
   )
 
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-  if (error || !data?.session) {
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+  const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+  if (exchangeError || !data?.session) {
+    const loginUrl = new URL('/login', origin)
+    loginUrl.searchParams.set('error', 'auth_callback_failed')
+    if (next !== '/') loginUrl.searchParams.set('next', next)
+    return NextResponse.redirect(loginUrl)
   }
 
   return response
