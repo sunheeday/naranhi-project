@@ -195,7 +195,10 @@ def _urls_from_javascript(onclick: str) -> list[str]:
 def _dext5_uploaded_files(html: str) -> list[dict[str, str]]:
     refs: list[dict[str, str]] = []
     for match in re.finditer(r"DEXT5UPLOAD\.AddUploadedFile\((.*?)\);", html, re.DOTALL):
-        args = re.findall(r'"((?:[^"\\]|\\.)*)"', match.group(1))
+        args = [
+            _unescape_js_string(value)
+            for _, value in re.findall(r"""(['"])((?:\\.|(?!\1).)*)\1""", match.group(1), re.DOTALL)
+        ]
         if len(args) < 3:
             continue
         filename = args[1]
@@ -204,6 +207,17 @@ def _dext5_uploaded_files(html: str) -> list[dict[str, str]]:
             continue
         refs.append({"filename": filename, "url": url})
     return refs
+
+
+def _unescape_js_string(value: str) -> str:
+    if "\\" not in value:
+        return value
+    return (
+        value
+        .replace("\\'", "'")
+        .replace('\\"', '"')
+        .replace("\\\\", "\\")
+    )
 
 
 def _server_file_objects(base_url: str, html: str) -> list[AttachmentRef]:

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 import unittest
 from unittest.mock import MagicMock, patch
 
+from postgrest.exceptions import APIError
+
 from app.services.content_extraction_service import (
     EXTRACTED_CONTENT_SCHEMA_VERSION,
+    _claim_notice,
     build_extracted_content,
     classify_extraction_error,
     _save_success,
     _is_successful_extraction,
     _failure_payload,
     _missing_supabase_config_names,
+    _pick_claimable_notice,
 )
 
 
@@ -135,6 +140,73 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
             _missing_supabase_config_names(settings),
             ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
         )
+
+    def test_pick_claimable_notice_accepts_homepage_pending_error_when_due(self) -> None:
+        row = {
+            "id": "notice-1",
+            "school_id": "school-1",
+            "detail_url": "https://example.edu/1",
+            "status": "error",
+            "extraction_attempts": 1,
+            "extraction_error_code": "transient_network",
+            "extraction_next_run_at": (datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
+        }
+
+        picked = _pick_claimable_notice(
+            [row],
+            notice_id=None,
+            force=False,
+            stale_minutes=180,
+        )
+
+        self.assertEqual(picked, row)
+
+    def test_claim_notice_falls_back_when_rpc_is_missing(self) -> None:
+        rpc_query = MagicMock()
+        rpc_query.execute.side_effect = APIError(
+            {
+                "code": "PGRST202",
+                "message": "Could not find the function public.claim_notice_extractions(p_force, p_limit, p_notice_id, p_stale_minutes) in the schema cache",
+                "details": "",
+                "hint": None,
+            }
+        )
+
+        select_query = MagicMock()
+        select_query.eq.return_value = select_query
+        select_query.limit.return_value = select_query
+        select_query.execute.return_value.data = [
+            {
+                "id": "notice-1",
+                "school_id": "school-1",
+                "detail_url": "https://example.edu/1",
+                "status": "pending",
+                "extraction_attempts": 0,
+                "extraction_started_at": None,
+                "extraction_next_run_at": None,
+                "extraction_error_code": None,
+            }
+        ]
+
+        update_query = MagicMock()
+        update_query.eq.return_value = update_query
+        update_query.execute.return_value.data = []
+
+        notices_table = MagicMock()
+        notices_table.select.return_value = select_query
+        notices_table.update.return_value = update_query
+
+        client = MagicMock()
+        client.rpc.return_value = rpc_query
+        client.table.return_value = notices_table
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            claimed = _claim_notice(notice_id="notice-1", force=True, stale_minutes=180)
+
+        self.assertIsNotNone(claimed)
+        self.assertEqual(claimed["id"], "notice-1")
+        self.assertEqual(claimed["status"], "processing")
+        notices_table.update.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -38,6 +38,8 @@
   "login": {
     "title": "Naranhi",
     "subtitle": "School news in your language",
+    "language_title": "Choose your language first",
+    "language_body": "If you pick a language before signing in, the next screens will continue in that language.",
     "google": "Sign in with Google",
     "terms": "By signing in, you agree to the Terms of Service and Privacy Policy.",
     "connecting": "Connecting...",
@@ -63,7 +65,7 @@
     "step2_title": "What grade?",
     "step2_grade": "Grade {grade}",
     "step2_class": "Class {class}",
-    "step3_title": "Enter your child's name and notification language",
+    "step3_title": "Tell us about your child",
     "step3_name_placeholder": "Child's name",
     "complete": "Get started"
   },

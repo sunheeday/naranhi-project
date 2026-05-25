@@ -43,7 +43,26 @@ NOISE_SELECTORS = (
     ".pagination",
     ".comment",
     ".reply",
+    ".attach",
+    ".attachment",
+    ".file",
+    ".fileArea",
+    ".file_area",
+    ".fileList",
+    ".file_list",
 )
+
+NOISE_LINES = {
+    "첨부",
+    "첨부파일",
+    "첨부 파일",
+    "첨부파일 미리보기",
+    "파일첨부",
+    "미리보기",
+    "바로듣기",
+    "듣기",
+    "preview",
+}
 
 IMAGE_EXT_RE = re.compile(r"\.(png|jpe?g|webp|bmp)(?:[?#].*)?$", re.IGNORECASE)
 NOISE_IMAGE_TERMS = (
@@ -146,6 +165,9 @@ def _clean_text(value: str) -> str:
     lines = []
     for raw_line in value.replace("\r", "\n").split("\n"):
         line = re.sub(r"\s+", " ", raw_line).strip()
-        if line:
-            lines.append(line)
+        if not line:
+            continue
+        if line.lower() in NOISE_LINES:
+            continue
+        lines.append(line)
     return "\n".join(lines)

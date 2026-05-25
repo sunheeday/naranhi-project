@@ -13,6 +13,7 @@ const RETRYABLE_INITIAL_CRAWL_STATUSES = new Set([
   'fetch_timeout',
   'fetch_unavailable',
   'homepage_missing',
+  'homepage_fetch_failed',
 ])
 
 export function schoolNeedsInitialCrawl(school: SchoolCrawlerState): boolean {

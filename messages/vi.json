@@ -38,6 +38,8 @@
   "login": {
     "title": "나란히",
     "subtitle": "Thông tin trường học bằng ngôn ngữ của bạn",
+    "language_title": "Hãy chọn ngôn ngữ trước",
+    "language_body": "Nếu chọn ngôn ngữ trước khi đăng nhập, các màn hình tiếp theo sẽ tiếp tục bằng đúng ngôn ngữ đó.",
     "google": "Đăng nhập bằng Google",
     "terms": "Khi đăng nhập, bạn đồng ý với điều khoản dịch vụ và chính sách bảo mật.",
     "connecting": "Đang kết nối...",
@@ -63,7 +65,7 @@
     "step2_title": "Con bạn học lớp mấy?",
     "step2_grade": "Lớp {grade}",
     "step2_class": "Tổ {class}",
-    "step3_title": "Nhập tên con và chọn ngôn ngữ thông báo",
+    "step3_title": "Hãy nhập thông tin của con bạn",
     "step3_name_placeholder": "Nhập tên con",
     "complete": "Bắt đầu"
   },
