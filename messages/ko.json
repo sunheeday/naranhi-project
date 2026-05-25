@@ -38,6 +38,8 @@
   "login": {
     "title": "나란히",
     "subtitle": "학교 소식을 내 언어로",
+    "language_title": "먼저 편한 언어를 선택해 주세요",
+    "language_body": "가입 전에 언어를 고르면 로그인 이후 안내와 화면이 같은 언어로 이어집니다.",
     "google": "구글로 로그인",
     "terms": "로그인 시 이용약관 및 개인정보 처리방침에 동의합니다.",
     "connecting": "연결 중...",
@@ -63,7 +65,7 @@
     "step2_title": "몇 학년인가요?",
     "step2_grade": "{grade}학년",
     "step2_class": "{class}반",
-    "step3_title": "아이 이름과 알림 언어를 선택해 주세요",
+    "step3_title": "아이 정보를 입력해 주세요",
     "step3_name_placeholder": "아이 이름 입력",
     "complete": "시작하기"
   },

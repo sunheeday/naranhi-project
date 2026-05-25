@@ -7,6 +7,7 @@ import type { CardType } from '@/types/database'
 import NoticeCardSwiper, { type NoticeCard } from './NoticeCardSwiper'
 import NoticeProcessingView from './NoticeProcessingView'
 import NoticeErrorView from './NoticeErrorView'
+import NoticeLocaleTranslationKickoff from './NoticeLocaleTranslationKickoff'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -29,6 +30,10 @@ function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
   const rawItems = Array.isArray(obj.items) ? obj.items : []
   const items = rawItems
     .map(item => {
+      if (typeof item === 'string') {
+        const text = asText(item)
+        return text ? { text } : null
+      }
       const itemObj = asObject(item)
       if (!itemObj) return null
       const text = asText(itemObj.text)
@@ -93,6 +98,7 @@ export default async function NoticePage({ params }: Props) {
       <main className="flex flex-col min-h-screen">
         {Header}
         <NoticeProcessingView
+          noticeId={id}
           title={messages.notice_detail.processing_title}
           description={messages.notice_detail.processing_desc}
         />
@@ -132,6 +138,9 @@ export default async function NoticePage({ params }: Props) {
   return (
     <main className="flex flex-col min-h-screen">
       {Header}
+      {!detail.hasLocaleTranslation ? (
+        <NoticeLocaleTranslationKickoff noticeId={id} locale={locale} />
+      ) : null}
       <NoticeCardSwiper
         noticeId={id}
         cards={cards}

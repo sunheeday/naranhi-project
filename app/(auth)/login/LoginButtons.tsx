@@ -7,6 +7,7 @@ import {
   openInExternalBrowser,
   type InAppBrowserDetection,
 } from '@/lib/inAppBrowser'
+import { safeNextPath } from '@/lib/auth/redirect'
 
 interface LoginMessages {
   google: string
@@ -26,10 +27,19 @@ interface Props {
    * 서버에서 전달된 초기 에러 메시지 (예: auth/callback 실패 후 쿼리스트링).
    */
   initialError?: string | null
+  nextPath?: string | null
+  googleLoginEnabled: boolean
+  devLoginEnabled: boolean
 }
 
-export default function LoginButtons({ messages, initialError = null }: Props) {
-  const [loading, setLoading] = useState<'google' | null>(null)
+export default function LoginButtons({
+  messages,
+  initialError = null,
+  nextPath = null,
+  googleLoginEnabled,
+  devLoginEnabled,
+}: Props) {
+  const [loading, setLoading] = useState<'google' | 'dev' | null>(null)
   const [error, setError] = useState<string | null>(initialError)
   const [inApp] = useState<InAppBrowserDetection | null>(() => {
     const detection = detectInAppBrowser()
@@ -38,6 +48,7 @@ export default function LoginButtons({ messages, initialError = null }: Props) {
   const [copied, setCopied] = useState(false)
 
   async function handleGoogle() {
+    if (!googleLoginEnabled) return
     // 인앱 브라우저에서 Google OAuth는 403 disallowed_useragent로 막히므로,
     // 외부 브라우저 전환이 가능하면 그쪽으로 리다이렉트한 뒤 사용자에게 재시도를 맡긴다.
     if (inApp?.canOpenExternal) {
@@ -47,10 +58,16 @@ export default function LoginButtons({ messages, initialError = null }: Props) {
     setLoading('google')
     setError(null)
     const supabase = createSupabaseBrowserClient()
+    const callbackUrl = new URL('/auth/callback', window.location.origin)
+    const safeNext = safeNextPath(nextPath)
+    if (safeNext !== '/') {
+      callbackUrl.searchParams.set('next', safeNext)
+    }
+
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl.toString(),
         queryParams: {
           prompt: 'select_account',
         },
@@ -58,6 +75,26 @@ export default function LoginButtons({ messages, initialError = null }: Props) {
     })
     if (oauthError) setError(messages.error_google)
     setLoading(null)
+  }
+
+  async function handleDevLogin() {
+    setLoading('dev')
+    setError(null)
+    const safeNext = safeNextPath(nextPath)
+    const response = await fetch('/api/auth/dev-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ next: safeNext }),
+    })
+    const body = await response.json().catch(() => null)
+    setLoading(null)
+
+    if (!response.ok || !body?.ok) {
+      setError('개발용 로그인 설정을 확인해주세요.')
+      return
+    }
+
+    window.location.assign(safeNext)
   }
 
   async function handleCopyUrl() {
@@ -74,7 +111,7 @@ export default function LoginButtons({ messages, initialError = null }: Props) {
 
   return (
     <div className="flex flex-col gap-3 w-full">
-      {inApp && (
+      {googleLoginEnabled && inApp && (
         <InAppBrowserBanner
           messages={messages}
           canOpenExternal={inApp.canOpenExternal}
@@ -84,16 +121,30 @@ export default function LoginButtons({ messages, initialError = null }: Props) {
         />
       )}
 
-      <button
-        onClick={handleGoogle}
-        disabled={isLoading}
-        aria-label={messages.google}
-        aria-busy={loading === 'google'}
-        className="flex items-center justify-center gap-3 w-full h-[52px] rounded-btn bg-primary text-on-primary text-base font-semibold active:bg-primary-active disabled:opacity-60 transition-colors"
-      >
-        {loading === 'google' ? <SpinnerWhite /> : <GoogleIconOnDark />}
-        {loading === 'google' ? messages.connecting : messages.google}
-      </button>
+      {googleLoginEnabled && (
+        <button
+          onClick={handleGoogle}
+          disabled={isLoading}
+          aria-label={messages.google}
+          aria-busy={loading === 'google'}
+          className="flex items-center justify-center gap-3 w-full h-[52px] rounded-btn bg-primary text-on-primary text-base font-semibold active:bg-primary-active disabled:opacity-60 transition-colors"
+        >
+          {loading === 'google' ? <SpinnerWhite /> : <GoogleIconOnDark />}
+          {loading === 'google' ? messages.connecting : messages.google}
+        </button>
+      )}
+
+      {devLoginEnabled && (
+        <button
+          type="button"
+          onClick={handleDevLogin}
+          disabled={isLoading}
+          aria-busy={loading === 'dev'}
+          className="flex items-center justify-center w-full h-[52px] rounded-btn bg-surface-card border border-hairline-soft text-ink text-base font-semibold active:bg-hairline disabled:opacity-60 transition-colors"
+        >
+          {loading === 'dev' ? '로그인 중...' : '개발용 로그인'}
+        </button>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-center mt-2" style={{ color: '#DC2626' }}>

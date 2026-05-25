@@ -10,6 +10,7 @@ from typing import Any
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
 from extractor.http_security import sanitize_error
+from postgrest.exceptions import APIError
 
 
 EXTRACTED_CONTENT_SCHEMA_VERSION = "1"
@@ -368,21 +369,33 @@ def _failure_payload(notice: dict[str, Any], *, error_code: str, error_message: 
 
 
 def _claim_notice(*, notice_id: str | None, force: bool, stale_minutes: int) -> dict[str, Any] | None:
-    result = (
-        get_supabase_client()
-        .rpc(
-            "claim_notice_extractions",
-            {
-                "p_limit": 1,
-                "p_stale_minutes": stale_minutes,
-                "p_notice_id": notice_id,
-                "p_force": force,
-            },
+    try:
+        result = (
+            get_supabase_client()
+            .rpc(
+                "claim_notice_extractions",
+                {
+                    "p_limit": 1,
+                    "p_stale_minutes": stale_minutes,
+                    "p_notice_id": notice_id,
+                    "p_force": force,
+                },
+            )
+            .execute()
         )
-        .execute()
-    )
-    rows = result.data or []
-    return rows[0] if rows else None
+        rows = result.data or []
+        return rows[0] if rows else None
+    except APIError as exc:
+        if not _is_missing_claim_rpc_error(exc):
+            raise
+        LOGGER.warning(
+            "claim_notice_extractions RPC not found; falling back to direct claim logic."
+        )
+        return _claim_notice_without_rpc(
+            notice_id=notice_id,
+            force=force,
+            stale_minutes=stale_minutes,
+        )
 
 
 def _dry_run_targets(*, notice_id: str | None, limit: int) -> list[dict[str, Any]]:
@@ -424,6 +437,106 @@ def _pending_notice_ids_for_school(school_id: str, *, limit: int) -> list[str]:
         or []
     )
     return [str(row["id"]) for row in rows if row.get("id") and row.get("detail_url")]
+
+
+def _is_missing_claim_rpc_error(exc: APIError) -> bool:
+    message = str(exc)
+    return (
+        getattr(exc, "code", "") == "PGRST202"
+        and "claim_notice_extractions" in message
+    )
+
+
+def _claim_notice_without_rpc(
+    *,
+    notice_id: str | None,
+    force: bool,
+    stale_minutes: int,
+) -> dict[str, Any] | None:
+    rows = _candidate_notice_rows(notice_id=notice_id)
+    candidate = _pick_claimable_notice(
+        rows,
+        notice_id=notice_id,
+        force=force,
+        stale_minutes=stale_minutes,
+    )
+    if candidate is None:
+        return None
+
+    notice_id_value = str(candidate["id"])
+    now_iso = _utc_now().isoformat()
+    payload = {
+        "status": "processing",
+        "extraction_attempts": _int_value(candidate.get("extraction_attempts")) + 1,
+        "extraction_started_at": now_iso,
+        "extraction_next_run_at": None,
+        "extraction_error_code": None,
+        "error_message": None,
+    }
+    get_supabase_client().table("notices").update(payload).eq("id", notice_id_value).execute()
+    return {**candidate, **payload}
+
+
+def _candidate_notice_rows(*, notice_id: str | None) -> list[dict[str, Any]]:
+    query = get_supabase_client().table("notices").select("*")
+    if notice_id:
+        query = query.eq("id", notice_id).limit(1)
+    else:
+        query = query.in_("status", ["pending", "error", "processing"]).order("created_at").limit(100)
+    return query.execute().data or []
+
+
+def _pick_claimable_notice(
+    rows: list[dict[str, Any]],
+    *,
+    notice_id: str | None,
+    force: bool,
+    stale_minutes: int,
+) -> dict[str, Any] | None:
+    now = _utc_now()
+    stale_cutoff = now - timedelta(minutes=stale_minutes)
+
+    for row in rows:
+        if row.get("school_id") is None or not row.get("detail_url"):
+            continue
+        if notice_id and str(row.get("id")) != notice_id:
+            continue
+        if force and notice_id:
+            return row
+
+        status = str(row.get("status") or "")
+        if status == "pending":
+            return row
+        if status == "error":
+            next_run_at = _parse_datetime_value(row.get("extraction_next_run_at"))
+            attempts = _int_value(row.get("extraction_attempts"))
+            error_code = str(row.get("extraction_error_code") or "")
+            if (
+                (error_code == "gemini_quota_exhausted" or attempts < 3)
+                and (next_run_at is None or next_run_at <= now)
+            ):
+                return row
+        if status == "processing":
+            started_at = _parse_datetime_value(row.get("extraction_started_at"))
+            if started_at is not None and started_at < stale_cutoff:
+                return row
+
+    return None
+
+
+def _parse_datetime_value(value: Any) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str):
+        return None
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def _is_successful_extraction(result: Any) -> bool:

@@ -14,4 +14,5 @@ async def health_check() -> dict[str, object]:
         "service": "naranhi-api",
         "supabase_configured": settings.supabase_configured,
         "ai_configured": settings.ai_configured,
+        "gemini_configured": settings.gemini_configured,
     }

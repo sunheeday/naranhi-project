@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
-import { getCachedOrFetchMealsForRange, type Meal } from '@/lib/neis'
+import { getCachedOrFetchMealsForRange, translateMealsForLocale, type Meal } from '@/lib/neis'
 import MealWeekView, { type DayEntry } from './MealWeekView'
 
 interface Props {
@@ -103,7 +103,10 @@ export default async function MealsPage({ searchParams }: Props) {
         const days: DayEntry[] = []
         for (let i = 0; i < 5; i++) {
           const iso = addDaysIso(monday, i)
-          days.push({ isoDate: iso, meals: map.get(iso) ?? [] })
+          days.push({
+            isoDate: iso,
+            meals: await translateMealsForLocale(map.get(iso) ?? [], locale),
+          })
         }
         dayEntries = days
       } catch (e) {

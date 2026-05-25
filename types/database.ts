@@ -4,6 +4,7 @@ export type SupportedLocale = 'ko' | 'en' | 'zh' | 'vi' | 'ru' | 'ar' | 'fr' | '
 export type NoticeStatus = 'pending' | 'processing' | 'done' | 'error'
 export type CardType = 'supplies' | 'action' | 'schedule'
 export type SchoolCrawlBoardKind = 'family_notice' | 'announcement_fallback' | 'unknown'
+export type NoticeAiValidationStatus = 'passed' | 'human_review_required' | 'failed'
 
 export interface Database {
   public: {
@@ -137,7 +138,6 @@ export interface Database {
           detail_url: string | null
           crawl_result: Json
           extracted_content: Json | null
-          summary_translations: { [locale: string]: string }
           status: NoticeStatus
           error_message: string | null
           extraction_attempts: number
@@ -156,7 +156,6 @@ export interface Database {
           detail_url?: string | null
           crawl_result?: Json
           extracted_content?: Json | null
-          summary_translations?: { [locale: string]: string }
           status?: NoticeStatus
           error_message?: string | null
           extraction_attempts?: number
@@ -174,13 +173,69 @@ export interface Database {
           detail_url?: string | null
           crawl_result?: Json
           extracted_content?: Json | null
-          summary_translations?: { [locale: string]: string }
           status?: NoticeStatus
           error_message?: string | null
           extraction_attempts?: number
           extraction_started_at?: string | null
           extraction_next_run_at?: string | null
           extraction_error_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notice_ai_translations: {
+        Row: {
+          id: string
+          notice_id: string
+          target_language: string
+          source_language: string
+          source_text: string
+          translated_text: string
+          source_hard_facts: Json
+          target_hard_facts: Json
+          ingredient_identity_map: Json
+          validation: Json
+          metadata: Json
+          raw_pipeline: Json
+          validation_status: NoticeAiValidationStatus
+          requires_admin_review: boolean
+          admin_review_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          notice_id: string
+          target_language: string
+          source_language?: string
+          source_text: string
+          translated_text: string
+          source_hard_facts?: Json
+          target_hard_facts?: Json
+          ingredient_identity_map?: Json
+          validation?: Json
+          metadata?: Json
+          raw_pipeline?: Json
+          validation_status?: NoticeAiValidationStatus
+          requires_admin_review?: boolean
+          admin_review_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          target_language?: string
+          source_language?: string
+          source_text?: string
+          translated_text?: string
+          source_hard_facts?: Json
+          target_hard_facts?: Json
+          ingredient_identity_map?: Json
+          validation?: Json
+          metadata?: Json
+          raw_pipeline?: Json
+          validation_status?: NoticeAiValidationStatus
+          requires_admin_review?: boolean
+          admin_review_reason?: string | null
           updated_at?: string
         }
         Relationships: []

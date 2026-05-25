@@ -4,21 +4,17 @@ import { useState, useTransition } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { locales, localeNames, localeFlags, type Locale } from '@/lib/i18n'
+import type { Locale } from '@/lib/i18n'
 import { saveChildAndProfile } from './actions'
 import SchoolSearchInput, { type SchoolPick } from './SchoolSearchInput'
 
-const step2Schema = z.object({
+const studentSchema = z.object({
   grade: z.number().int().min(1).max(6),
   classNo: z.number().int().min(1).max(20),
-})
-const step3Schema = z.object({
   childName: z.string().min(1, '아이 이름을 입력해주세요'),
-  locale: z.enum(['ko', 'en', 'zh', 'vi', 'ru', 'ar', 'fr', 'id', 'th'] as const),
 })
 
-type Step2 = z.infer<typeof step2Schema>
-type Step3 = z.infer<typeof step3Schema>
+type StudentForm = z.infer<typeof studentSchema>
 
 function gradesFor(level: string): number[] {
   if (level.includes('중학교') || level.includes('고등학교')) return [1, 2, 3]
@@ -59,24 +55,16 @@ export default function OnboardingFlow({ messages, locale }: Props) {
   const [step, setStep] = useState(1)
   const [school, setSchool] = useState<SchoolPick | null>(null)
   const [step1Error, setStep1Error] = useState<string | null>(null)
-  const [step2Data, setStep2Data] = useState<Step2 | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const totalSteps = 3
+  const totalSteps = 2
 
-  const form2 = useForm<Step2>({
-    resolver: zodResolver(step2Schema),
-    defaultValues: { grade: step2Data?.grade ?? 1, classNo: step2Data?.classNo ?? 1 },
+  const studentForm = useForm<StudentForm>({
+    resolver: zodResolver(studentSchema),
+    defaultValues: { grade: 1, classNo: 1, childName: '' },
   })
-  const form3 = useForm<Step3>({
-    resolver: zodResolver(step3Schema),
-    defaultValues: { childName: '', locale },
-  })
-  const selectedLocale = useWatch({
-    control: form3.control,
-    name: 'locale',
-  })
+  useWatch({ control: studentForm.control })
 
   function stepLabel(current: number) {
     return messages.step_of
@@ -86,33 +74,24 @@ export default function OnboardingFlow({ messages, locale }: Props) {
 
   function handleStep1Submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!school || !school.schoolCode) {
-      setStep1Error(messages.step1_school_required ?? '학교를 검색하여 선택해 주세요.')
-      return
-    }
-    setStep1Error(null)
     setStep(2)
   }
 
-  function handleStep2(data: Step2) {
-    setStep2Data(data)
-    setStep(3)
-  }
-
-  function handleStep3(data: Step3) {
-    if (!school || !school.schoolCode || !step2Data) return
+  function handleStudentSubmit(data: StudentForm) {
+    if (!school || !school.schoolCode) return
     setServerError(null)
     startTransition(async () => {
       try {
         await saveChildAndProfile({
           schoolName: school.name,
           schoolAddress: school.address,
+          schoolHomepageUrl: school.homepageUrl,
           neisOfficeCode: school.officeCode,
           neisSchoolCode: school.schoolCode,
-          grade: step2Data.grade,
-          classNo: step2Data.classNo,
+          grade: data.grade,
+          classNo: data.classNo,
           childName: data.childName,
-          locale: data.locale,
+          locale,
         })
       } catch (e) {
         setServerError(e instanceof Error ? e.message : '저장에 실패했습니다.')
@@ -137,7 +116,7 @@ export default function OnboardingFlow({ messages, locale }: Props) {
           </button>
         )}
         <div className="flex gap-1.5 ms-auto" role="status" aria-label={stepLabel(step)}>
-          {[1, 2, 3].map(s => (
+          {[1, 2].map(s => (
             <span
               key={s}
               className={`w-2 h-2 rounded-full transition-colors ${s <= step ? 'bg-primary' : 'bg-border'}`}
@@ -174,11 +153,11 @@ export default function OnboardingFlow({ messages, locale }: Props) {
       )}
 
       {step === 2 && (
-        <form onSubmit={form2.handleSubmit(handleStep2)} className="flex flex-col gap-6">
-          <h1 className="text-xl font-bold text-text-primary">{messages.step2_title}</h1>
+        <form onSubmit={studentForm.handleSubmit(handleStudentSubmit)} className="flex flex-col gap-6">
+          <h1 className="text-xl font-bold text-text-primary">{messages.step3_title}</h1>
           <div className="flex flex-col gap-3">
             <select
-              {...form2.register('grade', { valueAsNumber: true })}
+              {...studentForm.register('grade', { valueAsNumber: true })}
               aria-label="학년 선택"
               className="w-full h-[52px] px-4 rounded-btn border border-border bg-surface text-base text-text-primary focus:outline-none focus:border-primary appearance-none"
             >
@@ -189,7 +168,7 @@ export default function OnboardingFlow({ messages, locale }: Props) {
               ))}
             </select>
             <select
-              {...form2.register('classNo', { valueAsNumber: true })}
+              {...studentForm.register('classNo', { valueAsNumber: true })}
               aria-label="반 선택"
               className="w-full h-[52px] px-4 rounded-btn border border-border bg-surface text-base text-text-primary focus:outline-none focus:border-primary appearance-none"
             >
@@ -199,57 +178,18 @@ export default function OnboardingFlow({ messages, locale }: Props) {
                 </option>
               ))}
             </select>
-          </div>
-          <FixedNextButton label="다음 →" disabled={false} isPending={false} />
-        </form>
-      )}
-
-      {step === 3 && (
-        <form onSubmit={form3.handleSubmit(handleStep3)} className="flex flex-col gap-6">
-          <h1 className="text-xl font-bold text-text-primary">{messages.step3_title}</h1>
-          <div className="flex flex-col gap-1">
             <input
-              {...form3.register('childName')}
+              {...studentForm.register('childName')}
               type="text"
               placeholder={messages.step3_name_placeholder}
               aria-label={messages.step3_name_placeholder}
-              autoFocus
               className="w-full h-[52px] px-4 rounded-btn border border-border bg-surface text-base text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-primary"
             />
-            {form3.formState.errors.childName && (
+            {studentForm.formState.errors.childName && (
               <p role="alert" className="text-sm text-red-500 px-1">
-                {form3.formState.errors.childName.message}
+                {studentForm.formState.errors.childName.message}
               </p>
             )}
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-text-primary mb-3">알림받을 언어</p>
-            <div className="flex gap-3">
-              {locales.map(loc => {
-                const isSelected = selectedLocale === loc
-                return (
-                  <button
-                    key={loc}
-                    type="button"
-                    onClick={() => form3.setValue('locale', loc, { shouldValidate: true })}
-                    aria-pressed={isSelected}
-                    aria-label={localeNames[loc]}
-                    className={[
-                      'flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-card border-2 transition-colors',
-                      isSelected
-                        ? 'border-primary bg-primary-light'
-                        : 'border-border bg-surface',
-                    ].join(' ')}
-                  >
-                    <span className="text-2xl" aria-hidden="true">{localeFlags[loc]}</span>
-                    <span className={`text-xs font-semibold ${isSelected ? 'text-primary' : 'text-text-secondary'}`}>
-                      {loc === 'ko' ? '한국어' : loc === 'zh' ? '中文' : 'Tiếng Việt'}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
           </div>
 
           {serverError && (

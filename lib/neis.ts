@@ -10,9 +10,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
+import type { Locale } from '@/lib/i18n'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const PAGE_SIZE = 100
+const GEMINI_REST_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
+const mealTranslationCache = new Map<string, string>()
 
 export interface SchoolSearchResult {
   officeCode: string   // ATPT_OFCDC_SC_CODE (시도교육청 코드)
@@ -20,6 +23,7 @@ export interface SchoolSearchResult {
   name: string         // SCHUL_NM
   level: string        // SCHUL_KND_SC_NM (초등학교/중학교/고등학교)
   address: string      // ORG_RDNMA
+  homepageUrl: string  // HMPG_ADRES
 }
 
 export interface MealDish {
@@ -34,6 +38,10 @@ export interface Meal {
   calories: string | null
   nutrients: Array<{ name: string; amount: string }> | null
   origins: Array<{ ingredient: string; country: string }> | null
+}
+
+interface GeminiTranslationResponse {
+  translations?: Record<string, string>
 }
 
 export interface TimetablePeriod {
@@ -101,6 +109,7 @@ interface SchoolInfoRow {
   SCHUL_NM: string
   SCHUL_KND_SC_NM: string
   ORG_RDNMA: string | null
+  HMPG_ADRES?: string | null
 }
 
 export async function searchSchools(query: string): Promise<SchoolSearchResult[]> {
@@ -118,7 +127,15 @@ export async function searchSchools(query: string): Promise<SchoolSearchResult[]
     name: r.SCHUL_NM,
     level: r.SCHUL_KND_SC_NM,
     address: r.ORG_RDNMA ?? '',
+    homepageUrl: normalizeHomepageUrl(r.HMPG_ADRES),
   }))
+}
+
+function normalizeHomepageUrl(value: string | null | undefined): string {
+  const trimmed = (value ?? '').trim()
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
 }
 
 // ─── 시간표 ───────────────────────────────────────────────
@@ -493,4 +510,87 @@ export async function getCachedOrFetchMealsForRange(
   }
 
   return result
+}
+
+export async function translateMealsForLocale(
+  meals: Meal[],
+  locale: Locale,
+): Promise<Meal[]> {
+  if (locale === 'ko' || meals.length === 0) return meals
+
+  const uniqueTexts = Array.from(
+    new Set(
+      meals.flatMap(meal => [
+        meal.mealTypeName,
+        ...meal.dishes.map(dish => dish.name),
+      ]).map(text => text.trim()).filter(Boolean),
+    ),
+  )
+
+  const missingTexts = uniqueTexts.filter(text => !mealTranslationCache.has(`${locale}:${text}`))
+  if (missingTexts.length > 0) {
+    const translated = await translateMealStrings(missingTexts, locale)
+    for (const [source, target] of Object.entries(translated)) {
+      if (target.trim()) {
+        mealTranslationCache.set(`${locale}:${source}`, target.trim())
+      }
+    }
+  }
+
+  return meals.map(meal => ({
+    ...meal,
+    mealTypeName: mealTranslationCache.get(`${locale}:${meal.mealTypeName}`) ?? meal.mealTypeName,
+    dishes: meal.dishes.map(dish => ({
+      ...dish,
+      name: mealTranslationCache.get(`${locale}:${dish.name}`) ?? dish.name,
+    })),
+  }))
+}
+
+async function translateMealStrings(
+  texts: string[],
+  locale: Locale,
+): Promise<Record<string, string>> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEYS?.split(',')[0]?.trim()
+  if (!apiKey || texts.length === 0) return {}
+
+  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
+  const url = `${GEMINI_REST_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+  const prompt = [
+    `Translate these Korean school meal labels into ${locale}.`,
+    'Return JSON only in the form {"translations":{"Korean":"Translated"}}.',
+    'Keep food names natural and concise.',
+    'Do not add explanations.',
+    JSON.stringify({ texts }, null, 2),
+  ].join('\n\n')
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+        },
+      }),
+      cache: 'no-store',
+    })
+    if (!response.ok) {
+      return {}
+    }
+    const data = await response.json() as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    }
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as GeminiTranslationResponse
+    return parsed.translations ?? {}
+  } catch {
+    return {}
+  }
 }

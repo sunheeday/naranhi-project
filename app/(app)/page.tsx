@@ -9,12 +9,13 @@ import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-c
 import HomePoller from './HomePoller'
 import NoticeCardItem from './NoticeCardItem'
 import SchoolCrawlerKickoff from './SchoolCrawlerKickoff'
+import HomeNoticeTranslationKickoff from './HomeNoticeTranslationKickoff'
 
 interface NoticeRow {
   id: string
   status: NoticeStatus
   title: string | null
-  summary_translations: { [locale: string]: string }
+  ai_translations: { [locale: string]: string }
   crawl_result: Json
   created_at: string
   notice_cards: { type: string }[]
@@ -26,6 +27,7 @@ interface DisplayNotice {
   title: string
   status: NoticeStatus
   arrivedAt: string
+  needsTranslation: boolean
 }
 
 type CategoryLabels = Record<Locale, string>
@@ -102,9 +104,9 @@ function compareNoticeRows(a: NoticeRow, b: NoticeRow): number {
 }
 
 function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
-  // 1순위: 사용자 locale로 lazy 번역돼 캐시된 summary의 첫 줄
+  // 1순위: 사용자 locale로 lazy 번역돼 캐시된 번역문의 첫 줄
   //        (사용자가 한 번이라도 그 공지에 진입했으면 캐시 적중)
-  const t = row.summary_translations ?? {}
+  const t = row.ai_translations ?? {}
   const localized = t[locale]?.trim()
   if (localized) return localized.split('\n')[0].slice(0, 40)
 
@@ -133,6 +135,7 @@ function previewNotices(): DisplayNotice[] {
       title: '현장체험학습 참가 동의서 제출',
       status: 'done',
       arrivedAt: '12분 전',
+      needsTranslation: false,
     },
     {
       id: 'preview-supplies',
@@ -140,6 +143,7 @@ function previewNotices(): DisplayNotice[] {
       title: '봄 소풍 준비물 안내',
       status: 'done',
       arrivedAt: '2시간 전',
+      needsTranslation: false,
     },
     {
       id: 'preview-schedule',
@@ -147,6 +151,7 @@ function previewNotices(): DisplayNotice[] {
       title: '학부모 상담주간 일정 안내',
       status: 'processing',
       arrivedAt: '어제',
+      needsTranslation: false,
     },
   ]
 }
@@ -219,7 +224,7 @@ export default async function HomePage() {
     const { data: schoolRows } = child.school_id
       ? await supabase
           .from('notices')
-          .select('id, status, title, summary_translations, crawl_result, created_at')
+          .select('id, status, title, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('status', 'done')
           .order('created_at', { ascending: false })
@@ -246,6 +251,19 @@ export default async function HomePage() {
 
     if (rows && rows.length > 0) {
       const noticeIds = rows.map(r => r.id)
+      const { data: translations } = await supabase
+        .from('notice_ai_translations')
+        .select('notice_id, target_language, translated_text')
+        .in('notice_id', noticeIds)
+        .in('target_language', [locale, 'ko'])
+
+      const translationsByNotice: Record<string, { [locale: string]: string }> = {}
+      for (const t of translations ?? []) {
+        if (t.notice_id && t.target_language && t.translated_text) {
+          ;(translationsByNotice[t.notice_id] ??= {})[t.target_language] = t.translated_text
+        }
+      }
+
       const { data: cards } = await supabase
         .from('notice_cards')
         .select('notice_id, type')
@@ -259,9 +277,10 @@ export default async function HomePage() {
       notices = rows.map(row => ({
         id: row.id,
         cardType: dominantCardType(cardsByNotice[row.id] ?? []),
-        title: pickTitle(row as NoticeRow, locale, homeMsg),
+        title: pickTitle({ ...(row as NoticeRow), ai_translations: translationsByNotice[row.id] ?? {} }, locale, homeMsg),
         status: row.status,
         arrivedAt: relativeTime(row.created_at, homeMsg),
+        needsTranslation: locale !== 'ko' && !translationsByNotice[row.id]?.[locale],
       }))
     }
   }
@@ -272,6 +291,10 @@ export default async function HomePage() {
   return (
     <main className="flex flex-col min-h-screen pb-24">
       <HomePoller hasPending={hasProcessingNotices} />
+      <HomeNoticeTranslationKickoff
+        locale={locale}
+        noticeIds={notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
+      />
       <header className="sticky top-0 bg-canvas border-b border-hairline-soft px-6 py-4 flex items-center justify-between z-10">
         <div className="min-w-0">
           <span className="block text-base font-bold text-ink truncate" style={{ letterSpacing: '-0.01em' }}>{messages.common.app_name}</span>

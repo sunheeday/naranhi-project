@@ -4,12 +4,14 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import LoginButtons from './LoginButtons'
 
 interface Props {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; next?: string }>
 }
 
 interface LoginMessages {
   title: string
   subtitle: string
+  language_title: string
+  language_body: string
   google: string
   terms: string
   connecting: string
@@ -50,7 +52,7 @@ export default async function LoginPage({ searchParams }: Props) {
   const messages = (await import(`@/messages/${locale}.json`)).default
   const loginMessages: LoginMessages = messages.login
 
-  const { error: errorCode } = await searchParams
+  const { error: errorCode, next } = await searchParams
   const initialError = mapErrorMessage(errorCode, loginMessages)
 
   return (
@@ -59,7 +61,7 @@ export default async function LoginPage({ searchParams }: Props) {
         <LanguageSwitcher currentLocale={locale} compact />
       </div>
 
-      <div className="flex flex-col items-center mt-16 mb-12">
+      <div className="flex flex-col items-center mt-16 mb-10">
         {/* 브랜드 배지: 검정 단색 원형 로고 */}
         <div
           className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center mb-5"
@@ -76,7 +78,21 @@ export default async function LoginPage({ searchParams }: Props) {
         <p className="text-sm text-muted mt-2">{loginMessages.subtitle}</p>
       </div>
 
-      <LoginButtons messages={loginMessages} initialError={initialError} />
+      <section className="rounded-card border border-hairline bg-surface-card p-5 mb-6">
+        <h2 className="text-base font-semibold text-ink">{loginMessages.language_title}</h2>
+        <p className="text-sm text-muted mt-1 mb-4">{loginMessages.language_body}</p>
+        <LanguageSwitcher currentLocale={locale} />
+      </section>
+
+      <LoginButtons
+        messages={loginMessages}
+        initialError={initialError}
+        nextPath={next}
+        googleLoginEnabled={process.env.AUTH_GOOGLE_ENABLED !== 'false'}
+        devLoginEnabled={
+          process.env.NODE_ENV !== 'production' && process.env.DEV_LOGIN_ENABLED === 'true'
+        }
+      />
 
       <p className="text-xs text-muted-soft text-center mt-8 leading-relaxed">
         {loginMessages.terms}

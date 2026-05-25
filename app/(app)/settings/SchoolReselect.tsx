@@ -82,6 +82,7 @@ export default function SchoolReselect({
           childId,
           schoolName: school.name,
           schoolAddress: school.address,
+          schoolHomepageUrl: school.homepageUrl,
           neisOfficeCode: school.officeCode,
           neisSchoolCode: school.schoolCode,
           grade,
