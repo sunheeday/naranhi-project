@@ -10,6 +10,8 @@ interface Props {
 interface LoginMessages {
   title: string
   subtitle: string
+  language_title: string
+  language_body: string
   google: string
   terms: string
   connecting: string
@@ -59,7 +61,7 @@ export default async function LoginPage({ searchParams }: Props) {
         <LanguageSwitcher currentLocale={locale} compact />
       </div>
 
-      <div className="flex flex-col items-center mt-16 mb-12">
+      <div className="flex flex-col items-center mt-16 mb-10">
         {/* 브랜드 배지: 검정 단색 원형 로고 */}
         <div
           className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center mb-5"
@@ -75,6 +77,12 @@ export default async function LoginPage({ searchParams }: Props) {
         <h1 className="text-3xl font-bold text-ink" style={{ letterSpacing: '-0.02em' }}>{loginMessages.title}</h1>
         <p className="text-sm text-muted mt-2">{loginMessages.subtitle}</p>
       </div>
+
+      <section className="rounded-card border border-hairline bg-surface-card p-5 mb-6">
+        <h2 className="text-base font-semibold text-ink">{loginMessages.language_title}</h2>
+        <p className="text-sm text-muted mt-1 mb-4">{loginMessages.language_body}</p>
+        <LanguageSwitcher currentLocale={locale} />
+      </section>
 
       <LoginButtons
         messages={loginMessages}

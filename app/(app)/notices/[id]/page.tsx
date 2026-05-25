@@ -7,6 +7,7 @@ import type { CardType } from '@/types/database'
 import NoticeCardSwiper, { type NoticeCard } from './NoticeCardSwiper'
 import NoticeProcessingView from './NoticeProcessingView'
 import NoticeErrorView from './NoticeErrorView'
+import NoticeLocaleTranslationKickoff from './NoticeLocaleTranslationKickoff'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -121,19 +122,6 @@ export default async function NoticePage({ params }: Props) {
     )
   }
 
-  if (detail.status === 'done' && !detail.hasLocaleTranslation) {
-    return (
-      <main className="flex flex-col min-h-screen">
-        {Header}
-        <NoticeProcessingView
-          noticeId={id}
-          title={messages.notice_detail.processing_title}
-          description={messages.notice_detail.processing_desc}
-        />
-      </main>
-    )
-  }
-
   const summary = detail.summary
   const cardRows = detail.cards
 
@@ -150,6 +138,9 @@ export default async function NoticePage({ params }: Props) {
   return (
     <main className="flex flex-col min-h-screen">
       {Header}
+      {!detail.hasLocaleTranslation ? (
+        <NoticeLocaleTranslationKickoff noticeId={id} locale={locale} />
+      ) : null}
       <NoticeCardSwiper
         noticeId={id}
         cards={cards}

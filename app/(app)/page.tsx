@@ -9,6 +9,7 @@ import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-c
 import HomePoller from './HomePoller'
 import NoticeCardItem from './NoticeCardItem'
 import SchoolCrawlerKickoff from './SchoolCrawlerKickoff'
+import HomeNoticeTranslationKickoff from './HomeNoticeTranslationKickoff'
 
 interface NoticeRow {
   id: string
@@ -26,6 +27,7 @@ interface DisplayNotice {
   title: string
   status: NoticeStatus
   arrivedAt: string
+  needsTranslation: boolean
 }
 
 type CategoryLabels = Record<Locale, string>
@@ -133,6 +135,7 @@ function previewNotices(): DisplayNotice[] {
       title: '현장체험학습 참가 동의서 제출',
       status: 'done',
       arrivedAt: '12분 전',
+      needsTranslation: false,
     },
     {
       id: 'preview-supplies',
@@ -140,6 +143,7 @@ function previewNotices(): DisplayNotice[] {
       title: '봄 소풍 준비물 안내',
       status: 'done',
       arrivedAt: '2시간 전',
+      needsTranslation: false,
     },
     {
       id: 'preview-schedule',
@@ -147,6 +151,7 @@ function previewNotices(): DisplayNotice[] {
       title: '학부모 상담주간 일정 안내',
       status: 'processing',
       arrivedAt: '어제',
+      needsTranslation: false,
     },
   ]
 }
@@ -275,6 +280,7 @@ export default async function HomePage() {
         title: pickTitle({ ...(row as NoticeRow), ai_translations: translationsByNotice[row.id] ?? {} }, locale, homeMsg),
         status: row.status,
         arrivedAt: relativeTime(row.created_at, homeMsg),
+        needsTranslation: locale !== 'ko' && !translationsByNotice[row.id]?.[locale],
       }))
     }
   }
@@ -285,6 +291,10 @@ export default async function HomePage() {
   return (
     <main className="flex flex-col min-h-screen pb-24">
       <HomePoller hasPending={hasProcessingNotices} />
+      <HomeNoticeTranslationKickoff
+        locale={locale}
+        noticeIds={notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
+      />
       <header className="sticky top-0 bg-canvas border-b border-hairline-soft px-6 py-4 flex items-center justify-between z-10">
         <div className="min-w-0">
           <span className="block text-base font-bold text-ink truncate" style={{ letterSpacing: '-0.01em' }}>{messages.common.app_name}</span>

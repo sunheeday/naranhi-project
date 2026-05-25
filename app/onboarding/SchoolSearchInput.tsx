@@ -8,6 +8,7 @@ export interface SchoolPick {
   officeCode: string
   schoolCode: string
   address: string
+  homepageUrl?: string
 }
 
 interface Props {

@@ -89,6 +89,12 @@ async function resolveTargetLanguage(request: NextRequest, userId: string): Prom
     return body.target_language
   }
 
+  const cookieStore = await cookies()
+  const cookieLocale = cookieStore.get('locale')?.value
+  if (isValidLocale(cookieLocale)) {
+    return cookieLocale
+  }
+
   const supabase = await createSupabaseServerClient()
   const { data: profile } = await supabase
     .from('profiles')
@@ -96,14 +102,12 @@ async function resolveTargetLanguage(request: NextRequest, userId: string): Prom
     .eq('id', userId)
     .maybeSingle()
 
-  if (isValidLocale(profile?.native_language)) {
-    return profile.native_language
-  }
   if (isValidLocale(profile?.locale)) {
     return profile.locale
   }
+  if (isValidLocale(profile?.native_language)) {
+    return profile.native_language
+  }
 
-  const cookieStore = await cookies()
-  const cookieLocale = cookieStore.get('locale')?.value
-  return isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
+  return defaultLocale
 }

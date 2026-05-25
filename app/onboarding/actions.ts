@@ -12,6 +12,7 @@ import {
 export interface SaveChildInput {
   schoolName: string
   schoolAddress?: string
+  schoolHomepageUrl?: string
   neisOfficeCode: string
   neisSchoolCode: string
   grade: number
@@ -32,6 +33,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
   const schoolName = input.schoolName.trim()
   const officeCode = input.neisOfficeCode.trim()
   const schoolCode = input.neisSchoolCode.trim()
+  const homepageUrl = input.schoolHomepageUrl?.trim() || null
   const childName = input.childName.trim()
 
   if (!schoolName || !officeCode || !schoolCode) {
@@ -59,7 +61,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
 
   const { data: existingSchool, error: schoolLookupError } = await serviceClient
     .from('schools')
-    .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+    .select('id,crawl_status,crawl_board_url,crawl_last_checked_at,homepage_url')
     .eq('neis_office_code', officeCode)
     .eq('neis_school_code', schoolCode)
     .maybeSingle()
@@ -71,6 +73,22 @@ export async function saveChildAndProfile(input: SaveChildInput) {
   let school: SchoolCrawlerState | null = existingSchool
   let shouldTriggerCrawl = existingSchool ? schoolNeedsInitialCrawl(existingSchool) : false
 
+  if (existingSchool && homepageUrl && !existingSchool.homepage_url) {
+    const { data: updatedSchool, error: homepageUpdateError } = await serviceClient
+      .from('schools')
+      .update({ homepage_url: homepageUrl })
+      .eq('id', existingSchool.id)
+      .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+      .single()
+
+    if (homepageUpdateError) {
+      throw new Error('학교 홈페이지 저장 실패: ' + homepageUpdateError.message)
+    }
+
+    school = updatedSchool
+    shouldTriggerCrawl = schoolNeedsInitialCrawl(updatedSchool)
+  }
+
   if (!school) {
     const { data: insertedSchool, error: schoolInsertError } = await serviceClient
       .from('schools')
@@ -79,6 +97,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
         neis_office_code: officeCode,
         neis_school_code: schoolCode,
         address: input.schoolAddress?.trim() || null,
+        homepage_url: homepageUrl,
       })
       .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
       .single()
@@ -87,7 +106,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
       if (_isUniqueViolation(schoolInsertError)) {
         const { data: fallbackSchool, error: fallbackError } = await serviceClient
           .from('schools')
-          .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+          .select('id,crawl_status,crawl_board_url,crawl_last_checked_at,homepage_url')
           .eq('neis_office_code', officeCode)
           .eq('neis_school_code', schoolCode)
           .single()
@@ -97,6 +116,16 @@ export async function saveChildAndProfile(input: SaveChildInput) {
         }
         school = fallbackSchool
         shouldTriggerCrawl = schoolNeedsInitialCrawl(fallbackSchool)
+        if (homepageUrl && !fallbackSchool.homepage_url) {
+          const { error: homepageUpdateError } = await serviceClient
+            .from('schools')
+            .update({ homepage_url: homepageUrl })
+            .eq('id', fallbackSchool.id)
+          if (homepageUpdateError) {
+            throw new Error('학교 홈페이지 저장 실패: ' + homepageUpdateError.message)
+          }
+          shouldTriggerCrawl = true
+        }
       } else {
         throw new Error('학교 정보 저장 실패: ' + schoolInsertError.message)
       }
