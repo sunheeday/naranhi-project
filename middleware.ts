@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   '/api/auth/dev-login',
   '/api/health',
   '/api/supabase/health',
+  '/api/locale',
 ]
 
 export async function middleware(request: NextRequest) {
