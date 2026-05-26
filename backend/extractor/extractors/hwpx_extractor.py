@@ -19,7 +19,6 @@ async def extract_hwpx_text(
     gemini: GeminiDocumentExtractor | None,
     budget: ExtractionBudget | None = None,
     source_id: str = "",
-    min_text_chars: int = 40,
 ) -> ExtractedText:
     warnings: list[str] = []
     try:
@@ -28,7 +27,7 @@ async def extract_hwpx_text(
         text = ""
         warnings.append(f"hwpx_xml_failed: {type(exc).__name__}: {exc}")
 
-    if len(text.strip()) >= min_text_chars:
+    if text.strip():
         return ExtractedText(
             source=source_name,
             method="hwpx_xml",
@@ -46,7 +45,7 @@ async def extract_hwpx_text(
                 method="hwpx_bindata_gemini_ocr",
                 text=combined,
                 status="success",
-                warnings=warnings + ["HWPX XML text was short; BinData OCR was used."],
+                warnings=warnings + ["HWPX XML text was empty; BinData OCR was used."],
             )
 
     return ExtractedText(
@@ -61,10 +60,6 @@ async def extract_hwpx_text(
 def _extract_hwpx_structured_text(path: Path) -> str:
     validate_zip_limits(path)
     with zipfile.ZipFile(path) as archive:
-        preview = _read_optional_text(archive, "Preview/PrvText.txt")
-        if len(preview.strip()) >= 40:
-            return _clean_text(preview)
-
         section_names = sorted(
             name for name in archive.namelist()
             if name.startswith("Contents/section") and name.endswith(".xml")
