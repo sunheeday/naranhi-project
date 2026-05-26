@@ -108,7 +108,7 @@ export default function CalendarView({
       {/* 요일 헤더 */}
       <div className="grid grid-cols-7 px-2 mb-1">
         {weekdays.map((d, i) => (
-          <div key={d} className={`text-center text-xs font-semibold py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-text-secondary'}`}>
+          <div key={i} className={`text-center text-xs font-semibold py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-text-secondary'}`}>
             {d}
           </div>
         ))}
