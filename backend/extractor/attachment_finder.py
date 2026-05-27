@@ -6,6 +6,7 @@ from urllib.parse import quote, unquote, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
+from extractor.file_downloader import _safe_filename
 from extractor.models import AttachmentRef
 
 
@@ -289,10 +290,6 @@ def _filename_from_link(url: str, text: str) -> str:
     if path_name:
         return _safe_filename(path_name)
     return "attachment"
-
-
-def _safe_filename(value: str) -> str:
-    return re.sub(r'[\\/:*?"<>|]+', "_", value).strip() or "attachment"
 
 
 def _ignore_attachment_filename(filename: str) -> bool:

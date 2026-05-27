@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from app.crawler.gemini_finder import GEMINI_ENDPOINT
+from app.crawler.gemini_finder import GEMINI_ENDPOINT, _split_api_keys
 
 
 @dataclass(frozen=True)
@@ -244,15 +244,6 @@ def _failure_prompt(payload: dict[str, Any]) -> str:
   "reason": "짧은 이유"
 }}
 """.strip()
-
-
-def _split_api_keys(value: str) -> list[str]:
-    keys: list[str] = []
-    for item in re.split(r"[\s,;]+", value):
-        stripped = item.strip()
-        if stripped and stripped not in keys:
-            keys.append(stripped)
-    return keys
 
 
 def _extract_text(data: dict[str, Any]) -> str:

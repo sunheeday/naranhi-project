@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.crawler.homepage_client import extract_js_redirect_url
-from app.crawler.http_client import DEFAULT_HEADERS, make_async_client_for_url, with_retries
+from app.crawler.http_client import DEFAULT_HEADERS, make_async_client_for_url, same_origin, with_retries
 from app.crawler.link_extractor import page_snippet, page_title
 
 
@@ -45,7 +45,7 @@ async def verify_notice_url(
                 referer = str(warmup_response.url)
 
             headers = dict(DEFAULT_HEADERS)
-            if referer and _same_origin(referer, url):
+            if referer and same_origin(referer, url):
                 headers["Referer"] = referer
 
             response = await with_retries(
@@ -74,7 +74,7 @@ async def verify_notice_url(
             score -= 20
 
     is_schoolbell = "schoolbell-e.com" in urlparse(str(response.url)).netloc and "학교종이" in haystack
-    if "schoolbell-e.com" in urlparse(str(response.url)).netloc and "학교종이" in haystack:
+    if is_schoolbell:
         score += 10
 
     return VerificationResult(
@@ -89,12 +89,6 @@ async def verify_notice_url(
         snippet=snippet,
         error=None,
     )
-
-
-def _same_origin(left: str, right: str) -> bool:
-    left_parsed = urlparse(left)
-    right_parsed = urlparse(right)
-    return left_parsed.scheme == right_parsed.scheme and left_parsed.netloc == right_parsed.netloc
 
 
 async def _get_following_js_redirect(

@@ -11,7 +11,7 @@ import httpx
 
 from app.crawler.cms_patterns import CmsDetection
 from app.crawler.homepage_client import extract_js_redirect_url
-from app.crawler.http_client import DEFAULT_HEADERS, make_async_client_for_url, with_retries
+from app.crawler.http_client import DEFAULT_HEADERS, make_async_client_for_url, same_origin, with_retries
 from app.crawler.link_extractor import page_snippet, page_title
 from app.crawler.unknown_post_resolver import UnknownPostGeminiResolver
 
@@ -102,7 +102,7 @@ async def extract_notice_post_refs(
                 referer = str(warmup_response.url)
 
             headers = dict(DEFAULT_HEADERS)
-            if referer and _same_origin(referer, board_url):
+            if referer and same_origin(referer, board_url):
                 headers["Referer"] = referer
 
             board_response = await _get_following_js_redirect(client, board_url, headers=headers)
@@ -660,7 +660,7 @@ async def _validate_candidate(
     gemini_api_key: str | None,
 ) -> NoticePostRef:
     headers = dict(DEFAULT_HEADERS)
-    if _same_origin(referer, board_url):
+    if same_origin(referer, board_url):
         headers["Referer"] = referer
 
     last_reason = ""
@@ -1373,12 +1373,6 @@ def _compact(value: str) -> str:
 def _normalize_url(url: str) -> str:
     parsed = urlparse(url)
     return urlunparse((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", parsed.query, ""))
-
-
-def _same_origin(left: str, right: str) -> bool:
-    left_parsed = urlparse(left)
-    right_parsed = urlparse(right)
-    return left_parsed.scheme == right_parsed.scheme and left_parsed.netloc == right_parsed.netloc
 
 
 def _dedupe_raw_candidates(candidates: list[_RawPostCandidate]) -> list[_RawPostCandidate]:
