@@ -9,14 +9,20 @@ from bs4 import BeautifulSoup
 from extractor.models import InlineImageRef
 
 
-CONTENT_SELECTORS = (
-    "#viewConts",
-    "table.bbsView",
-    "div.conts",
+# 본문만 정밀하게 잡는 selector (검증 완료)
+PRECISE_SELECTORS = (
+    "#viewConts",       # 광주 gen xboard CMS
+    "div.conts",        # 인천 icees.kr boardCnts CMS
+    "td.tch-ctnt",      # 울산/충북/전북 usm CMS
+    ".bbsV_cont",       # 대구 dge / selectNtt CMS
+)
+
+# 이미지 추출용 광범위 컨테이너 (텍스트 추출엔 사용 안 함)
+CONTENT_SELECTORS = PRECISE_SELECTORS + (
+    ".subContent_body",
     "#usm-content-body-id",
     "table.usm-brd-vew",
-    ".subContent_body",
-    ".bbsV_cont",
+    "table.bbsView",
     ".board_view",
     ".view_cont",
     ".bbs_view",
@@ -111,22 +117,45 @@ NOISE_IMAGE_TERMS = (
 
 def extract_html_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
+
+    # 1. 노이즈 태그 제거
     for selector in NOISE_SELECTORS:
         for tag in soup.select(selector):
             tag.decompose()
 
-    candidates: list[str] = []
-    for selector in CONTENT_SELECTORS:
+    # 2. 정밀 selector 우선 시도 (본문만 잡는 것들)
+    for selector in PRECISE_SELECTORS:
         for tag in soup.select(selector):
             text = _clean_text(tag.get_text("\n", strip=True))
             if text:
-                candidates.append(text)
+                return text
 
-    if not candidates:
-        body = soup.body or soup
-        candidates.append(_clean_text(body.get_text("\n", strip=True)))
+    # 3. trafilatura 폴백 (노이즈 제거된 HTML 기준)
+    extracted = _trafilatura_extract(str(soup))
+    if extracted:
+        cleaned = _clean_text(extracted)
+        if cleaned:
+            return cleaned
 
-    return _best_text(candidates)
+    # 4. body 전체 폴백
+    body = soup.body or soup
+    return _clean_text(body.get_text("\n", strip=True))
+
+
+def _trafilatura_extract(html: str) -> str:
+    try:
+        import trafilatura  # type: ignore
+    except ImportError:
+        return ""
+    try:
+        result = trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+        )
+        return result or ""
+    except Exception:
+        return ""
 
 
 def extract_inline_images(base_url: str, html: str) -> list[InlineImageRef]:
@@ -168,26 +197,6 @@ def _content_roots(soup: BeautifulSoup) -> list[Any]:
         if roots:
             return roots
     return []
-
-
-def _best_text(candidates: list[str]) -> str:
-    cleaned = [_clean_text(item) for item in candidates if _clean_text(item)]
-    if not cleaned:
-        return ""
-    meaningful = [
-        item for item in cleaned
-        if not _looks_like_navigation_dump(item)
-    ]
-    pool = meaningful or cleaned
-    return max(pool, key=len)
-
-
-def _looks_like_navigation_dump(text: str) -> bool:
-    if len(text) < 80:
-        return False
-    menu_terms = sum(text.count(term) for term in ("로그인", "회원가입", "사이트맵", "메뉴", "학교소개", "알림마당"))
-    content_terms = sum(text.count(term) for term in ("작성자", "등록일", "첨부", "가정통신문", "공지"))
-    return menu_terms >= 5 and content_terms == 0
 
 
 def _clean_text(value: str) -> str:
