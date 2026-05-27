@@ -10,6 +10,12 @@ from extractor.models import InlineImageRef
 
 
 CONTENT_SELECTORS = (
+    "#viewConts",
+    "table.bbsView",
+    "div.conts",
+    "#usm-content-body-id",
+    "table.usm-brd-vew",
+    ".subContent_body",
     ".bbsV_cont",
     ".board_view",
     ".view_cont",
@@ -50,6 +56,29 @@ NOISE_SELECTORS = (
     ".file_area",
     ".fileList",
     ".file_list",
+    # 광주 gen xboard CMS
+    "#securityBox",
+    "#view_top",
+    "#view_t_bar",
+    "#view_button",
+    "#comment_tb",
+    # dge / selectNtt CMS
+    ".bbsV_prne",
+    # 공통 네비게이션
+    "#lnb",
+    "#gnb",
+    "#webNavi",
+    "#tabletGnb",
+    "#mgnb",
+    "#mNav",
+    ".snb",
+    # 브레드크럼 / 비주얼 / 퀵메뉴
+    ".subLocation",
+    ".subvisual",
+    "#quickMenu",
+    # boardCnts CMS
+    "table.bbsView.page",
+    ".btn_area",
 )
 
 NOISE_LINES = {

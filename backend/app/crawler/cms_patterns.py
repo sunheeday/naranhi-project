@@ -54,9 +54,9 @@ def detect_cms(final_url: str, html: str, candidates: list[LinkCandidate]) -> Cm
         add("jje", 100, "도메인 school.jje.go.kr")
     if "school.busanedu.net" in host:
         add("busanedu", 100, "도메인 school.busanedu.net")
-    if "dge.ms.kr" in host:
+    if "dge.ms.kr" in host or "dge.es.kr" in host:
         add("dge", 100, "도메인 dge.ms.kr")
-    if "gen.ms.kr" in host or ":452" in parsed.netloc:
+    if "gen.ms.kr" in host or "gen.es.kr" in host or ":452" in parsed.netloc:
         add("gen_xboard", 100, "도메인 gen.ms.kr 또는 452 포트")
     if "school.use.go.kr" in host:
         add("use", 100, "도메인 school.use.go.kr")

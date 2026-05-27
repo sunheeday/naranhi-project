@@ -58,6 +58,13 @@ def _extract_notice_text(soup: BeautifulSoup) -> str:
 
     candidates: list[str] = []
     for selector in (
+        "#viewConts",
+        "table.bbsView",
+        "div.conts",
+        "#usm-content-body-id",
+        "table.usm-brd-vew",
+        ".subContent_body",
+        ".bbsV_cont",
         "article",
         "main",
         ".board-view",
