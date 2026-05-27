@@ -25,7 +25,7 @@ NOISE_SELECTORS = (
     "script", "style", "noscript", "svg", "iframe",
     "nav", "footer", "header",
     "#securityBox", "#view_top", "#view_t_bar", "#view_button", "#comment_tb",
-    ".bbsV_prne",
+    ".bbsV_prne", ".bbsV_data", ".snsBox", "#skipArea",
     "#lnb", "#gnb", "#webNavi", "#tabletGnb", "#mgnb", "#mNav", ".snb",
     ".subLocation", ".subvisual", "#quickMenu",
     "table.bbsView.page", ".btn_area",

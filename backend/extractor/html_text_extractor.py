@@ -70,6 +70,9 @@ NOISE_SELECTORS = (
     "#comment_tb",
     # dge / selectNtt CMS
     ".bbsV_prne",
+    ".bbsV_data",
+    ".snsBox",
+    "#skipArea",
     # 공통 네비게이션
     "#lnb",
     "#gnb",
