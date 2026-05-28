@@ -118,7 +118,12 @@ class Settings(BaseSettings):
 
     @property
     def gemini_key_material(self) -> str | None:
-        return self.gemini_api_keys or self.gemini_api_key
+        values = [
+            (self.gemini_api_keys or "").strip(),
+            (self.gemini_api_key or "").strip(),
+        ]
+        merged = ",".join(value for value in values if value)
+        return merged or None
 
 
 @lru_cache
