@@ -130,6 +130,7 @@ uvicorn app.main:app --reload --port 8000
 
 - [Supabase Schema](docs/supabase/schema.md)
 - [FastAPI Service](docs/backend/fastapi.md)
+- [Agent Workflow](docs/agent-workflow.md)
 
 ## 라이선스
 

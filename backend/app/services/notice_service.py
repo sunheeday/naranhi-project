@@ -98,18 +98,28 @@ class NoticeService:
                 timeout_seconds=settings.gemini_timeout_seconds,
             )
             pipeline = TranslationPipeline(gemini)
-            result = await pipeline.run(
-                TranslationPipelineInput(
-                    source_text=resolved_source_text,
-                    target_language=target_language,
-                    approved_ingredient_dictionary=[
-                        dict(item) for item in (approved_ingredient_dictionary or [])
-                    ],
-                    approved_ingredient_dictionary_target=[
-                        dict(item) for item in (approved_ingredient_dictionary_target or [])
-                    ],
+            try:
+                result = await pipeline.run(
+                    TranslationPipelineInput(
+                        source_text=resolved_source_text,
+                        target_language=target_language,
+                        approved_ingredient_dictionary=[
+                            dict(item) for item in (approved_ingredient_dictionary or [])
+                        ],
+                        approved_ingredient_dictionary_target=[
+                            dict(item) for item in (approved_ingredient_dictionary_target or [])
+                        ],
+                    )
                 )
-            )
+            except Exception as exc:
+                if not _is_gemini_quota_error(exc):
+                    raise
+                result = await self._best_effort_translate_notice(
+                    gemini=gemini,
+                    notice=notice,
+                    target_language=target_language,
+                    source_text=resolved_source_text,
+                )
 
             saved = self._save_translation_result(
                 supabase=supabase,
@@ -131,6 +141,61 @@ class NoticeService:
             "admin_review": result["admin_review"],
             "translation": result.get("final_translation"),
             "saved": saved,
+        }
+
+    async def _best_effort_translate_notice(
+        self,
+        *,
+        gemini: GeminiJsonClient,
+        notice: dict[str, Any],
+        target_language: str,
+        source_text: str,
+    ) -> dict[str, Any]:
+        prompt = _best_effort_translation_prompt(
+            source_text=source_text,
+            target_language=target_language,
+            title=_optional_str(notice.get("title")),
+        )
+        fallback = await gemini.generate_json(prompt=prompt, temperature=0.1)
+        translated_text = _optional_str(fallback.get("target_translation"))
+        if not translated_text:
+            raise RuntimeError("Gemini fallback translation did not return target_translation.")
+
+        fallback_title = _optional_str(fallback.get("title"))
+
+        return {
+            "status": "admin_review_required",
+            "source_language": "ko",
+            "target_language": target_language,
+            "source_text": source_text,
+            "final_translation": translated_text,
+            "source_hard_facts": {},
+            "target_hard_facts": {},
+            "ingredient_identity_map": {},
+            "validation": {
+                "hard_fact": {
+                    "status": "skipped",
+                    "attempts": 0,
+                    "issues": ["quota_best_effort_fallback"],
+                },
+                "context_tone": {
+                    "status": "skipped",
+                    "attempts": 0,
+                    "issues": ["quota_best_effort_fallback"],
+                },
+            },
+            "admin_review": {
+                "required": True,
+                "reason": "quota_best_effort_fallback",
+                "priority": "high",
+            },
+            "metadata": {
+                "title": fallback_title,
+                "fallback_mode": "quota_best_effort",
+            },
+            "raw_steps": {
+                "best_effort": fallback,
+            },
         }
 
     def _save_translation_result(
@@ -413,6 +478,53 @@ def _optional_str(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _is_gemini_quota_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return any(
+        token in message
+        for token in (
+            "429",
+            "too many requests",
+            "quota",
+            "resource_exhausted",
+            "rate limit",
+            "rate_limit",
+        )
+    )
+
+
+def _best_effort_translation_prompt(
+    *,
+    source_text: str,
+    target_language: str,
+    title: str | None,
+) -> str:
+    title_block = f"공지 제목: {title}\n" if title else ""
+    return f"""
+너는 한국 학교 공지를 학부모가 이해하기 쉽게 번역하는 번역기다.
+
+규칙:
+- JSON object만 반환해라.
+- 사실을 추가하거나 추측하지 마라.
+- 날짜, 시간, 준비물, 제출물, 금액, 장소, 대상 학년은 가능한 한 원문 그대로 보존해라.
+- 문단 구조를 유지해라.
+- 번역 품질이 완벽하지 않아도 좋으니 반드시 전체 공지를 끝까지 번역해라.
+
+반환 스키마:
+{{
+  "title": "번역된 짧은 제목",
+  "target_translation": "전체 번역문"
+}}
+
+대상 언어: {target_language}
+{title_block}
+원문:
+\"\"\"
+{source_text}
+\"\"\"
+""".strip()
 
 
 def _extraction_metadata(value: object) -> dict[str, Any] | None:
