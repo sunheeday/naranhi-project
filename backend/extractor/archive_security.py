@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import os
 import zipfile
 from pathlib import Path
+
+from extractor.budget import _float_env, _int_env
 
 
 def validate_zip_limits(
@@ -33,15 +34,3 @@ def validate_zip_limits(
                 raise RuntimeError(f"zip_invalid_zero_compressed_entry: {info.filename}")
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, str(default)))
-    except ValueError:
-        return default
-
-
-def _float_env(name: str, default: float) -> float:
-    try:
-        return float(os.getenv(name, str(default)))
-    except ValueError:
-        return default

@@ -73,6 +73,12 @@ def _hostname(url: str) -> str:
     return (urlparse(url).hostname or "").lower()
 
 
+def same_origin(left: str, right: str) -> bool:
+    left_url = urlparse(left)
+    right_url = urlparse(right)
+    return left_url.scheme == right_url.scheme and left_url.netloc == right_url.netloc
+
+
 def _host_matches(host: str, pattern: str) -> bool:
     normalized = pattern.strip().lower()
     return bool(normalized) and (host == normalized or host.endswith(f".{normalized}"))

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from extractor.models import ExtractedText
 from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
+from extractor.extractors.image_gemini_extractor import extract_image_text
 
 
 async def extract_hwp_text(
@@ -16,13 +17,12 @@ async def extract_hwp_text(
     source_name: str,
     gemini: GeminiDocumentExtractor | None,
     work_dir: Path,
-    min_text_chars: int = 40,
 ) -> ExtractedText:
     warnings: list[str] = []
 
     body_text = _try_hwp_ole_bodytext(path, warnings)
     filtered_body_text = _clean_hwp_text(body_text, aggressive=True)
-    if _quality_ok(filtered_body_text, min_text_chars=min_text_chars):
+    if filtered_body_text.strip():
         return ExtractedText(
             source=source_name,
             method="hwp_ole_bodytext_filtered",
@@ -35,21 +35,10 @@ async def extract_hwp_text(
             },
         )
 
-    prv_text = _try_hwp_prv_text(path, warnings)
-    if _quality_ok(prv_text, min_text_chars=min_text_chars):
-        return ExtractedText(
-            source=source_name,
-            method="hwp_prv_text",
-            text=prv_text,
-            status="success",
-            warnings=warnings + ["hwp_preview_text_may_be_truncated"],
-            metadata={"quality": _text_quality(prv_text), "is_preview_text_only": True},
-        )
-
     warnings.append("hwplib_py_disabled_broken_dependency")
 
     text = _try_hwp5txt(path, warnings)
-    if _quality_ok(text, min_text_chars=min_text_chars):
+    if text.strip():
         return ExtractedText(
             source=source_name,
             method="hwp5txt",
@@ -58,10 +47,22 @@ async def extract_hwp_text(
             warnings=warnings,
             metadata={"quality": _text_quality(text)},
         )
-    if text.strip():
-        warnings.append("hwp5txt_low_quality")
 
     warnings.append("libreoffice_fallback_disabled_after_validation")
+
+    if gemini is not None:
+        image_texts = await _ocr_hwp_bindata_images(
+            path, gemini=gemini, source_name=source_name, work_dir=work_dir
+        )
+        combined = "\n\n".join(t.text for t in image_texts if t.text.strip())
+        if combined.strip():
+            return ExtractedText(
+                source=source_name,
+                method="hwp_bindata_gemini_ocr",
+                text=combined,
+                status="success",
+                warnings=warnings + ["HWP text extraction failed; BinData OCR was used."],
+            )
 
     status = "unsupported_hwp_parse_failed"
     if any("encrypted" in item.lower() or "distribution" in item.lower() for item in warnings):
@@ -109,21 +110,6 @@ def _try_hwp_ole_bodytext(path: Path, warnings: list[str]) -> str:
     except Exception as exc:
         warnings.append(f"hwp_ole_bodytext_failed: {type(exc).__name__}: {exc}")
         return ""
-
-
-def _try_hwp_prv_text(path: Path, warnings: list[str]) -> str:
-    try:
-        import olefile
-
-        with olefile.OleFileIO(str(path)) as ole:
-            for stream_name in ("PrvText", "Preview/PrvText"):
-                if not ole.exists(stream_name):
-                    continue
-                raw = ole.openstream(stream_name).read()
-                return _clean_hwp_text(_decode_best(raw), aggressive=True)
-    except Exception as exc:
-        warnings.append(f"hwp_prv_text_failed: {type(exc).__name__}: {exc}")
-    return ""
 
 
 def _extract_para_text_records(data: bytes) -> list[str]:
@@ -200,17 +186,7 @@ def _is_hwp_extended_control_code(code: int) -> bool:
     return 0x01 <= code <= 0x08 or 0x0B <= code <= 0x12 or 0x14 <= code <= 0x1F
 
 
-def _decode_best(data: bytes) -> str:
-    best = ""
-    for encoding in ("utf-16le", "utf-8", "cp949", "euc-kr"):
-        text = data.decode(encoding, errors="ignore")
-        if _text_quality(text)["score"] > _text_quality(best)["score"]:
-            best = text
-    return best
-
-
 def _clean_hwp_text(value: str, *, aggressive: bool) -> str:
-    # PrvText fallback can still leak CJK-looking decoder noise even after PARA_TEXT cleanup.
     value = re.sub(r"[\u4e00-\u9fff╣ॣ]", " ", value)
     value = re.sub(r"[\x00-\x08\x0b-\x1f]", " ", value)
     lines: list[str] = []
@@ -230,15 +206,6 @@ def _looks_like_control_noise(line: str) -> bool:
     if hangul == 0 and len(line) <= 8:
         return True
     return hangul == 0 and cjk >= max(2, len(line) // 2)
-
-
-def _quality_ok(text: str, *, min_text_chars: int) -> bool:
-    quality = _text_quality(text)
-    return (
-        quality["chars"] >= min_text_chars
-        and quality["hangul"] >= 20
-        and quality["score"] > 50
-    )
 
 
 def _text_quality(text: str) -> dict[str, float]:
@@ -276,6 +243,49 @@ def _cleanup_stats(before: str, after: str) -> dict[str, float]:
         "cjk_garbage_after": after_quality["cjk_garbage"],
         "chars_dropped": max(0, before_quality["chars"] - after_quality["chars"]),
     }
+
+
+async def _ocr_hwp_bindata_images(
+    path: Path,
+    *,
+    gemini: GeminiDocumentExtractor,
+    source_name: str,
+    work_dir: Path,
+    limit: int = 3,
+) -> list[ExtractedText]:
+    results: list[ExtractedText] = []
+    try:
+        import olefile
+
+        _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
+        with olefile.OleFileIO(str(path)) as ole:
+            bin_streams = [
+                item for item in ole.listdir(streams=True, storages=False)
+                if len(item) == 2 and item[0] == "BinData"
+                and Path(item[1]).suffix.lower() in _IMAGE_EXTENSIONS
+            ][:limit]
+
+            if not bin_streams:
+                return results
+
+            temp_dir = work_dir / f"{path.stem}-hwp-images"
+            temp_dir.mkdir(exist_ok=True)
+            for item in bin_streams:
+                name = item[1]
+                image_path = temp_dir / name
+                image_path.write_bytes(ole.openstream(item).read())
+                results.append(
+                    await extract_image_text(
+                        image_path,
+                        source_name=f"{source_name}:{name}",
+                        gemini=gemini,
+                        budget=None,
+                        source_id=f":{name}",
+                    )
+                )
+    except Exception:
+        pass
+    return results
 
 
 def _try_hwp5txt(path: Path, warnings: list[str]) -> str:

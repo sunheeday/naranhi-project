@@ -12,6 +12,28 @@ from extractor.extractors.gemini_document_extractor import GeminiDocumentExtract
 
 _PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
 _SYMBOL_ONLY_RE = re.compile(r"^[\*\.\-\=\#\_]+$")
+_DECORATIVE_TOKEN_RE = re.compile(r"^[A-Za-z]$")
+
+
+def _is_decorative_line(line: str) -> bool:
+    """디자인 장식용 단일 글자들로만 구성된 줄을 감지.
+
+    예: 'Y D O T N I G C B N U A' (포스터 배경 워드아트 OCR 결과).
+    - 토큰 4개 미만이면 판별 보류 (정상 짧은 문장 보호).
+    - 단일 알파벳 토큰이 전체의 80% 이상이면 장식으로 판단.
+    """
+    tokens = line.split()
+    if len(tokens) < 4:
+        return False
+    single_letter = sum(1 for t in tokens if _DECORATIVE_TOKEN_RE.match(t))
+    return single_letter / len(tokens) >= 0.8
+
+
+def _filter_decorative_lines(text: str) -> str:
+    """줄 단위로 _is_decorative_line 적용 (Gemini OCR 결과 후처리용)."""
+    if not text:
+        return text
+    return "\n".join(line for line in text.splitlines() if not _is_decorative_line(line))
 
 
 async def extract_pdf_text(
@@ -82,6 +104,7 @@ async def extract_pdf_text(
             )
 
     result = await gemini.extract_path(path, mime_type="application/pdf", prompt=ocr_prompt(source_name))
+    cleaned_text = _filter_decorative_lines(result.text)
     warnings = list(result.warnings)
     if selectable_error:
         warnings.append(selectable_error)
@@ -90,8 +113,8 @@ async def extract_pdf_text(
     return ExtractedText(
         source=source_name,
         method="pdf_gemini_document",
-        text=result.text,
-        status="success" if result.text.strip() else "empty_or_unreadable",
+        text=cleaned_text,
+        status="success" if cleaned_text.strip() else "empty_or_unreadable",
         confidence=result.confidence,
         warnings=warnings,
         metadata={
@@ -127,6 +150,8 @@ def _extract_selectable_text(path: Path) -> str:
                     if _PAGE_NUMBER_RE.match(line):
                         continue
                     if _SYMBOL_ONLY_RE.match(line):
+                        continue
+                    if _is_decorative_line(line):
                         continue
                     clean_lines.append(line)
             if clean_lines:

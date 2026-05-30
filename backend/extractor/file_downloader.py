@@ -6,7 +6,7 @@ from urllib.parse import unquote, urljoin
 
 import httpx
 
-from extractor.detail_fetcher import DEFAULT_HEADERS
+from extractor.detail_fetcher import DEFAULT_HEADERS, _content_length
 from extractor.file_type_detector import detect_file_type
 from extractor.http_security import assert_public_url, tls_metadata, tls_verify_for_url
 from extractor.models import AttachmentRef, DownloadedFile, InlineImageRef
@@ -123,16 +123,6 @@ def _decode_header_filename(value: str) -> str:
         if any("가" <= char <= "힣" for char in candidate):
             return candidate
     return decoded
-
-
-def _content_length(headers: httpx.Headers) -> int | None:
-    value = headers.get("content-length")
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
 
 
 def _unique_path(path: Path) -> Path:

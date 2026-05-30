@@ -10,14 +10,13 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
 
 from dotenv import load_dotenv
 import yaml
 
 from extractor.budget import ExtractionBudget
 from extractor.detail_fetcher import fetch_detail
-from extractor.file_downloader import download_attachment
+from extractor.file_downloader import _parse_content_disposition_filename, download_attachment
 from extractor.file_type_detector import detect_file_type
 from extractor.html_text_extractor import extract_html_text
 from extractor.http_security import sanitize_error
@@ -33,7 +32,7 @@ from extractor.models import (
 )
 from extractor.notice_structurer import combined_raw_text
 from extractor.quality import file_sha256, text_fingerprint, text_quality_score
-from extractor.source_inventory import attach_direct_file, build_source_inventory
+from extractor.source_inventory import _filename_from_url, attach_direct_file, build_source_inventory
 from extractor.source_merger import assign_roles_and_dedupe
 from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
 from extractor.extractors.hwp_extractor import extract_hwp_text
@@ -99,7 +98,10 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
             if not fetched.is_html and inventory:
                 inventory[0] = _prepare_direct_file_source(fetched, inventory[0], temp_dir)
 
-            html_text = extract_html_text(fetched.text) if fetched.is_html else ""
+            html_text = next(
+                (c.source_text for c in inventory if c.source_type == "html_body"),
+                "",
+            )
             sources: list[SourceExtraction] = []
             for candidate in inventory:
                 source = await _extract_source(
@@ -656,41 +658,10 @@ def _max_file_size_mb() -> int:
         return 50
 
 
-def _filename_from_url(url: str) -> str:
-    name = unquote(Path(urlparse(url).path).name)
-    return name or "direct-file"
-
-
 def _filename_from_headers_or_url(headers: dict[str, str], url: str) -> str:
     disposition = headers.get("content-disposition", "")
     filename = _parse_content_disposition_filename(disposition)
     return filename or _filename_from_url(url)
-
-
-def _parse_content_disposition_filename(value: str) -> str:
-    star = re.search(r"""filename\*\s*=\s*([^']*)''([^;]+)""", value, re.IGNORECASE)
-    if star:
-        encoding = star.group(1) or "utf-8"
-        try:
-            return unquote(star.group(2), encoding=encoding)
-        except LookupError:
-            return unquote(star.group(2))
-    normal = re.search(r"""filename\s*=\s*"?([^";]+)"?""", value, re.IGNORECASE)
-    if normal:
-        return _decode_header_filename(normal.group(1).strip())
-    return ""
-
-
-def _decode_header_filename(value: str) -> str:
-    decoded = unquote(value)
-    for encoding in ("utf-8", "cp949", "euc-kr"):
-        try:
-            candidate = decoded.encode("latin-1").decode(encoding)
-        except UnicodeError:
-            continue
-        if any("가" <= char <= "힣" for char in candidate):
-            return candidate
-    return decoded
 
 
 def _dedupe(items: list[str]) -> list[str]:
