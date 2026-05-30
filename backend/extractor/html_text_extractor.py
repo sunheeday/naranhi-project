@@ -113,6 +113,7 @@ NOISE_IMAGE_TERMS = (
     "facebook",
     "twitter",
     "/images/web/",
+    "/images/template/",
     "/common/",
     "/subimg/",
 )
