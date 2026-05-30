@@ -74,6 +74,8 @@ jobs:
             ENVIRONMENT=production
             SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
             CORS_ORIGINS=https://naranhi-web-140086900496.asia-northeast3.run.app
+            VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }}
+            VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
             GEMINI_API_KEY=gemini-api-key:latest

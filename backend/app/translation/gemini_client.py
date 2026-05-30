@@ -2,31 +2,115 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 class GeminiJsonClient:
+    """Gemini JSON client supporting two backends.
+
+    - Vertex AI (``use_vertex=True``): calls Gemini through Vertex AI using the
+      google-genai SDK with Application Default Credentials (no API key). This is
+      required for GCP free-trial credit to apply.
+    - API key (default): legacy AI Studio call via httpx. Kept as a fallback for
+      local development and rollback.
+    """
+
     def __init__(
         self,
         *,
-        api_key: str,
+        api_key: str | None = None,
         model: str,
         timeout_seconds: float = 60.0,
+        use_vertex: bool = False,
+        project: str | None = None,
+        location: str = "global",
     ) -> None:
-        self.api_keys = _split_api_keys(api_key)
+        self.api_keys = _split_api_keys(api_key or "")
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.use_vertex = use_vertex
+        self.project = project
+        self.location = location
+        self._vertex_client: Any = None
+
+    @classmethod
+    def from_settings(cls, settings: "Settings") -> "GeminiJsonClient":
+        """Build a client based on app settings, preferring Vertex AI when configured."""
+        if settings.use_vertex:
+            return cls(
+                model=settings.gemini_model,
+                timeout_seconds=settings.gemini_timeout_seconds,
+                use_vertex=True,
+                project=settings.vertex_ai_project_id,
+                location=settings.vertex_ai_location,
+            )
+        return cls(
+            api_key=settings.gemini_key_material,
+            model=settings.gemini_model,
+            timeout_seconds=settings.gemini_timeout_seconds,
+        )
 
     async def generate_json(
         self,
         *,
         prompt: str,
         temperature: float = 0.1,
+    ) -> dict[str, Any]:
+        if self.use_vertex:
+            return await self._generate_json_vertex(prompt=prompt, temperature=temperature)
+        return await self._generate_json_api_key(prompt=prompt, temperature=temperature)
+
+    def _get_vertex_client(self) -> Any:
+        if self._vertex_client is None:
+            from google import genai
+            from google.genai import types
+
+            self._vertex_client = genai.Client(
+                vertexai=True,
+                project=self.project,
+                location=self.location,
+                http_options=types.HttpOptions(
+                    api_version="v1",
+                    timeout=int(self.timeout_seconds * 1000),
+                ),
+            )
+        return self._vertex_client
+
+    async def _generate_json_vertex(
+        self,
+        *,
+        prompt: str,
+        temperature: float,
+    ) -> dict[str, Any]:
+        from google.genai import types
+
+        client = self._get_vertex_client()
+        response = await client.aio.models.generate_content(
+            model=self.model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=temperature,
+                response_mime_type="application/json",
+            ),
+        )
+        text = (response.text or "").strip()
+        if not text:
+            raise RuntimeError("Gemini(Vertex) 응답에서 텍스트를 찾지 못했습니다.")
+        return _parse_json(text)
+
+    async def _generate_json_api_key(
+        self,
+        *,
+        prompt: str,
+        temperature: float,
     ) -> dict[str, Any]:
         if not self.api_keys:
             raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
