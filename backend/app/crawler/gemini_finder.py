@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -11,6 +12,45 @@ from app.crawler.link_extractor import LinkCandidate
 
 
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+
+
+def _gemini_use_vertex() -> bool:
+    """True when VERTEX_AI_PROJECT_ID is set -> call Gemini via Vertex AI (ADC)."""
+    return bool((os.getenv("VERTEX_AI_PROJECT_ID") or "").strip())
+
+
+_VERTEX_CLIENT: Any = None
+
+
+def _get_vertex_client(timeout: float) -> Any:
+    global _VERTEX_CLIENT
+    if _VERTEX_CLIENT is None:
+        from google import genai
+        from google.genai import types
+
+        _VERTEX_CLIENT = genai.Client(
+            vertexai=True,
+            project=(os.getenv("VERTEX_AI_PROJECT_ID") or "").strip() or None,
+            location=(os.getenv("VERTEX_AI_LOCATION") or "global").strip() or "global",
+            http_options=types.HttpOptions(api_version="v1", timeout=int(timeout * 1000)),
+        )
+    return _VERTEX_CLIENT
+
+
+async def _vertex_generate_json_text(prompt: str, *, timeout: float, temperature: float) -> str:
+    """Shared Vertex text->JSON helper for the crawler (board finder + post resolver)."""
+    from google.genai import types
+
+    client = _get_vertex_client(timeout)
+    response = await client.aio.models.generate_content(
+        model=os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash"),
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=temperature,
+            response_mime_type="application/json",
+        ),
+    )
+    return (response.text or "").strip()
 
 
 @dataclass(frozen=True)
@@ -24,9 +64,17 @@ class GeminiDecision:
 
 
 class GeminiFinder:
-    def __init__(self, api_key: str, timeout: float = 30.0) -> None:
-        self.api_keys = _split_api_keys(api_key)
+    def __init__(self, api_key: str | None = None, timeout: float = 30.0) -> None:
+        self.api_keys = _split_api_keys(
+            api_key or os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or ""
+        )
         self.timeout = timeout
+        self.use_vertex = _gemini_use_vertex()
+
+    @property
+    def available(self) -> bool:
+        """True when board detection can run via Vertex (ADC) or an API key."""
+        return self.use_vertex or bool(self.api_keys)
 
     async def choose_notice_board(
         self,
@@ -37,8 +85,8 @@ class GeminiFinder:
         page_snippet: str,
         candidates: list[LinkCandidate],
     ) -> GeminiDecision:
-        if not self.api_keys:
-            raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS 환경변수가 필요합니다.")
+        if not self.available:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
 
         prompt = _build_prompt(
             school_name=school_name,
@@ -47,45 +95,10 @@ class GeminiFinder:
             page_snippet=page_snippet,
             candidates=candidates,
         )
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt,
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.1,
-                "responseMimeType": "application/json",
-            },
-        }
-        last_error: Exception | None = None
-
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            for api_key in self.api_keys:
-                headers = {
-                    "x-goog-api-key": api_key,
-                    "Content-Type": "application/json",
-                }
-                try:
-                    response = await client.post(GEMINI_ENDPOINT, headers=headers, json=payload)
-                    response.raise_for_status()
-                    data = response.json()
-                    break
-                except httpx.HTTPStatusError as exc:
-                    last_error = exc
-                    if exc.response.status_code in {429, 403}:
-                        continue
-                    raise
-            else:
-                if last_error:
-                    raise last_error
-                raise RuntimeError("Gemini 요청에 실패했습니다.")
-
-        text = _extract_text(data)
+        if self.use_vertex:
+            text = await _vertex_generate_json_text(prompt, timeout=self.timeout, temperature=0.1)
+        else:
+            text = await self._complete_httpx(prompt)
         parsed = _parse_json(text)
         return GeminiDecision(
             best_url=parsed.get("best_url"),
@@ -95,6 +108,34 @@ class GeminiFinder:
             needs_human_check=bool(parsed.get("needs_human_check", True)),
             raw_text=text,
         )
+
+    async def _complete_httpx(self, prompt: str) -> str:
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json",
+            },
+        }
+        last_error: Exception | None = None
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            for api_key in self.api_keys:
+                headers = {
+                    "x-goog-api-key": api_key,
+                    "Content-Type": "application/json",
+                }
+                try:
+                    response = await client.post(GEMINI_ENDPOINT, headers=headers, json=payload)
+                    response.raise_for_status()
+                    return _extract_text(response.json())
+                except httpx.HTTPStatusError as exc:
+                    last_error = exc
+                    if exc.response.status_code in {429, 403}:
+                        continue
+                    raise
+            if last_error:
+                raise last_error
+            raise RuntimeError("Gemini 요청에 실패했습니다.")
 
 
 def heuristic_decision(candidates: list[LinkCandidate]) -> GeminiDecision:

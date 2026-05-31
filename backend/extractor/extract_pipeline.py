@@ -79,7 +79,7 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
     budget = ExtractionBudget.from_env()
     owns_gemini_client = gemini_client is None
     gemini_client = gemini_client or GeminiDocumentExtractor()
-    gemini = gemini_client if gemini_client.api_keys else None
+    gemini = gemini_client if gemini_client.available else None
 
     try:
         with tempfile.TemporaryDirectory(prefix="naranhi-extract-") as temp_name:

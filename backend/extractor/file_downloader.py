@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 from urllib.parse import unquote, urljoin
@@ -13,6 +14,12 @@ from extractor.models import AttachmentRef, DownloadedFile, InlineImageRef
 
 
 REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
+
+# Some school servers are slow to serve attachment/image bytes. Use a generous
+# read timeout and retry once on timeout before giving up (otherwise this shows
+# up downstream as an OCR "ReadTimeout" failure on image-only notices).
+DOWNLOAD_TIMEOUT = httpx.Timeout(60.0, connect=15.0)
+DOWNLOAD_MAX_ATTEMPTS = 2
 
 
 async def download_attachment(
@@ -28,13 +35,39 @@ async def download_attachment(
         headers["Referer"] = referer
 
     max_bytes = max_file_size_mb * 1024 * 1024
+
+    last_timeout: httpx.TimeoutException | None = None
+    for attempt in range(DOWNLOAD_MAX_ATTEMPTS):
+        try:
+            return await _download_once(
+                ref,
+                output_dir=output_dir,
+                headers=headers,
+                max_bytes=max_bytes,
+            )
+        except httpx.TimeoutException as exc:
+            last_timeout = exc
+            if attempt + 1 < DOWNLOAD_MAX_ATTEMPTS:
+                await asyncio.sleep(1.5)
+                continue
+            raise
+    raise last_timeout  # pragma: no cover - loop always returns or raises above
+
+
+async def _download_once(
+    ref: AttachmentRef | InlineImageRef,
+    *,
+    output_dir: Path,
+    headers: dict[str, str],
+    max_bytes: int,
+) -> DownloadedFile:
     current_url = ref.url
     redirect_count = 0
 
     while True:
         assert_public_url(current_url)
         async with httpx.AsyncClient(
-            timeout=30.0,
+            timeout=DOWNLOAD_TIMEOUT,
             follow_redirects=False,
             headers=headers,
             verify=tls_verify_for_url(current_url),

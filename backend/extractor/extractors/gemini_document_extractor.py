@@ -44,6 +44,18 @@ class GeminiDocumentExtractor:
         self.max_inline_mb = max_inline_mb
         self._client = client
         self._owns_client = client is None
+        # Vertex AI mode: when VERTEX_AI_PROJECT_ID is set, call Gemini through
+        # Vertex AI with ADC (no API key). Required for GCP free-trial credit, and
+        # it sidesteps the hand-built multimodal REST payload that returned 400.
+        self.vertex_project = (os.getenv("VERTEX_AI_PROJECT_ID") or "").strip() or None
+        self.vertex_location = (os.getenv("VERTEX_AI_LOCATION") or "global").strip() or "global"
+        self.use_vertex = bool(self.vertex_project)
+        self._vertex_client: Any = None
+
+    @property
+    def available(self) -> bool:
+        """True when OCR can run via Vertex (ADC) or an API key."""
+        return self.use_vertex or bool(self.api_keys)
 
     async def __aenter__(self) -> GeminiDocumentExtractor:
         self._get_client()
@@ -57,37 +69,41 @@ class GeminiDocumentExtractor:
             await self._client.aclose()
         if self._owns_client:
             self._client = None
+        self._vertex_client = None
 
     async def extract_path(self, path: Path, *, mime_type: str, prompt: str) -> GeminiExtractResult:
         data = path.read_bytes()
         return await self.extract_bytes(data, mime_type=mime_type, prompt=prompt)
 
     async def extract_bytes(self, data: bytes, *, mime_type: str, prompt: str) -> GeminiExtractResult:
-        if not self.api_keys:
-            raise RuntimeError("GEMINI_API_KEYS 또는 GEMINI_API_KEY 환경변수가 필요합니다.")
+        if not self.available:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
         if len(data) > self.max_inline_mb * 1024 * 1024:
             raise RuntimeError(f"Gemini inline upload limit exceeded for POC: {len(data)} bytes")
 
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt},
-                        {
-                            "inlineData": {
-                                "mimeType": mime_type,
-                                "data": base64.b64encode(data).decode("ascii"),
-                            }
-                        },
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.0,
-                "responseMimeType": "application/json",
-            },
-        }
-        parsed = await self._generate_json_payload(payload, models=self.models, retry_empty_text=True)
+        if self.use_vertex:
+            parsed = await self._extract_bytes_vertex(data, mime_type=mime_type, prompt=prompt)
+        else:
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt},
+                            {
+                                "inlineData": {
+                                    "mimeType": mime_type,
+                                    "data": base64.b64encode(data).decode("ascii"),
+                                }
+                            },
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.0,
+                    "responseMimeType": "application/json",
+                },
+            }
+            parsed = await self._generate_json_payload(payload, models=self.models, retry_empty_text=True)
         return GeminiExtractResult(
             text=str(parsed.get("text") or ""),
             confidence=_optional_float(parsed.get("confidence")),
@@ -98,8 +114,11 @@ class GeminiDocumentExtractor:
         )
 
     async def generate_json(self, prompt: str, *, model: str | None = None) -> dict[str, Any]:
-        if not self.api_keys:
-            raise RuntimeError("GEMINI_API_KEYS 또는 GEMINI_API_KEY 환경변수가 필요합니다.")
+        if not self.available:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
+        struct_model = model or os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash")
+        if self.use_vertex:
+            return await self._generate_content_vertex(models=[struct_model], contents=[prompt])
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -109,7 +128,7 @@ class GeminiDocumentExtractor:
         }
         return await self._generate_json_payload(
             payload,
-            models=[model or os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash")],
+            models=[struct_model],
         )
 
     async def _generate_json_payload(
@@ -166,6 +185,61 @@ class GeminiDocumentExtractor:
             self._client = httpx.AsyncClient(timeout=self.timeout)
             self._owns_client = True
         return self._client
+
+    def _get_vertex_client(self) -> Any:
+        if self._vertex_client is None:
+            from google import genai
+            from google.genai import types
+
+            self._vertex_client = genai.Client(
+                vertexai=True,
+                project=self.vertex_project,
+                location=self.vertex_location,
+                http_options=types.HttpOptions(
+                    api_version="v1",
+                    timeout=int(self.timeout * 1000),
+                ),
+            )
+        return self._vertex_client
+
+    async def _extract_bytes_vertex(self, data: bytes, *, mime_type: str, prompt: str) -> dict[str, Any]:
+        from google.genai import types
+
+        return await self._generate_content_vertex(
+            models=self.models,
+            contents=[prompt, types.Part.from_bytes(data=data, mime_type=mime_type)],
+        )
+
+    async def _generate_content_vertex(self, *, models: list[str], contents: list[Any]) -> dict[str, Any]:
+        from google.genai import types
+
+        client = self._get_vertex_client()
+        last_error: Exception | None = None
+        for model in _dedupe(models):
+            for attempt in range(3):
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            temperature=0.0,
+                            response_mime_type="application/json",
+                        ),
+                    )
+                    text = (response.text or "").strip()
+                    if text:
+                        return _parse_json(text)
+                    last_error = RuntimeError("Gemini(Vertex) returned empty text")
+                    break  # empty response -> try next model
+                except Exception as exc:  # noqa: BLE001 - surface the real Vertex error.
+                    last_error = exc
+                    message = str(exc).lower()
+                    if any(token in message for token in ("429", "resource_exhausted", "503", "unavailable")):
+                        await asyncio.sleep(2**attempt)
+                        continue
+                    break  # non-retryable -> try next model
+        # Do NOT sanitize: Vertex errors carry no API key and we want the real cause.
+        raise RuntimeError(f"Gemini(Vertex) request failed: {last_error}")
 
 
 def ocr_prompt(source_name: str) -> str:

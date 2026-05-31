@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
-from app.crawler.gemini_finder import GEMINI_ENDPOINT, _split_api_keys
+from app.crawler.gemini_finder import (
+    GEMINI_ENDPOINT,
+    _gemini_use_vertex,
+    _split_api_keys,
+    _vertex_generate_json_text,
+)
 
 
 @dataclass(frozen=True)
@@ -35,9 +41,17 @@ class GeminiFailureClassification:
 
 
 class UnknownPostGeminiResolver:
-    def __init__(self, api_keys: str | None, timeout: float = 30.0) -> None:
-        self.api_keys = _split_api_keys(api_keys or "")
+    def __init__(self, api_keys: str | None = None, timeout: float = 30.0) -> None:
+        self.api_keys = _split_api_keys(
+            api_keys or os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or ""
+        )
         self.timeout = timeout
+        self.use_vertex = _gemini_use_vertex()
+
+    @property
+    def available(self) -> bool:
+        """True when post resolution can run via Vertex (ADC) or an API key."""
+        return self.use_vertex or bool(self.api_keys)
 
     async def choose_post_rows(
         self,
@@ -48,7 +62,7 @@ class UnknownPostGeminiResolver:
         script_snippets: list[str],
         row_candidates: list[dict[str, Any]],
     ) -> list[GeminiRowChoice]:
-        if not self.api_keys or not row_candidates:
+        if not self.available or not row_candidates:
             return []
 
         payload = {
@@ -89,7 +103,7 @@ class UnknownPostGeminiResolver:
         url_candidates: list[dict[str, str]],
         script_snippets: list[str],
     ) -> GeminiUrlOrder | None:
-        if not self.api_keys or not url_candidates:
+        if not self.available or not url_candidates:
             return None
 
         payload = {
@@ -118,7 +132,7 @@ class UnknownPostGeminiResolver:
         snippet: str,
         row_title: str,
     ) -> GeminiFailureClassification | None:
-        if not self.api_keys:
+        if not self.available:
             return None
 
         payload = {
@@ -137,6 +151,10 @@ class UnknownPostGeminiResolver:
         )
 
     async def _generate_json(self, prompt: str) -> dict[str, Any]:
+        if self.use_vertex:
+            return _parse_json(
+                await _vertex_generate_json_text(prompt, timeout=self.timeout, temperature=0.05)
+            )
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
