@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     gemini_api_keys: str | None = Field(default=None, alias="GEMINI_API_KEYS")
     gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
     gemini_timeout_seconds: float = Field(default=60.0, alias="GEMINI_TIMEOUT_SECONDS")
+    vertex_ai_project_id: str | None = Field(default=None, alias="VERTEX_AI_PROJECT_ID")
+    vertex_ai_location: str = Field(default="global", alias="VERTEX_AI_LOCATION")
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
@@ -113,8 +115,12 @@ class Settings(BaseSettings):
         return self.gemini_configured
 
     @property
+    def use_vertex(self) -> bool:
+        return bool(self.vertex_ai_project_id)
+
+    @property
     def gemini_configured(self) -> bool:
-        return bool(self.gemini_api_key or self.gemini_api_keys)
+        return bool(self.use_vertex or self.gemini_api_key or self.gemini_api_keys)
 
     @property
     def gemini_key_material(self) -> str | None:

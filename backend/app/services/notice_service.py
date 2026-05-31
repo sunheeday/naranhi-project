@@ -92,11 +92,7 @@ class NoticeService:
             if not resolved_source_text:
                 raise RuntimeError("번역할 원문이 없습니다.")
 
-            gemini = GeminiJsonClient(
-                api_key=settings.gemini_key_material,
-                model=settings.gemini_model,
-                timeout_seconds=settings.gemini_timeout_seconds,
-            )
+            gemini = GeminiJsonClient.from_settings(settings)
             pipeline = TranslationPipeline(gemini)
             try:
                 result = await pipeline.run(
