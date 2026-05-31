@@ -124,6 +124,16 @@ def find_attachments(base_url: str, html: str) -> list[AttachmentRef]:
         if seen.accept(ref):
             refs.append(ref)
 
+    for match in _raon_uploaded_files(base_url, html):
+        url = urljoin(base_url, match["url"])
+        ref = AttachmentRef(
+            url=url,
+            filename=_safe_filename(match["filename"]),
+            source_text=match["filename"][:250],
+        )
+        if seen.accept(ref):
+            refs.append(ref)
+
     for match in _server_file_objects(base_url, html):
         if seen.accept(match):
             refs.append(match)
@@ -219,6 +229,47 @@ def _unescape_js_string(value: str) -> str:
         .replace('\\"', '"')
         .replace("\\\\", "\\")
     )
+
+
+def _raon_uploaded_files(base_url: str, html: str) -> list[dict[str, str]]:
+    """Daegu-style CMS (e.g. *.dge.es.kr) registers attachments via the RAON
+    uploader and serves them from a fixed endpoint keyed by an opaque fileKey:
+
+        RAONKUPLOAD.AddUploadedFile('1', '<filename>', '<storedPath>', '<size>',
+                                    '<fileKey>|@|<bbs>|@|<nttSn>', uploadID);
+
+    The real download is ``/common/nttFileDownload.do?sysId=<sysId>&fileKey=<key>``
+    (verified: returns the raw file, no session/cookie required). The standard
+    ``<a href>`` / ``fn_egov_downFile`` patterns are absent on these pages, so
+    without this the notice body is just "see attached file" and the PDF/HWP is
+    never fetched.
+    """
+    sys_id = _raon_sys_id(html)
+    if not sys_id:
+        return []
+    refs: list[dict[str, str]] = []
+    for match in re.finditer(r"RAONKUPLOAD\.AddUploadedFile\((.*?)\);", html, re.DOTALL):
+        args = [
+            _unescape_js_string(value)
+            for _, value in re.findall(r"""(['"])((?:\\.|(?!\1).)*)\1""", match.group(1), re.DOTALL)
+        ]
+        if len(args) < 5:
+            continue
+        filename = args[1].strip()
+        file_key = args[4].split("|@|", 1)[0].strip()
+        if not filename or not file_key:
+            continue
+        url = (
+            f"/common/nttFileDownload.do?sysId={quote(sys_id, safe='')}"
+            f"&fileKey={quote(file_key, safe='')}"
+        )
+        refs.append({"filename": filename, "url": url})
+    return refs
+
+
+def _raon_sys_id(html: str) -> str:
+    match = re.search(r"""sysId\s*:\s*['"]([A-Za-z0-9_\-]+)['"]""", html)
+    return match.group(1).strip() if match else ""
 
 
 def _server_file_objects(base_url: str, html: str) -> list[AttachmentRef]:

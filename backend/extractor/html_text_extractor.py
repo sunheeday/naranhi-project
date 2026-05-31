@@ -116,6 +116,16 @@ NOISE_IMAGE_TERMS = (
     "/images/template/",
     "/common/",
     "/subimg/",
+    # 레이아웃/스킨/장식 이미지 (공지 내용 아님). 예: dge/apple CMS의
+    # /images/schl/web/<code>/sub/S_visual.png (서브 비주얼 배너),
+    # /resource/images/schl/layout/alarm_ico.png (레이아웃 아이콘).
+    "visual",
+    "/images/schl/",
+    "/resource/images/",
+    "/layout/",
+    "/skin/",
+    "/template/",
+    "_ico",
 )
 
 
