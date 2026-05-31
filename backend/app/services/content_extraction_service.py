@@ -239,7 +239,16 @@ class ContentExtractionService:
 
         gemini_calls_used = _gemini_calls_used(result)
         if _is_successful_extraction(result):
-            _save_success(notice, result)
+            try:
+                _save_success(notice, result)
+            except Exception as exc:  # noqa: BLE001 - one bad save must not abort the whole batch.
+                return _save_failure(
+                    notice,
+                    error_code="internal_error",
+                    error_message=f"save_success failed: {type(exc).__name__}: {sanitize_error(exc)}",
+                    gemini_calls_used=gemini_calls_used,
+                    exception=exc,
+                )
             return ContentExtractionItem(
                 notice_id=notice_id,
                 status="done",
@@ -303,7 +312,7 @@ def _save_success(notice: dict[str, Any], result: Any) -> None:
 
     payload = {
         "status": "done",
-        "original_text": getattr(result, "raw_text", ""),
+        "original_text": _scrub_text(str(getattr(result, "raw_text", "") or "")),
         "extracted_content": extracted_content,
         "extraction_next_run_at": None,
         "extraction_error_code": None,
@@ -639,6 +648,19 @@ def _metadata_bool(metadata: Any, key: str) -> bool:
     return isinstance(metadata, dict) and bool(metadata.get(key))
 
 
+def _scrub_text(value: str) -> str:
+    """Drop characters that cannot be stored as UTF-8 (e.g. lone surrogates that
+    OCR/model output occasionally emits, such as from a QR code or garbled glyph).
+
+    Postgres/JSON storage is UTF-8; a lone surrogate raises UnicodeEncodeError on
+    save and, because the save happens outside the per-notice guard, used to crash
+    the entire extractor batch. Policy: if it can't be stored, drop it.
+    """
+    if not isinstance(value, str):
+        return value
+    return value.encode("utf-8", "ignore").decode("utf-8")
+
+
 def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
@@ -648,9 +670,11 @@ def _jsonable(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, Path):
         return str(value)
-    if value is None or isinstance(value, str | int | float | bool):
+    if isinstance(value, str):
+        return _scrub_text(value)
+    if value is None or isinstance(value, int | float | bool):
         return value
-    return str(value)
+    return _scrub_text(str(value))
 
 
 def _int_value(value: Any) -> int:
@@ -661,7 +685,7 @@ def _int_value(value: Any) -> int:
 
 
 def _truncate_error(value: str) -> str:
-    return sanitize_error(value).replace("\n", " ")[:800]
+    return _scrub_text(sanitize_error(value)).replace("\n", " ")[:800]
 
 
 def _cap_reached(used: int, cap: int) -> bool:
