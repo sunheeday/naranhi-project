@@ -291,6 +291,42 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({row["event_date"] for row in schedule_inserts[0]}, {"2026-06-12"})
         self.assertEqual(saved["schedules"][0]["title"], "현장체험학습 안내")
 
+    def test_admin_review_translation_still_creates_schedules(self):
+        supabase = FakeSupabase()
+        supabase.children = [{"id": "child-1"}]
+        pipeline_result = {
+            "status": "admin_review_required",
+            "source_text": "설문 기간은 2026.5.18.~05.22. 입니다.",
+            "final_translation": "Thời gian khảo sát là từ ngày 18/5/2026 đến 22/5/2026.",
+            "source_hard_facts": {
+                "hard_facts": {
+                    "dates": [
+                        {"raw_text": "2026.5.18.~05.22.", "normalized": "2026-05-18 ~ 2026-05-22"},
+                        {"raw_text": "2026.5.20.", "normalized": "2026-05-20"},
+                    ],
+                    "deadlines": [
+                        {"raw_text": "05.22.", "normalized": "2026-05-22"},
+                    ],
+                },
+            },
+            "target_hard_facts": {},
+            "metadata": {"title": "설문 조사 안내", "summary_target_language": "설문 일정 안내"},
+            "admin_review": {"required": True, "reason": "hard_fact_validation_failed"},
+            "validation": {},
+            "raw_steps": {},
+        }
+
+        saved = NoticeService()._save_translation_result(
+            supabase=supabase,
+            notice={"school_id": "school-1", "title": "원본 제목"},
+            notice_id="notice-1",
+            target_language="vi",
+            pipeline_result=pipeline_result,
+            source_metadata={"school_id": "school-1"},
+        )
+
+        self.assertEqual({row["event_date"] for row in saved["schedules"]}, {"2026-05-18", "2026-05-20", "2026-05-22"})
+
 
 if __name__ == "__main__":
     unittest.main()

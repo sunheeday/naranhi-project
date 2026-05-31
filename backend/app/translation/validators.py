@@ -24,8 +24,8 @@ def validate_hard_facts_by_code(
     mismatches: list[dict[str, str]] = []
 
     for field in CRITICAL_FACT_FIELDS:
-        source_values = _normalized_set(source.get(field))
-        translated_values = _normalized_set(translated.get(field))
+        source_values = _normalized_set_for_field(field, source.get(field))
+        translated_values = _normalized_set_for_field(field, translated.get(field))
         missing = sorted(source_values - translated_values)
         extra = sorted(translated_values - source_values)
 
@@ -78,6 +78,16 @@ def _hard_facts(value: dict[str, Any]) -> dict[str, Any]:
     return facts if isinstance(facts, dict) else {}
 
 
+def _normalized_set_for_field(field: str, value: Any) -> set[str]:
+    if field in {"dates", "deadlines"}:
+        return _date_fact_set(value)
+    if field == "contacts":
+        return _contact_fact_set(value)
+    if field == "grade_class_targets":
+        return _grade_target_set(value)
+    return _normalized_set(value)
+
+
 def _normalized_set(value: Any) -> set[str]:
     if not isinstance(value, list):
         return set()
@@ -88,6 +98,54 @@ def _normalized_set(value: Any) -> set[str]:
         if flattened:
             normalized.add(_normalize_fact(flattened))
     return {item for item in normalized if item}
+
+
+def _date_fact_set(value: Any) -> set[str]:
+    if not isinstance(value, list):
+        return set()
+
+    normalized: set[str] = set()
+    for item in value:
+        flattened = _machine_verifiable_value(item)
+        dates = _extract_iso_dates(flattened)
+        if dates:
+            normalized.update(dates)
+            continue
+        if flattened:
+            normalized.add(_normalize_fact(flattened))
+    return normalized
+
+
+def _contact_fact_set(value: Any) -> set[str]:
+    if not isinstance(value, list):
+        return set()
+
+    normalized: set[str] = set()
+    for item in value:
+        flattened = _machine_verifiable_value(item)
+        tokens = _extract_contact_tokens(flattened)
+        if tokens:
+            normalized.update(tokens)
+            continue
+        if flattened:
+            normalized.add(_normalize_fact(flattened))
+    return normalized
+
+
+def _grade_target_set(value: Any) -> set[str]:
+    if not isinstance(value, list):
+        return set()
+
+    normalized: set[str] = set()
+    for item in value:
+        flattened = _machine_verifiable_value(item)
+        grades = _extract_grade_tokens(flattened)
+        if grades:
+            normalized.update(grades)
+            continue
+        if flattened:
+            normalized.add(_normalize_fact(flattened))
+    return normalized
 
 
 def _machine_verifiable_value(value: Any) -> str:
@@ -125,3 +183,41 @@ def _normalize_fact(value: str) -> str:
     stripped = stripped.replace("：", ":")
     stripped = stripped.replace("–", "-").replace("—", "-")
     return stripped
+
+
+def _extract_iso_dates(value: str) -> set[str]:
+    return {
+        match.group(0)
+        for match in re.finditer(r"\b\d{4}-\d{2}-\d{2}\b", value)
+    }
+
+
+def _extract_contact_tokens(value: str) -> set[str]:
+    normalized = _normalize_fact(value)
+    tokens: set[str] = set()
+
+    for email in re.findall(r"[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}", normalized):
+        tokens.add(f"email:{email}")
+
+    for phone in re.findall(r"\+?\d[\d\-\s().]{7,}\d", value):
+        digits = re.sub(r"\D", "", phone)
+        if len(digits) >= 8:
+            tokens.add(f"phone:{digits}")
+
+    return tokens
+
+
+def _extract_grade_tokens(value: str) -> set[str]:
+    normalized = _normalize_fact(value)
+    tokens: set[str] = set()
+
+    for match in re.finditer(r"(\d+)\s*(?:st|nd|rd|th)?\s*grade", normalized):
+        tokens.add(f"grade:{match.group(1)}")
+    for match in re.finditer(r"grade\s*(\d+)", normalized):
+        tokens.add(f"grade:{match.group(1)}")
+    for match in re.finditer(r"(\d+)\s*학년", normalized):
+        tokens.add(f"grade:{match.group(1)}")
+    if not tokens and re.fullmatch(r"\d+", normalized):
+        tokens.add(f"grade:{normalized}")
+
+    return tokens

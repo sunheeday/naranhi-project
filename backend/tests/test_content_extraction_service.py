@@ -9,10 +9,14 @@ from postgrest.exceptions import APIError
 
 from app.services.content_extraction_service import (
     EXTRACTED_CONTENT_SCHEMA_VERSION,
+    _auto_translate_notice_locales,
     _claim_notice,
     build_extracted_content,
     classify_extraction_error,
+    _missing_translation_locales,
+    _normalized_locale,
     _save_success,
+    _school_translation_locales,
     _is_successful_extraction,
     _failure_payload,
     _missing_supabase_config_names,
@@ -50,6 +54,56 @@ class FakeResult:
     sources: list[FakeSource] = field(default_factory=lambda: [FakeSource()])
     metadata: dict[str, object] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+
+
+class FakeQueryResult:
+    def __init__(self, data):
+        self.data = data
+
+
+class FakeTable:
+    def __init__(self, client, name: str):
+        self.client = client
+        self.name = name
+        self.filters: dict[str, object] = {}
+        self.selected = "*"
+
+    def select(self, columns: str):
+        self.selected = columns
+        return self
+
+    def eq(self, column: str, value: object):
+        self.filters[column] = value
+        return self
+
+    def in_(self, column: str, values: list[object]):
+        self.filters[column] = list(values)
+        return self
+
+    def execute(self):
+        if self.name == "children":
+            school_id = self.filters.get("school_id")
+            rows = [row for row in self.client.children if row.get("school_id") == school_id]
+            return FakeQueryResult(rows)
+        if self.name == "profiles":
+            ids = set(self.filters.get("id", []))
+            rows = [row for row in self.client.profiles if row.get("id") in ids]
+            return FakeQueryResult(rows)
+        if self.name == "notice_ai_translations":
+            notice_id = self.filters.get("notice_id")
+            rows = [row for row in self.client.translations if row.get("notice_id") == notice_id]
+            return FakeQueryResult(rows)
+        raise AssertionError(f"Unexpected table access: {self.name}")
+
+
+class FakeSupabaseClient:
+    def __init__(self):
+        self.children: list[dict[str, object]] = []
+        self.profiles: list[dict[str, object]] = []
+        self.translations: list[dict[str, object]] = []
+
+    def table(self, name: str):
+        return FakeTable(self, name)
 
 
 class ContentExtractionServiceHelperTests(unittest.TestCase):
@@ -207,6 +261,88 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertEqual(claimed["id"], "notice-1")
         self.assertEqual(claimed["status"], "processing")
         notices_table.update.assert_called_once()
+
+    def test_school_translation_locales_collects_unique_non_korean_locales(self) -> None:
+        client = FakeSupabaseClient()
+        client.children = [
+            {"school_id": "school-1", "user_id": "user-1"},
+            {"school_id": "school-1", "user_id": "user-2"},
+            {"school_id": "school-1", "user_id": "user-3"},
+        ]
+        client.profiles = [
+            {"id": "user-1", "locale": "vi", "native_language": "vi"},
+            {"id": "user-2", "locale": "en", "native_language": "ko"},
+            {"id": "user-3", "locale": "ko", "native_language": "ru"},
+        ]
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            locales = _school_translation_locales("school-1")
+
+        self.assertEqual(locales, ["vi", "en", "ru"])
+
+    def test_missing_translation_locales_skips_cached_non_failed_rows(self) -> None:
+        client = FakeSupabaseClient()
+        client.translations = [
+            {
+                "notice_id": "notice-1",
+                "target_language": "vi",
+                "translated_text": "ok",
+                "validation_status": "human_review_required",
+            },
+            {
+                "notice_id": "notice-1",
+                "target_language": "en",
+                "translated_text": "retry me",
+                "validation_status": "failed",
+            },
+        ]
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            missing = _missing_translation_locales("notice-1", ["vi", "en", "ru"])
+
+        self.assertEqual(missing, ["en", "ru"])
+
+    def test_auto_translate_notice_locales_translates_only_missing_locales(self) -> None:
+        client = FakeSupabaseClient()
+        client.children = [
+            {"school_id": "school-1", "user_id": "user-1"},
+            {"school_id": "school-1", "user_id": "user-2"},
+        ]
+        client.profiles = [
+            {"id": "user-1", "locale": "vi", "native_language": "ko"},
+            {"id": "user-2", "locale": "en", "native_language": "en"},
+        ]
+        client.translations = [
+            {
+                "notice_id": "notice-1",
+                "target_language": "vi",
+                "translated_text": "cached",
+                "validation_status": "passed",
+            },
+        ]
+        settings = type("FakeSettings", (), {"gemini_configured": True})()
+        translated: list[tuple[str, str]] = []
+
+        class FakeNoticeService:
+            async def translate_notice(self, *, notice_id: str, target_language: str, **kwargs):
+                translated.append((notice_id, target_language))
+                return {"ok": True}
+
+        with (
+            patch("app.services.content_extraction_service.get_supabase_client", return_value=client),
+            patch("app.services.content_extraction_service.get_settings", return_value=settings),
+            patch("app.services.notice_service.NoticeService", return_value=FakeNoticeService()),
+        ):
+            import asyncio
+
+            asyncio.run(_auto_translate_notice_locales({"id": "notice-1", "school_id": "school-1"}))
+
+        self.assertEqual(translated, [("notice-1", "en")])
+
+    def test_normalized_locale_rejects_korean_and_invalid_values(self) -> None:
+        self.assertIsNone(_normalized_locale("ko"))
+        self.assertIsNone(_normalized_locale("bad locale"))
+        self.assertEqual(_normalized_locale("VI"), "vi")
 
 
 if __name__ == "__main__":

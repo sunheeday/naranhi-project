@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 import logging
 from pathlib import Path
+import re
 from typing import Any
 
 from app.core.config import get_settings
@@ -249,6 +250,7 @@ class ContentExtractionService:
                     gemini_calls_used=gemini_calls_used,
                     exception=exc,
                 )
+            await _auto_translate_notice_locales(notice)
             return ContentExtractionItem(
                 notice_id=notice_id,
                 status="done",
@@ -319,6 +321,102 @@ def _save_success(notice: dict[str, Any], result: Any) -> None:
         "error_message": None,
     }
     get_supabase_client().table("notices").update(payload).eq("id", notice_id).execute()
+
+
+async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
+    settings = get_settings()
+    if not settings.gemini_configured:
+        return
+
+    notice_id = str(notice.get("id") or "").strip()
+    school_id = str(notice.get("school_id") or "").strip()
+    if not notice_id or not school_id:
+        return
+
+    locales = _school_translation_locales(school_id)
+    if not locales:
+        return
+
+    target_locales = _missing_translation_locales(notice_id, locales)
+    if not target_locales:
+        return
+
+    from app.services.notice_service import NoticeService
+
+    service = NoticeService()
+    for locale in target_locales:
+        try:
+            await service.translate_notice(
+                notice_id=notice_id,
+                target_language=locale,
+            )
+        except Exception as exc:  # noqa: BLE001 - translation backfill must not fail extraction.
+            LOGGER.warning(
+                "auto translation failed: notice_id=%s school_id=%s locale=%s error=%s",
+                notice_id,
+                school_id,
+                locale,
+                sanitize_error(exc),
+            )
+
+
+def _school_translation_locales(school_id: str) -> list[str]:
+    rows = (
+        get_supabase_client()
+        .table("children")
+        .select("user_id")
+        .eq("school_id", school_id)
+        .execute()
+        .data
+        or []
+    )
+    user_ids = sorted(
+        {
+            str(row.get("user_id") or "").strip()
+            for row in rows
+            if row.get("user_id")
+        },
+    )
+    if not user_ids:
+        return []
+
+    locales: list[str] = []
+    for chunk in _chunks(user_ids, 100):
+        profiles = (
+            get_supabase_client()
+            .table("profiles")
+            .select("locale,native_language")
+            .in_("id", chunk)
+            .execute()
+            .data
+            or []
+        )
+        for row in profiles:
+            for key in ("locale", "native_language"):
+                locale = _normalized_locale(row.get(key))
+                if locale and locale not in locales:
+                    locales.append(locale)
+    return locales
+
+
+def _missing_translation_locales(notice_id: str, locales: list[str]) -> list[str]:
+    existing_rows = (
+        get_supabase_client()
+        .table("notice_ai_translations")
+        .select("target_language,translated_text,validation_status")
+        .eq("notice_id", notice_id)
+        .execute()
+        .data
+        or []
+    )
+    completed = {
+        _normalized_locale(row.get("target_language"))
+        for row in existing_rows
+        if _normalized_locale(row.get("target_language"))
+        and str(row.get("translated_text") or "").strip()
+        and str(row.get("validation_status") or "").strip().lower() != "failed"
+    }
+    return [locale for locale in locales if locale not in completed]
 
 
 def _save_failure(
@@ -682,6 +780,21 @@ def _int_value(value: Any) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _normalized_locale(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    locale = value.strip().lower()
+    if not re.fullmatch(r"[a-z]{2,3}(?:-[a-z0-9]{2,8})?", locale):
+        return None
+    if locale == "ko":
+        return None
+    return locale
+
+
+def _chunks(values: list[str], size: int) -> list[list[str]]:
+    return [values[index:index + size] for index in range(0, len(values), size)]
 
 
 def _truncate_error(value: str) -> str:

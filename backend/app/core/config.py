@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         alias="CRAWLER_INTERNAL_TOKEN",
     )
     crawler_initial_notice_count: int = Field(
-        default=5,
+        default=10,
         ge=1,
         le=20,
         alias="CRAWLER_INITIAL_NOTICE_COUNT",
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
         le=500,
         alias="CRAWLER_NOTICE_CACHE_LIMIT_PER_SCHOOL",
     )
-    crawler_max_posts: int = Field(default=5, alias="CRAWLER_MAX_POSTS")
+    crawler_max_posts: int = Field(default=10, alias="CRAWLER_MAX_POSTS")
     crawler_enable_gemini: bool = Field(default=False, alias="CRAWLER_ENABLE_GEMINI")
     crawler_schedule_concurrency: int = Field(
         default=1,
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
         alias="CRAWLER_SCHEDULE_CONCURRENCY",
     )
     crawler_schedule_notice_count: int = Field(
-        default=5,
+        default=10,
         ge=1,
         le=50,
         alias="CRAWLER_SCHEDULE_NOTICE_COUNT",
