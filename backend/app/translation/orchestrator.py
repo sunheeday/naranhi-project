@@ -312,9 +312,7 @@ class TranslationPipeline:
                     "issues": list(hard_fact_validation.get("mismatches") or []),
                 },
                 "context_tone": {
-                    "status": "failed"
-                    if context_tone_validation.get("verdict") != "PASS"
-                    else "passed",
+                    "status": _validation_status(context_tone_validation),
                     "attempts": 0,
                     "issues": list(context_tone_validation.get("issues") or []),
                 },
@@ -367,3 +365,10 @@ def _review_priority(
     if "high" in severities:
         return "high"
     return "normal"
+
+
+def _validation_status(validation: dict[str, Any]) -> str:
+    status = str(validation.get("status") or "").strip().lower()
+    if status in {"skipped", "failed", "passed"}:
+        return status
+    return "passed" if validation.get("verdict") == "PASS" else "failed"

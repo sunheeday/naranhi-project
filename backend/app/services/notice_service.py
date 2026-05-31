@@ -452,15 +452,12 @@ class NoticeService:
         notice_id: str,
         pipeline_result: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        if pipeline_result.get("status") != "ready_to_save":
-            return []
-
         school_id = _optional_str(notice.get("school_id"))
         if not school_id:
             return []
 
-        event_dates = _schedule_dates_from_pipeline(pipeline_result)
         supabase.table("schedules").delete().eq("notice_id", notice_id).execute()
+        event_dates = _schedule_dates_from_pipeline(pipeline_result)
         if not event_dates:
             return []
 
