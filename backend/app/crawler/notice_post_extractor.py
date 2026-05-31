@@ -75,7 +75,7 @@ async def extract_notice_post_refs(
     board_url: str,
     cms: CmsDetection,
     warmup_url: str | None,
-    gemini_api_key: str | None = None,
+    gemini_enabled: bool = False,
     max_posts: int = 30,
     timeout: float,
 ) -> NoticePostRefResult:
@@ -153,7 +153,7 @@ async def extract_notice_post_refs(
 
             gemini_used = False
             if parser_family == "generic" and not raw_candidates:
-                resolver = UnknownPostGeminiResolver(gemini_api_key)
+                resolver = UnknownPostGeminiResolver()
                 gemini_rows = await resolver.choose_post_rows(
                     board_url=board_final_url,
                     page_title=title,
@@ -169,12 +169,11 @@ async def extract_notice_post_refs(
                 )
                 gemini_used = bool(gemini_rows)
 
-            if parser_family == "generic" and gemini_api_key:
+            if parser_family == "generic" and gemini_enabled:
                 raw_candidates = await _order_unknown_candidates_with_gemini(
                     raw_candidates=raw_candidates,
                     board_url=board_final_url,
                     html=board_html,
-                    gemini_api_key=gemini_api_key,
                 )
                 gemini_used = gemini_used or any(item.gemini_used for item in raw_candidates)
 
@@ -187,7 +186,7 @@ async def extract_notice_post_refs(
                     cms=cms,
                     parser_family=parser_family,
                     referer=referer or board_final_url,
-                    gemini_api_key=gemini_api_key,
+                    gemini_enabled=gemini_enabled,
                 )
                 posts.append(post)
 
@@ -657,7 +656,7 @@ async def _validate_candidate(
     cms: CmsDetection,
     parser_family: str,
     referer: str,
-    gemini_api_key: str | None,
+    gemini_enabled: bool,
 ) -> NoticePostRef:
     headers = dict(DEFAULT_HEADERS)
     if same_origin(referer, board_url):
@@ -713,8 +712,8 @@ async def _validate_candidate(
         except Exception as exc:  # noqa: BLE001 - try next candidate URL.
             last_reason = f"{type(exc).__name__}: {exc}"
 
-    if parser_family == "generic" and gemini_api_key and attempted:
-        resolver = UnknownPostGeminiResolver(gemini_api_key)
+    if parser_family == "generic" and gemini_enabled and attempted:
+        resolver = UnknownPostGeminiResolver()
         last = attempted[-1]
         classification = await resolver.classify_failure(
             attempted_url=last[0],
@@ -754,12 +753,11 @@ async def _order_unknown_candidates_with_gemini(
     raw_candidates: list[_RawPostCandidate],
     board_url: str,
     html: str,
-    gemini_api_key: str,
 ) -> list[_RawPostCandidate]:
     if not raw_candidates:
         return raw_candidates
 
-    resolver = UnknownPostGeminiResolver(gemini_api_key)
+    resolver = UnknownPostGeminiResolver()
     script_snippets = _extract_detail_script_snippets(html)
     ordered: list[_RawPostCandidate] = []
     for candidate in raw_candidates:

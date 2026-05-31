@@ -87,3 +87,4 @@ jobs:
             --timeout=300
             --memory=512Mi
             --cpu=1
+            --no-cpu-throttling

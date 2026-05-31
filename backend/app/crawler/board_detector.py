@@ -41,7 +41,7 @@ async def find_notice_board_url(
     *,
     school_name: str,
     homepage_url: str,
-    gemini_api_key: str | None,
+    gemini_enabled: bool,
     timeout: float,
 ) -> NoticeBoardSearchResult:
     client = HomepageClient(timeout=timeout)
@@ -80,7 +80,7 @@ async def find_notice_board_url(
             ][:3],
             needs_human_check=False,
         )
-    elif gemini_api_key:
+    elif gemini_enabled:
         heuristic = heuristic_decision(merged_candidates)
         if heuristic.best_url and heuristic.confidence >= HEURISTIC_GEMINI_SKIP_CONFIDENCE:
             decision = replace(
@@ -93,7 +93,7 @@ async def find_notice_board_url(
             )
         else:
             try:
-                decision = await GeminiFinder(gemini_api_key).choose_notice_board(
+                decision = await GeminiFinder().choose_notice_board(
                     school_name=school_name,
                     homepage_url=homepage.final_url,
                     page_title=title,

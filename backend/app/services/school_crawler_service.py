@@ -216,10 +216,8 @@ class SchoolCrawlerService:
                 error_message="School homepage URL is missing from DB and NEIS.",
             )
 
-        gemini_api_key = (
-            settings.gemini_api_key
-            if use_gemini and settings.crawler_enable_gemini
-            else None
+        gemini_enabled = bool(
+            use_gemini and settings.crawler_enable_gemini and settings.gemini_configured
         )
         post_limit = max_posts if max_posts is not None else settings.crawler_max_posts
         cached_board_failed_status: str | None = None
@@ -230,7 +228,7 @@ class SchoolCrawlerService:
                 cached_result = await _extract_cached_board_posts(
                     context=context,
                     cached_board=cached_board,
-                    gemini_api_key=gemini_api_key,
+                    gemini_enabled=gemini_enabled,
                     max_posts=post_limit,
                     timeout=settings.crawler_timeout_seconds,
                 )
@@ -244,7 +242,7 @@ class SchoolCrawlerService:
             board_result = await find_notice_board_url(
                 school_name=context.school_name,
                 homepage_url=context.homepage_url,
-                gemini_api_key=gemini_api_key,
+                gemini_enabled=gemini_enabled,
                 timeout=settings.crawler_timeout_seconds,
             )
         except Exception as exc:  # noqa: BLE001 - classify homepage/board failures.
@@ -274,7 +272,7 @@ class SchoolCrawlerService:
             board_url=board_result.decision.best_url,
             cms=board_result.cms,
             warmup_url=board_result.homepage_final_url,
-            gemini_api_key=gemini_api_key,
+            gemini_enabled=gemini_enabled,
             max_posts=post_limit,
             timeout=settings.crawler_timeout_seconds,
         )
@@ -539,7 +537,7 @@ async def _extract_cached_board_posts(
     *,
     context: _SchoolContext,
     cached_board: _CachedBoard,
-    gemini_api_key: str | None,
+    gemini_enabled: bool,
     max_posts: int,
     timeout: float,
 ) -> SchoolBoardDiscoveryResult:
@@ -547,7 +545,7 @@ async def _extract_cached_board_posts(
         board_url=cached_board.board_url,
         cms=cached_board.cms,
         warmup_url=context.homepage_url,
-        gemini_api_key=gemini_api_key,
+        gemini_enabled=gemini_enabled,
         max_posts=max_posts,
         timeout=timeout,
     )
