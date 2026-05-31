@@ -7,7 +7,8 @@ ENV PORT=8080
 WORKDIR /app
 
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/extractor-requirements.txt ./extractor-requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -r extractor-requirements.txt
 
 COPY backend/app ./app
 COPY backend/extractor ./extractor
