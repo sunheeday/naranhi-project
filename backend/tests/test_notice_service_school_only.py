@@ -62,6 +62,13 @@ class FakeTable:
             return FakeResult([])
         if self.name == "notice_cards" and self.action == "insert":
             return FakeResult(self.payload if isinstance(self.payload, list) else [self.payload])
+        if self.name == "children" and self.action == "select":
+            return FakeResult(self.client.children)
+        if self.name == "schedules" and self.action == "delete":
+            return FakeResult([])
+        if self.name == "schedules" and self.action == "insert":
+            rows = self.payload if isinstance(self.payload, list) else [self.payload]
+            return FakeResult(rows)
         if self.action in {"insert", "update", "upsert"}:
             return FakeResult([self.payload])
         return FakeResult([])
@@ -71,6 +78,7 @@ class FakeSupabase:
     def __init__(self):
         self.operations = []
         self.notice_cards = []
+        self.children = []
 
     def table(self, name):
         return FakeTable(self, name)
@@ -234,6 +242,54 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertIn("card-1", deleted_card_ids)
         self.assertEqual(saved["cards"], [])
+
+    def test_save_translation_creates_schedules_for_school_children(self):
+        supabase = FakeSupabase()
+        supabase.children = [
+            {"id": "child-1"},
+            {"id": "child-2"},
+        ]
+        pipeline_result = {
+            "status": "ready_to_save",
+            "source_text": "현장체험학습은 2026-06-12에 진행됩니다.",
+            "final_translation": "Chuyến tham quan sẽ diễn ra vào ngày 2026-06-12.",
+            "source_hard_facts": {
+                "hard_facts": {
+                    "dates": [{"raw_text": "2026년 6월 12일", "normalized": "2026-06-12"}],
+                    "locations": [{"raw_text": "서울숲", "normalized": "서울숲"}],
+                },
+            },
+            "target_hard_facts": {
+                "hard_facts": {
+                    "dates": [{"raw_text": "2026-06-12", "normalized": "2026-06-12"}],
+                    "locations": [{"raw_text": "Seoul Forest", "normalized": "Seoul Forest"}],
+                },
+            },
+            "metadata": {"title": "현장체험학습 안내", "summary_target_language": "행사 일정 안내"},
+            "admin_review": {"required": False, "reason": None},
+            "validation": {},
+            "raw_steps": {},
+        }
+
+        saved = NoticeService()._save_translation_result(
+            supabase=supabase,
+            notice={"school_id": "school-1", "title": "원본 제목"},
+            notice_id="notice-1",
+            target_language="vi",
+            pipeline_result=pipeline_result,
+            source_metadata={"school_id": "school-1"},
+        )
+
+        schedule_inserts = [
+            op[2]
+            for op in supabase.operations
+            if op[0] == "schedules" and op[1] == "insert"
+        ]
+        self.assertEqual(len(schedule_inserts), 1)
+        self.assertEqual(len(schedule_inserts[0]), 2)
+        self.assertEqual({row["child_id"] for row in schedule_inserts[0]}, {"child-1", "child-2"})
+        self.assertEqual({row["event_date"] for row in schedule_inserts[0]}, {"2026-06-12"})
+        self.assertEqual(saved["schedules"][0]["title"], "현장체험학습 안내")
 
 
 if __name__ == "__main__":

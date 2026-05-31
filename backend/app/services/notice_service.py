@@ -245,7 +245,12 @@ class NoticeService:
             target_language=target_language,
             pipeline_result=pipeline_result,
         )
-        schedules: list[dict[str, Any]] = []
+        schedules = self._replace_schedules_from_pipeline(
+            supabase=supabase,
+            notice=notice,
+            notice_id=notice_id,
+            pipeline_result=pipeline_result,
+        )
 
         notice_patch: dict[str, Any] = {}
         if metadata.get("title"):
@@ -439,6 +444,69 @@ class NoticeService:
 
         return saved
 
+    def _replace_schedules_from_pipeline(
+        self,
+        *,
+        supabase: Any,
+        notice: dict[str, Any],
+        notice_id: str,
+        pipeline_result: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        if pipeline_result.get("status") != "ready_to_save":
+            return []
+
+        school_id = _optional_str(notice.get("school_id"))
+        if not school_id:
+            return []
+
+        event_dates = _schedule_dates_from_pipeline(pipeline_result)
+        supabase.table("schedules").delete().eq("notice_id", notice_id).execute()
+        if not event_dates:
+            return []
+
+        child_rows = (
+            supabase.table("children")
+            .select("id")
+            .eq("school_id", school_id)
+            .execute()
+            .data
+            or []
+        )
+        child_ids = [
+            str(row.get("id"))
+            for row in child_rows
+            if _optional_str(row.get("id"))
+        ]
+        if not child_ids:
+            return []
+
+        title = (
+            _optional_str((pipeline_result.get("metadata") or {}).get("title"))
+            or _optional_str(notice.get("title"))
+            or "학교 일정"
+        )
+        location = _schedule_location_from_pipeline(pipeline_result)
+        description = (
+            _optional_str((pipeline_result.get("metadata") or {}).get("summary_target_language"))
+            or _optional_str(pipeline_result.get("final_translation"))
+            or title
+        )
+
+        rows = [
+            {
+                "notice_id": notice_id,
+                "child_id": child_id,
+                "title": title,
+                "event_date": event_date,
+                "location": location,
+                "description": description,
+            }
+            for child_id in child_ids
+            for event_date in event_dates
+        ]
+        result = supabase.table("schedules").insert(rows).execute()
+        return result.data or []
+
 
 def _remove_target_language_from_existing_cards(
     *,
@@ -545,6 +613,22 @@ def _merge_card_content(existing: object, incoming: object) -> dict[str, Any]:
     if isinstance(incoming, dict):
         merged.update(incoming)
     return merged
+
+
+def _schedule_dates_from_pipeline(pipeline_result: dict[str, Any]) -> list[str]:
+    source_facts = _hard_facts(pipeline_result.get("source_hard_facts"))
+    target_facts = _hard_facts(pipeline_result.get("target_hard_facts"))
+    values: list[str] = []
+    for container in (target_facts, source_facts):
+        for field in ("dates", "deadlines"):
+            values.extend(_normalized_iso_dates(container.get(field)))
+    return _dedupe(values)
+
+
+def _schedule_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
+    source_facts = _hard_facts(pipeline_result.get("source_hard_facts"))
+    target_facts = _hard_facts(pipeline_result.get("target_hard_facts"))
+    return _first_value(target_facts.get("locations")) or _first_value(source_facts.get("locations"))
 
 
 def _build_notice_cards(
@@ -678,6 +762,25 @@ def _values(value: object) -> list[str]:
 def _first_value(value: object) -> str | None:
     values = _values(value)
     return values[0] if values else _optional_str(value)
+
+
+def _normalized_iso_dates(value: object) -> list[str]:
+    if value is None:
+        return []
+    raw = value if isinstance(value, list) else [value]
+    dates: list[str] = []
+    for item in raw:
+        normalized: str | None = None
+        if isinstance(item, dict):
+            normalized = _optional_str(item.get("normalized")) or _optional_str(item.get("value"))
+        else:
+            normalized = _optional_str(item)
+        if not normalized:
+            continue
+        iso = _iso_date(normalized)
+        if iso:
+            dates.append(iso)
+    return _dedupe(dates)
 
 
 def _join_compact(values: list[str]) -> str:
