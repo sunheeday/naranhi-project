@@ -166,11 +166,13 @@ def _looks_like_redirect_page(html: str) -> bool:
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
     visible_text = " ".join(soup.get_text(" ", strip=True).split())
-    anchors = soup.find_all("a")
+    # Ignore empty/textless anchors (e.g. <a href="/"></a>). JS-redirect shells
+    # often contain a single contentless link that must not disqualify detection.
+    meaningful_anchors = [a for a in soup.find_all("a") if a.get_text(strip=True)]
 
-    if len(visible_text) <= 80 and len(anchors) == 0:
+    if len(visible_text) <= 80 and len(meaningful_anchors) == 0:
         return True
-    if soup.title and soup.title.string and soup.title.string.strip().lower() in {"cms", "welcome homepage"} and len(anchors) == 0:
+    if soup.title and soup.title.string and soup.title.string.strip().lower() in {"cms", "welcome homepage"} and len(meaningful_anchors) == 0:
         return True
     return False
 

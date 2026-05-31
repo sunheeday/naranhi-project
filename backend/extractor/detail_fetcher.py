@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -26,18 +26,27 @@ REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
 
 async def fetch_detail(url: str, *, timeout: float = 20.0, context: dict[str, Any] | None = None) -> FetchedDetail:
     assert_public_url(url)
+    context = context or {}
     async with httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=False,
         headers=DEFAULT_HEADERS,
         verify=client_verify_for_url(url),
     ) as client:
-        response = await _get_following_js_redirect(client, url, max_bytes=_max_fetch_bytes())
+        # Some boards (e.g. *.dge.es.kr) bounce the detail page to SSO unless a
+        # session cookie from a prior visit is present. Warm up via the board/list
+        # page first on the same client (cookies persist), like the crawler does,
+        # then send the detail request with a same-origin Referer.
+        referer = await _warmup_session(client, url, context, max_bytes=_max_fetch_bytes())
+        request_headers = {"Referer": referer} if referer else None
+        response = await _get_following_js_redirect(
+            client, url, max_bytes=_max_fetch_bytes(), headers=request_headers
+        )
         enriched = await maybe_fetch_via_ajax(
             client,
             url,
             response,
-            context or {},
+            context,
             max_bytes=_max_fetch_bytes(),
             send_limited=_send_limited,
         )
@@ -61,13 +70,14 @@ async def _get_following_js_redirect(
     url: str,
     max_bytes: int,
     max_js_redirects: int = 5,
+    headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     current_url = url
     seen_urls: set[str] = set()
     response: httpx.Response | None = None
     for _ in range(max_js_redirects + 1):
         assert_public_url(current_url)
-        response = await _stream_get_limited(client, current_url, max_bytes=max_bytes)
+        response = await _stream_get_limited(client, current_url, max_bytes=max_bytes, headers=headers)
         if response.status_code in REDIRECT_STATUS_CODES and response.headers.get("location"):
             redirect_url = urljoin(str(response.url), response.headers["location"])
             assert_public_url(redirect_url)
@@ -89,9 +99,40 @@ async def _get_following_js_redirect(
     return response
 
 
-async def _stream_get_limited(client: httpx.AsyncClient, url: str, *, max_bytes: int) -> httpx.Response:
-    request = client.build_request("GET", url)
+async def _stream_get_limited(
+    client: httpx.AsyncClient, url: str, *, max_bytes: int, headers: dict[str, str] | None = None
+) -> httpx.Response:
+    request = client.build_request("GET", url, headers=headers)
     return await _send_limited(client, request, max_bytes=max_bytes)
+
+
+async def _warmup_session(
+    client: httpx.AsyncClient,
+    detail_url: str,
+    context: dict[str, Any],
+    *,
+    max_bytes: int,
+) -> str | None:
+    """Visit the board/list page first so the server issues a session cookie
+    before we request the detail page. Returns a same-origin Referer URL (the
+    board URL) when warmup is applicable, else None. Best-effort: never raises."""
+    warmup_url = context.get("board_url") or context.get("homepage_url")
+    if not isinstance(warmup_url, str) or not warmup_url:
+        return None
+    if not _same_origin(warmup_url, detail_url):
+        return None
+    try:
+        assert_public_url(warmup_url)
+        await _get_following_js_redirect(client, warmup_url, max_bytes=max_bytes)
+    except Exception:  # noqa: BLE001 - warmup is best-effort; ignore failures.
+        return None
+    return warmup_url
+
+
+def _same_origin(left: str, right: str) -> bool:
+    left_parsed = urlparse(left)
+    right_parsed = urlparse(right)
+    return left_parsed.scheme == right_parsed.scheme and left_parsed.netloc == right_parsed.netloc
 
 
 async def _send_limited(client: httpx.AsyncClient, request: httpx.Request, *, max_bytes: int) -> httpx.Response:
