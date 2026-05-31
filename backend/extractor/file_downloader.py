@@ -9,7 +9,7 @@ import httpx
 
 from extractor.detail_fetcher import DEFAULT_HEADERS, _content_length
 from extractor.file_type_detector import detect_file_type
-from extractor.http_security import assert_public_url, tls_metadata, tls_verify_for_url
+from extractor.http_security import assert_public_url, client_verify_for_url, tls_metadata
 from extractor.models import AttachmentRef, DownloadedFile, InlineImageRef
 
 
@@ -70,7 +70,7 @@ async def _download_once(
             timeout=DOWNLOAD_TIMEOUT,
             follow_redirects=False,
             headers=headers,
-            verify=tls_verify_for_url(current_url),
+            verify=client_verify_for_url(current_url),
         ) as client:
             async with client.stream("GET", current_url) as response:
                 if response.status_code in REDIRECT_STATUS_CODES and response.headers.get("location"):

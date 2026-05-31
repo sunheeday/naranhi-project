@@ -206,7 +206,7 @@ class GeminiDocumentExtractor:
         from google.genai import types
 
         return await self._generate_content_vertex(
-            models=self.models,
+            models=_vertex_safe_models(self.models),
             contents=[prompt, types.Part.from_bytes(data=data, mime_type=mime_type)],
         )
 
@@ -234,7 +234,15 @@ class GeminiDocumentExtractor:
                 except Exception as exc:  # noqa: BLE001 - surface the real Vertex error.
                     last_error = exc
                     message = str(exc).lower()
-                    if any(token in message for token in ("429", "resource_exhausted", "503", "unavailable")):
+                    retryable_tokens = (
+                        "429",
+                        "resource_exhausted",
+                        "503",
+                        "unavailable",
+                        "504",
+                        "deadline",
+                    )
+                    if any(token in message for token in retryable_tokens):
                         await asyncio.sleep(2**attempt)
                         continue
                     break  # non-retryable -> try next model
@@ -298,6 +306,13 @@ def _dedupe(values: list[str]) -> list[str]:
         if stripped and stripped not in deduped:
             deduped.append(stripped)
     return deduped
+
+
+def _vertex_safe_models(models: list[str]) -> list[str]:
+    # gemini-*-flash-lite returns 404 on Vertex (global). Drop lite variants so
+    # OCR uses a model that exists there (default gemini-2.5-flash).
+    safe = [model for model in models if "lite" not in model.lower()]
+    return safe or ["gemini-2.5-flash"]
 
 
 def _float_env(name: str, default: float) -> float:

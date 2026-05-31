@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 import httpx
 
 from extractor.fetch_variants.sen_ajax import maybe_fetch_via_ajax
-from extractor.http_security import assert_public_url, tls_metadata, tls_verify_for_url
+from extractor.http_security import assert_public_url, client_verify_for_url, tls_metadata
 from extractor.models import FetchedDetail
 
 
@@ -30,7 +30,7 @@ async def fetch_detail(url: str, *, timeout: float = 20.0, context: dict[str, An
         timeout=timeout,
         follow_redirects=False,
         headers=DEFAULT_HEADERS,
-        verify=tls_verify_for_url(url),
+        verify=client_verify_for_url(url),
     ) as client:
         response = await _get_following_js_redirect(client, url, max_bytes=_max_fetch_bytes())
         enriched = await maybe_fetch_via_ajax(
