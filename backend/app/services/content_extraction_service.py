@@ -396,7 +396,9 @@ def _school_translation_locales(school_id: str) -> list[str]:
                 locale = _normalized_locale(row.get(key))
                 if locale and locale not in locales:
                     locales.append(locale)
-    return locales
+    if locales:
+        return locales
+    return ["ko"]
 
 
 def _missing_translation_locales(notice_id: str, locales: list[str]) -> list[str]:
