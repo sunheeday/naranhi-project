@@ -280,6 +280,22 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(locales, ["vi", "en", "ru"])
 
+    def test_school_translation_locales_falls_back_to_korean_when_no_foreign_locale(self) -> None:
+        client = FakeSupabaseClient()
+        client.children = [
+            {"school_id": "school-1", "user_id": "user-1"},
+            {"school_id": "school-1", "user_id": "user-2"},
+        ]
+        client.profiles = [
+            {"id": "user-1", "locale": "ko", "native_language": "ko"},
+            {"id": "user-2", "locale": "ko", "native_language": "ko"},
+        ]
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            locales = _school_translation_locales("school-1")
+
+        self.assertEqual(locales, ["ko"])
+
     def test_missing_translation_locales_skips_cached_non_failed_rows(self) -> None:
         client = FakeSupabaseClient()
         client.translations = [

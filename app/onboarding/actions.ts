@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
+import { backfillSchedulesForChild } from '@/lib/schedule-backfill'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -153,6 +154,13 @@ export async function saveChildAndProfile(input: SaveChildInput) {
   if (error || !child) {
     throw new Error('자녀 정보 저장 실패: ' + error?.message)
   }
+
+  await backfillSchedulesForChild({
+    serviceClient,
+    schoolId: school.id,
+    childId: child.id,
+    preferredLocale: input.locale,
+  })
 
   if (shouldTriggerCrawl) {
     await triggerInitialSchoolCrawl(school.id)

@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { backfillSchedulesForChildren } from '@/lib/schedule-backfill'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import {
   fetchTimetableRangeFromNeis,
@@ -93,7 +94,7 @@ export default async function CalendarPage({ searchParams }: Props) {
     try {
       const { data: children } = await supabase
         .from('children')
-        .select('id, school_name, grade, class_no, neis_office_code, neis_school_code')
+        .select('id, school_id, school_name, grade, class_no, neis_office_code, neis_school_code')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -104,7 +105,7 @@ export default async function CalendarPage({ searchParams }: Props) {
       }
 
       if (childIds.length > 0) {
-        const { data: rows, error } = await supabase
+        let { data: rows, error } = await supabase
           .from('schedules')
           .select('id, notice_id, title, event_date, location')
           .in('child_id', childIds)
@@ -113,6 +114,26 @@ export default async function CalendarPage({ searchParams }: Props) {
           .order('event_date', { ascending: true })
 
         if (error) throw error
+
+        if ((rows ?? []).length === 0) {
+          const serviceClient = createSupabaseServiceClient()
+          await backfillSchedulesForChildren({
+            serviceClient,
+            children: (children ?? []).map(item => ({ id: item.id, school_id: item.school_id ?? null })),
+            preferredLocale: locale,
+          })
+
+          const retry = await supabase
+            .from('schedules')
+            .select('id, notice_id, title, event_date, location')
+            .in('child_id', childIds)
+            .gte('event_date', from)
+            .lt('event_date', to)
+            .order('event_date', { ascending: true })
+
+          if (retry.error) throw retry.error
+          rows = retry.data
+        }
 
         events = (rows ?? []).map(row => ({
           id: row.id,
