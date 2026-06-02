@@ -43,9 +43,29 @@ training 점수만 오르고 held-out이 정체/하락하면 **과적합 신호*
 
 ### 8축 평가 루브릭 (가중 평균)
 
-Fact / Action / Tone / Completeness / Naturalness / Culture / Meal·Allergy / Safety 의 8축을 0–5점으로 채점.
-Safety는 ×2 가중. 어떤 축이 만점이어도 "이주민 학부모가 무엇을/언제까지/어떻게 해야 할지 모름"이면 종합 fail.
-상세 기준: `.agents/translation-quality/templates/evaluation-rubric.md`.
+각 번역을 아래 8개 축에서 **0–5점**으로 채점한다. 모든 축은 북극성(이주민 학부모 이해도) 관점에서 본다 —
+어떤 축이 만점이어도 "무엇을/언제까지/어떻게 해야 할지 모름"이면 종합 verdict는 fail.
+
+| # | 축 | 무엇을 보는가 | 가중치 |
+|---|---|---|---|
+| 1 | **Fact Preservation** (사실 보존) | 날짜·시각·장소·금액·전화·계좌·URL·학년/반·인원·제출물·마감 등 기계 검증 가능 사실이 원문과 일치하는가 | 1.0 |
+| 2 | **Action Clarity** (행동 명확성) | 학부모/학생이 *무엇을 / 언제까지 / 어떻게* 해야 하는지 한 번에 잡히는가 | 1.0 |
+| 3 | **Tone & Register** (톤·격식) | 학교 공식 통신문의 공손·중립 톤을 타겟 언어에 맞게 매핑했는가 (단, 과한 고급 격식은 이해 장벽이라 감점) | 0.8 |
+| 4 | **Completeness** (완전성) | 원문 정보 누락 없음 + 원문에 없는 정보 추가 없음 (1:1 대응) | 0.8 |
+| 5 | **Naturalness / Readability** (자연스러움) | 이주민 학부모가 한 번에 이해하는가 (직역체/기계어투 점검, 이해도 > 매끄러움) | 0.7 |
+| 6 | **Cultural & Linguistic** (문화·언어 적절성) | 호칭·존대·표기 관습, 한국 학교 개념(학예회·돌봄교실 등)을 처음 보는 보호자도 이해하게 풀었는가 | 0.8 |
+| 7 | **Meal / Allergy Accuracy** (식재료·알레르기) | 승인 사전 매핑 사용, critical 알레르겐/종교 제약 표기 (식단 정보 없으면 0=N/A, 평균에서 제외) | 0.7 |
+| 8 | **Safety & Risk** (안전·위험) | 오역이 안전/건강/출결/납부/참여에 영향 줄 가능성 (0/3/5만 사용) | **2.0** |
+
+**점수 의미:** 5=완벽 · 4=좋음(사소한 흠) · 3=합격선 · 2=위험(오해 가능) · 1=실패(사실 왜곡/누락) · 0=해당 없음.
+
+**가중 평균 공식:**
+```
+weighted_avg = ( fact×1.0 + action×1.0 + tone×0.8 + completeness×0.8
+               + naturalness×0.7 + culture×0.8 + meal×0.7 + safety×2.0 ) / 8.8
+```
+Safety가 ×2로 가장 큰 가중치를 갖는다(안전 오역은 치명적). 축별 0–5점의 상세 판정 기준과 예시는
+`.agents/translation-quality/templates/evaluation-rubric.md` 참조.
 
 ### 종료 기준 (Stopping Criteria)
 
