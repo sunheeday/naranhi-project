@@ -17,6 +17,10 @@ interface Props {
   /** 카테고리 뱃지 텍스트 (예: 'text-cat-supply') */
   badgeText: string
   badgeLabel: string
+  /** 마감/일정 칩 텍스트 (예: 'D-3 · 4/18'). 연결된 날짜가 있을 때만 전달. */
+  dueLabel?: string | null
+  /** 마감 임박(D-3 이내) 시 빨강 강조 */
+  dueUrgent?: boolean
   deleteLabel: string
   confirmTitle: string
   confirmBody?: string
@@ -35,6 +39,8 @@ export default function NoticeCardItem({
   badgeBg,
   badgeText,
   badgeLabel,
+  dueLabel,
+  dueUrgent = false,
   deleteLabel,
   confirmTitle,
   confirmBody,
@@ -70,7 +76,7 @@ export default function NoticeCardItem({
       <div className="relative">
         <Link
           href={`/notices/${noticeId}`}
-          className="block bg-surface-card rounded-card p-4 pe-12 active:scale-[0.98] transition-transform overflow-hidden"
+          className="block bg-surface-card rounded-card shadow-card p-4 pe-12 active:scale-[0.98] transition-transform overflow-hidden"
           aria-label={title}
         >
           {/* 좌측 4px 세로 카테고리 컬러 바 */}
@@ -79,15 +85,26 @@ export default function NoticeCardItem({
             className={`absolute top-0 bottom-0 start-0 w-1 ${accentBar}`}
           />
 
-          <div className="flex items-center justify-between mb-3">
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-xs font-medium ${badgeBg} ${badgeText}`}>
-              {badgeLabel}
-            </span>
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-xs font-medium ${badgeBg} ${badgeText}`}>
+                {badgeLabel}
+              </span>
+              {dueLabel && (
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-pill text-xs font-bold whitespace-nowrap ${
+                    dueUrgent ? 'bg-red-50 text-error' : 'bg-primary-soft text-primary'
+                  }`}
+                >
+                  {dueLabel}
+                </span>
+              )}
+            </div>
             {statusLabel && (
-              <span className="text-xs text-muted">{statusLabel}</span>
+              <span className="text-xs text-muted shrink-0">{statusLabel}</span>
             )}
           </div>
-          <h2 className="text-base font-semibold text-ink line-clamp-2 leading-snug">{title}</h2>
+          <h2 className="text-base font-semibold text-ink line-clamp-2 leading-snug text-readable">{title}</h2>
           <p className="text-xs text-muted-soft mt-2">
             {arrivedAt}{arrivedSuffix}
           </p>

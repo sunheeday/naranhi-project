@@ -1,0 +1,442 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ar",
+  "source_text": "2026년 인천광역시교육청 「학생·시민기자단 모집」 재안내\n\n학부모님 안녕하십니까?\n\n학생과 시민의 자발적인 참여를 통해 교육 현장의 생생한 목소리를 듣고, 교육 공동체의 시각에서 인천교육을 알리고자 합니다. 이에 「2026년 학생·시민기자단」을 모집하오니, 학부모님과 학생 여러분의 많은 관심과 참여를 부탁드립니다.\n\n○ 모집 인원: 학생기자단 60명, 시민기자단 30명\n\n○ 모집 대상\n  - 학생: 인천 관내 거주 만 13세 ~ 19세 미만 청소년\n  - 시민: 인천시민 중 현직 언론인을 제외한 성인 누구나\n    ※ 인천시교육청 소속 교직원 제외\n\n○ 모집 기간: 2026. 5. 29.(금) 17:30까지\n  ※ 결과발표: 2026. 6. 12.(금) 개별 통보\n\n○ 제출 서식: 자기소개서, 개인정보 수집이용 동의서 각 1부\n\n○ 접수 방법: 이메일 접수 (um12um@ice.go.kr)\n\n○ 주요 활동\n  - 활동 기간: 2026. 6. 위촉 후 ~ 2027년 위촉 전\n  - 활동 사항: 인천교육 관련 취재 및 기사 작성\n\n○ 학생·시민기자단 활동 혜택\n  - 위촉장 수여 및 기자증 발급\n  - 현직 기자를 통한 기사 작성 실무 연수 (연 4회)\n  - 우수 기사 선정 후 시교육청 SNS 게시 및 소정의 원고료 지급\n  - 우수활동 기자 교육감 표창 수여\n\n○ 문의: 소통협력담당관 ☎ 032-420-8137\n",
+  "final_translation": "إعادة إعلان: توظيف مراسلي الطلاب والمواطنين لمكتب التعليم بمدينة إنتشون الحضرية لعام 2026\n\nتحياتنا، أيها أولياء الأمور.\n\nمن خلال المشاركة الطوعية للطلاب والمواطنين، نهدف إلى الاستماع إلى الأصوات الحية من الميدان التعليمي وتعزيز تعليم إنتشون من منظور المجتمع التعليمي. لذلك، نحن نوظف \"مجموعة مراسلي الطلاب والمواطنين لعام 2026\"، ونطلب بلطف اهتمام ومشاركة قوية من أولياء الأمور والطلاب.\n\n○ عدد المجندين: مراسلو الطلاب: 60 شخصًا، مراسلو المواطنين: 30 شخصًا\n\n○ شروط الأهلية للتوظيف\n  - الطلاب: الشباب الذين تتراوح أعمارهم بين 13 و أقل من 19 عامًا والمقيمون داخل إنتشون.\n  - المواطنون: أي مواطن بالغ من إنتشون، باستثناء الصحفيين الحاليين.\n    ※ باستثناء أعضاء هيئة التدريس والموظفين التابعين لمكتب التعليم بمدينة إنتشون الحضرية.\n\n○ فترة التوظيف: حتى الساعة 17:30 من يوم الجمعة، 29 مايو 2026.\n  ※ إعلان النتائج: إشعار فردي يوم الجمعة، 12 يونيو 2026.\n\n○ النماذج المطلوبة للتقديم: نسخة واحدة من خطاب تعريف ذاتي ونسخة واحدة من نموذج الموافقة على جمع واستخدام المعلومات الشخصية.\n\n○ طريقة التقديم: التقديم عبر البريد الإلكتروني (um12um@ice.go.kr).\n\n○ الأنشطة الرئيسية\n  - فترة النشاط: بعد التعيين في يونيو 2026 حتى قبل التعيين في عام 2027.\n  - تفاصيل النشاط: تغطية وكتابة مقالات تتعلق بتعليم إنتشون.\n\n○ فوائد أنشطة مراسلي الطلاب والمواطنين\n  - إصدار شهادة تعيين وبطاقة هوية مراسل.\n  - تدريب عملي على كتابة المقالات من خلال صحفيين حاليين (4 مرات في السنة).\n  - بعد اختيار المقالات الممتازة، يتم نشرها على وسائل التواصل الاجتماعي لمكتب التعليم بالمدينة ودفع رسوم رمزية للمخطوطة.\n  - منح شهادة تقدير من المشرف العام على التعليم للمراسلين ذوي الأنشطة المتميزة.\n\n○ للاستفسارات: مسؤول الاتصال والتعاون ☎ 032-420-8137",
+  "source_hard_facts": {
+    "document_type": "Recruitment Notice",
+    "sender": {
+      "school": null,
+      "organization": "인천광역시교육청",
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": "청소년, 성인"
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년",
+          "normalized": "2026",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 5. 29.(금)",
+          "normalized": "2026-05-29",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 6. 12.(금)",
+          "normalized": "2026-06-12",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 6.",
+          "normalized": "2026-06",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2027년",
+          "normalized": "2027",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "17:30",
+          "normalized": "17:30",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [],
+      "materials": [
+        {
+          "raw_text": "자기소개서",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "개인정보 수집이용 동의서",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "이메일 접수",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026. 5. 29.(금) 17:30까지",
+          "normalized": "2026-05-29 17:30",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "032-420-8137",
+          "normalized": "032-420-8137",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "um12um@ice.go.kr",
+          "normalized": "um12um@ice.go.kr",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "학생기자단 60명",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "시민기자단 30명",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천 관내 거주 만 13세 ~ 19세 미만 청소년",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천시민 중 현직 언론인을 제외한 성인 누구나",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천시교육청 소속 교직원 제외",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "이메일 접수",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "현직 언론인을 제외한",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천시교육청 소속 교직원 제외",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "Recruitment Announcement",
+    "sender": {
+      "school": null,
+      "organization": "مكتب التعليم بمدينة إنتشون الحضرية",
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": [
+        "الشباب",
+        "المواطنون"
+      ]
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026",
+          "normalized": "2026",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "29 مايو 2026",
+          "normalized": "2026-05-29",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "12 يونيو 2026",
+          "normalized": "2026-06-12",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يونيو 2026",
+          "normalized": "2026-06",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2027",
+          "normalized": "2027",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "الساعة 17:30",
+          "normalized": "17:30",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "إنتشون",
+          "normalized": "Incheon",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "مكتب التعليم بمدينة إنتشون الحضرية",
+          "normalized": "Incheon Metropolitan City Office of Education",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "وسائل التواصل الاجتماعي لمكتب التعليم بالمدينة",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "خطاب تعريف ذاتي",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "نموذج الموافقة على جمع واستخدام المعلومات الشخصية",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "التقديم عبر البريد الإلكتروني",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "نسخة واحدة من خطاب تعريف ذاتي",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "نسخة واحدة من نموذج الموافقة على جمع واستخدام المعلومات الشخصية",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "حتى الساعة 17:30 من يوم الجمعة، 29 مايو 2026",
+          "normalized": "2026-05-29 17:30",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "مسؤول الاتصال والتعاون",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "032-420-8137",
+          "normalized": "032-420-8137",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "um12um@ice.go.kr",
+          "normalized": "um12um@ice.go.kr",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "الشباب الذين تتراوح أعمارهم بين 13 و أقل من 19 عامًا",
+          "normalized": "13 to under 19 years old",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "أي مواطن بالغ من إنتشون",
+          "normalized": "Adult citizens of Incheon",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "نطلب بلطف اهتمام ومشاركة قوية من أولياء الأمور والطلاب.",
+          "normalized": "Show strong interest and participate",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "التقديم عبر البريد الإلكتروني",
+          "normalized": "Apply via email",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "باستثناء الصحفيين الحاليين.",
+          "normalized": "Excluding current journalists",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "باستثناء أعضاء هيئة التدريس والموظفين التابعين لمكتب التعليم بمدينة إنتشون الحضرية.",
+          "normalized": "Excluding faculty and staff affiliated with the Incheon Metropolitan City Office of Education",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "2026년 인천광역시교육청 「학생·시민기자단 모집」 재안내",
+    "summary_ko": "2026년 인천광역시교육청에서 학생 및 시민 기자단을 모집합니다. 교육 현장의 목소리를 듣고 인천 교육을 알리는 활동에 참여할 학생(만 13세~19세 미만)과 인천 시민(현직 언론인 제외)을 모집하며, 5월 29일까지 이메일로 지원할 수 있습니다.",
+    "summary_target_language": "يعلن مكتب التعليم بمدينة إنتشون الحضرية عن توظيف مراسلي الطلاب والمواطنين لعام 2026. يهدف البرنامج إلى الاستماع إلى الأصوات من الميدان التعليمي وتعزيز تعليم إنتشون. يتم دعوة الطلاب (الذين تتراوح أعمارهم بين 13 و19 عامًا والمقيمين في إنتشون) والمواطنين البالغين (باستثناء الصحفيين الحاليين) للتقديم عبر البريد الإلكتروني بحلول 29 مايو.",
+    "document_type": "Recruitment Notice",
+    "target_language": "ar",
+    "audience": "students, parents, youth, adults",
+    "important_dates": [
+      "2026",
+      "2026-05-29",
+      "2026-06-12",
+      "2026-06",
+      "2027"
+    ],
+    "deadlines": [
+      "2026-05-29 17:30"
+    ],
+    "actions_required": [
+      "이메일 접수"
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Re-announcement: Recruitment of Incheon Metropolitan City Office of Education Student and Citizen Reporters for 2026\n\nGreetings, Parents.\n\nThrough the voluntary participation of students and citizens, we aim to listen to the vivid voices from the educational field and promote Incheon education from the perspective of the educational community. Therefore, we are recruiting for the \"2026 Student and Citizen Reporter Group,\" and we kindly request the strong interest and participation of parents and students.\n\n○ Number of Recruits: Student Reporters: 60 people, Citizen Reporters: 30 people\n\n○ Eligibility for Recruitment\n  - Students: Youth aged 13 to under 19 years old residing within Incheon.\n  - Citizens: Any adult Incheon citizen, excluding current journalists.\n    ※ Excluding faculty and staff belonging to the Incheon Metropolitan City Office of Education.\n\n○ Recruitment Period: Until 17:30 on Friday, May 29, 2026.\n  ※ Announcement of Results: Individual notification on Friday, June 12, 2026.\n\n○ Required Submission Forms: 1 copy each of a self-introduction letter and a personal information collection and usage consent form.\n\n○ Application Method: Email submission (um12um@ice.go.kr).\n\n○ Main Activities\n  - Activity Period: After appointment in June 2026 until before the appointment in 2027.\n  - Activity Details: Coverage and article writing related to Incheon education.\n\n○ Benefits of Student and Citizen Reporter Activities\n  - Issuance of certificate of appointment and reporter ID card.\n  - Practical training for article writing through current journalists (4 times a year).\n  - After selecting excellent articles, posting on the City Office of Education's SNS and payment of a small manuscript fee.\n  - Award of commendation from the Superintendent of Education to reporters with excellent activities.\n\n○ Inquiries: Communication and Cooperation Officer ☎ 032-420-8137",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "إعادة إعلان: توظيف مراسلي الطلاب والمواطنين لمكتب التعليم بمدينة إنتشون الحضرية لعام 2026\n\nتحياتنا، أيها أولياء الأمور.\n\nمن خلال المشاركة الطوعية للطلاب والمواطنين، نهدف إلى الاستماع إلى الأصوات الحية من الميدان التعليمي وتعزيز تعليم إنتشون من منظور المجتمع التعليمي. لذلك، نحن نوظف \"مجموعة مراسلي الطلاب والمواطنين لعام 2026\"، ونطلب بلطف اهتمام ومشاركة قوية من أولياء الأمور والطلاب.\n\n○ عدد المجندين: مراسلو الطلاب: 60 شخصًا، مراسلو المواطنين: 30 شخصًا\n\n○ شروط الأهلية للتوظيف\n  - الطلاب: الشباب الذين تتراوح أعمارهم بين 13 و أقل من 19 عامًا والمقيمون داخل إنتشون.\n  - المواطنون: أي مواطن بالغ من إنتشون، باستثناء الصحفيين الحاليين.\n    ※ باستثناء أعضاء هيئة التدريس والموظفين التابعين لمكتب التعليم بمدينة إنتشون الحضرية.\n\n○ فترة التوظيف: حتى الساعة 17:30 من يوم الجمعة، 29 مايو 2026.\n  ※ إعلان النتائج: إشعار فردي يوم الجمعة، 12 يونيو 2026.\n\n○ النماذج المطلوبة للتقديم: نسخة واحدة من خطاب تعريف ذاتي ونسخة واحدة من نموذج الموافقة على جمع واستخدام المعلومات الشخصية.\n\n○ طريقة التقديم: التقديم عبر البريد الإلكتروني (um12um@ice.go.kr).\n\n○ الأنشطة الرئيسية\n  - فترة النشاط: بعد التعيين في يونيو 2026 حتى قبل التعيين في عام 2027.\n  - تفاصيل النشاط: تغطية وكتابة مقالات تتعلق بتعليم إنتشون.\n\n○ فوائد أنشطة مراسلي الطلاب والمواطنين\n  - إصدار شهادة تعيين وبطاقة هوية مراسل.\n  - تدريب عملي على كتابة المقالات من خلال صحفيين حاليين (4 مرات في السنة).\n  - بعد اختيار المقالات الممتازة، يتم نشرها على وسائل التواصل الاجتماعي لمكتب التعليم بالمدينة ودفع رسوم رمزية للمخطوطة.\n  - منح شهادة تقدير من المشرف العام على التعليم للمراسلين ذوي الأنشطة المتميزة.\n\n○ للاستفسارات: مسؤول الاتصال والتعاون ☎ 032-420-8137",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "재공고: 2026년 인천광역시교육청 학생 및 시민 기자 채용\n\n학부모님께, 인사드립니다.\n\n학생과 시민의 자발적인 참여를 통해, 우리는 교육 현장의 생생한 목소리를 듣고 교육 공동체의 관점에서 인천 교육을 강화하는 것을 목표로 합니다. 따라서, 우리는 \"2026년 학생 및 시민 기자단\"을 채용하고 있으며, 학부모님과 학생들의 강한 관심과 참여를 정중히 요청합니다.\n\n○ 모집 인원: 학생 기자: 60명, 시민 기자: 30명\n\n○ 채용 자격 요건\n  - 학생: 13세 이상 19세 미만의 청소년으로 인천 내 거주자.\n  - 시민: 현직 언론인을 제외한 인천의 모든 성인 시민.\n    ※ 인천광역시교육청 소속 교직원 제외.\n\n○ 채용 기간: 2026년 5월 29일 금요일 17시 30분까지.\n  ※ 결과 발표: 2026년 6월 12일 금요일 개별 통보.\n\n○ 제출 필수 양식: 자기소개서 1부 및 개인정보 수집 및 이용 동의서 1부.\n\n○ 지원 방법: 이메일 접수 (um12um@ice.go.kr).\n\n○ 주요 활동\n  - 활동 기간: 2026년 6월 임명 후부터 2027년 임명 전까지.\n  - 활동 내용: 인천 교육과 관련된 취재 및 기사 작성.\n\n○ 학생 및 시민 기자 활동 혜택\n  - 위촉장 및 기자증 발급.\n  - 현직 언론인을 통한 기사 작성 실습 교육 (연 4회).\n  - 우수 기사 선정 후 시 교육청 소셜 미디어에 게재 및 소정의 원고료 지급.\n  - 활동 우수 기자에게 교육감 표창 수여.\n\n○ 문의: 소통협력 담당자 ☎ 032-420-8137",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves all factual information, including dates, times, numbers, and contact details. The tone is consistently official and polite, matching the original Korean school notice. The administrative meaning and clarity for parents are excellent, with no omissions or additions. The translation is safe for publication."
+    }
+  }
+}

@@ -140,6 +140,8 @@ export interface Database {
           extracted_content: Json | null
           status: NoticeStatus
           error_message: string | null
+          /** 제출/행동 마감일 (YYYY-MM-DD). LLM이 추출한 가장 이른 deadline. 없으면 null */
+          due_date: string | null
           extraction_attempts: number
           extraction_started_at: string | null
           extraction_next_run_at: string | null
@@ -158,6 +160,7 @@ export interface Database {
           extracted_content?: Json | null
           status?: NoticeStatus
           error_message?: string | null
+          due_date?: string | null
           extraction_attempts?: number
           extraction_started_at?: string | null
           extraction_next_run_at?: string | null
@@ -175,6 +178,7 @@ export interface Database {
           extracted_content?: Json | null
           status?: NoticeStatus
           error_message?: string | null
+          due_date?: string | null
           extraction_attempts?: number
           extraction_started_at?: string | null
           extraction_next_run_at?: string | null

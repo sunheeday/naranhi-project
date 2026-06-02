@@ -1,0 +1,79 @@
+{
+  "elapsed_seconds": 462.0,
+  "notices": [
+    {
+      "id": "n02-field-trip-consent",
+      "role": "training",
+      "languages": {
+        "en": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "dates",
+                  "source_value": "2026-06-01",
+                  "translated_value": "2026-05-27, 2026-10-19, 2026-10-21",
+                  "issue": "source fact is missing or changed in translated facts",
+                  "recommended_fix": "restore the source fact with the same meaning"
+                },
+                {
+                  "field": "fees",
+                  "source_value": "amount:1600, amount:250000, amount:30000, amount:40000, amount:71600",
+                  "translated_value": "additional costs",
+                  "issue": "translated facts contain a new critical value",
+                  "recommended_fix": "remove unsupported critical value unless it exists in source"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "dates",
+                  "source_value": "2026-06-01",
+                  "translated_value": "2026-05-27, 2026-10-19, 2026-10-21",
+                  "issue": "source fact is missing or changed in translated facts",
+                  "recommended_fix": "restore the source fact with the same meaning"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

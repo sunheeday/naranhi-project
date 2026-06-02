@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
+import CharacterImage from '@/components/brand/CharacterImage'
+import type { CharacterKey } from '@/components/brand/characters'
 import type { CardType } from '@/types/database'
 
 export interface NoticeCardItem {
@@ -31,10 +33,50 @@ interface Props {
   labels: CardLabels
 }
 
-const CARD_STYLE: Record<CardType, { icon: string; color: string; bg: string }> = {
-  action:   { icon: '✅', color: 'text-cat-action',   bg: 'bg-cat-action-bg' },
-  schedule: { icon: '📅', color: 'text-cat-schedule', bg: 'bg-cat-schedule-bg' },
-  supplies: { icon: '🎒', color: 'text-cat-supply',   bg: 'bg-cat-supply-bg' },
+/**
+ * 카드 종류별 브랜드 테마: 배경 그라데이션 · 강조색 · 배지 · 나리·누리 캐릭터.
+ * 색은 globals의 카테고리 토큰(학부모 인식 컬러)을 그대로 쓴다.
+ */
+interface CardTheme {
+  /** 슬라이드 전체 배경 그라데이션 (위 카테고리 톤 → 아래 캔버스) */
+  bg: string
+  /** 배지/포인트 배경색 */
+  badge: string
+  /** 항목 아이콘 동그라미 배경 */
+  bullet: string
+  icon: string
+  character: CharacterKey
+}
+
+const THEME: Record<'intro' | CardType, CardTheme> = {
+  intro: {
+    bg: 'from-primary-soft via-surface to-canvas',
+    badge: 'bg-primary text-on-primary',
+    bullet: 'bg-primary-soft text-primary',
+    icon: '📄',
+    character: 'wave',
+  },
+  action: {
+    bg: 'from-cat-action-bg via-surface to-canvas',
+    badge: 'bg-cat-action text-white',
+    bullet: 'bg-cat-action-bg text-cat-action',
+    icon: '✅',
+    character: 'pointYellow',
+  },
+  schedule: {
+    bg: 'from-cat-schedule-bg via-surface to-canvas',
+    badge: 'bg-cat-schedule text-white',
+    bullet: 'bg-cat-schedule-bg text-cat-schedule',
+    icon: '📅',
+    character: 'walk',
+  },
+  supplies: {
+    bg: 'from-cat-supply-bg via-surface to-canvas',
+    badge: 'bg-cat-supply text-white',
+    bullet: 'bg-cat-supply-bg text-cat-supply',
+    icon: '🎒',
+    character: 'thumbBlue',
+  },
 }
 
 const CARD_ORDER: CardType[] = ['action', 'schedule', 'supplies']
@@ -56,98 +98,167 @@ export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
     return () => { emblaApi.off('select', onSelect) }
   }, [emblaApi, onSelect])
 
+  const total = orderedCards.length
+
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="overflow-hidden flex-1" ref={emblaRef}>
-        <div className="flex h-full">
-          {orderedCards.map((card, i) => (
-            <div
-              key={`${noticeId}-${card.type}-${i}`}
-              className="flex-[0_0_100%] min-w-0 px-6 pt-6 pb-24"
+    <div className="flex flex-col flex-1">
+      {/* 인스타 스토리식 진행 바: 지나온 카드는 채워지고 현재까지 강조 */}
+      {total > 1 && (
+        <div
+          className="flex gap-1.5 px-5 pt-3 pb-2"
+          role="status"
+          aria-label={`${selectedIndex + 1} / ${total}`}
+        >
+          {orderedCards.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => emblaApi?.scrollTo(i)}
+              aria-label={`${i + 1}번 카드로 이동`}
+              className="flex-1 h-1.5 rounded-full overflow-hidden bg-hairline"
             >
-              <CardContent card={card} labels={labels} />
-            </div>
+              <span
+                className={`block h-full rounded-full transition-all duration-300 ${
+                  i <= selectedIndex ? 'w-full bg-primary' : 'w-0'
+                }`}
+              />
+            </button>
           ))}
         </div>
-      </div>
+      )}
 
-      <div className="flex justify-center gap-2 py-4 pb-20" aria-label={`${selectedIndex + 1} / ${orderedCards.length}`} role="status">
-        {orderedCards.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => emblaApi?.scrollTo(i)}
-            aria-label={`${i + 1}번 카드`}
-            className={`w-2 h-2 rounded-full transition-colors ${
-              i === selectedIndex ? 'bg-ink' : 'bg-hairline'
-            }`}
-          />
-        ))}
+      <div className="overflow-hidden flex-1" ref={emblaRef}>
+        <div className="flex">
+          {orderedCards.map((card, i) => {
+            const theme = THEME[card.type]
+            return (
+              <div
+                key={`${noticeId}-${card.type}-${i}`}
+                className={`flex-[0_0_100%] min-w-0 bg-gradient-to-b ${theme.bg}`}
+              >
+                <div className="min-h-[calc(100dvh-150px)] flex flex-col items-center justify-center px-7 py-8 gap-5">
+                  <CardContent
+                    card={card}
+                    theme={theme}
+                    labels={labels}
+                    isLast={i === total - 1}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 }
 
-function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels }) {
-  if (card.type === 'intro') {
-    const paragraphs = splitParagraphs(card.summary)
-
-    return (
-      <div className="bg-canvas rounded-card shadow-soft p-6 flex flex-col gap-5 min-h-[360px] border border-hairline-soft">
-        <div className="flex items-center gap-2">
-          <span className="text-xl" aria-hidden="true">{card.emoji ?? '📄'}</span>
-          <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-            {card.title ?? '가정통신문'}
-          </span>
-        </div>
-
-        {card.dateRange && (
-          <p className="text-base text-ink font-semibold">{card.dateRange}</p>
-        )}
-
-        <div className="flex flex-col gap-3">
-          {paragraphs.length > 0 ? (
-            paragraphs.map((p, i) => (
-              <p key={i} className="text-[16px] leading-[1.7] text-body">
-                {p}
-              </p>
-            ))
-          ) : (
-            <p className="text-sm text-muted-soft">요약 정보가 없어요.</p>
-          )}
-        </div>
-
-        {card.hint && (
-          <p className="mt-auto pt-4 text-xs text-muted-soft text-center border-t border-hairline-soft">
-            {card.hint}
-          </p>
-        )}
-      </div>
-    )
-  }
-
-  const style = CARD_STYLE[card.type]
-  const items = card.items ?? []
+function CardContent({
+  card,
+  theme,
+  labels,
+  isLast,
+}: {
+  card: NoticeCard
+  theme: CardTheme
+  labels: CardLabels
+  isLast: boolean
+}) {
+  const isIntro = card.type === 'intro'
 
   return (
-    <div className="bg-canvas rounded-card shadow-soft p-5 flex flex-col gap-4 border border-hairline-soft">
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-pill text-xs font-semibold w-fit ${style.bg} ${style.color}`}>
-        <span aria-hidden="true">{style.icon}</span>
-        {labelFor(card.type, labels)}
+    <>
+      {/* 캐릭터: 카드 종류에 맞는 나리·누리 */}
+      <CharacterImage character={theme.character} size={104} disc priority className="shrink-0" />
+
+      {/* 배지 */}
+      <span
+        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-pill text-sm font-bold shadow-soft ${theme.badge}`}
+      >
+        <span aria-hidden="true">{theme.icon}</span>
+        {isIntro ? (card.title ?? '가정통신문') : labelFor(card.type as CardType, labels)}
       </span>
 
-      {items.length > 0 ? (
-        <ul className="flex flex-col gap-3">
-          {items.map((item, i) => (
-            <li key={i} className="py-3 border-b border-hairline-soft last:border-0">
-              <p className="text-base font-semibold text-ink leading-snug">{item.text}</p>
-              {item.hint ? <p className="text-sm text-muted mt-1.5 leading-relaxed">{item.hint}</p> : null}
-            </li>
-          ))}
-        </ul>
+      {isIntro ? (
+        <IntroBody card={card} />
       ) : (
-        <p className="text-sm text-muted-soft">표시할 항목이 없어요.</p>
+        <CategoryBody card={card} theme={theme} />
+      )}
+
+      {/* 넘기기 안내 (마지막 카드 제외) */}
+      {!isLast && (
+        <p className="mt-1 text-xs text-muted-soft flex items-center gap-1">
+          <span>옆으로 넘겨 보세요</span>
+          <span aria-hidden="true" className="rtl-flip">→</span>
+        </p>
+      )}
+    </>
+  )
+}
+
+function IntroBody({ card }: { card: NoticeCard }) {
+  const blocks = splitParagraphs(card.summary)
+  // 항목이 여러 줄이면 가운데 정렬보다 왼쪽 정렬이 읽기 좋다.
+  const align = blocks.length > 2 ? 'text-start' : 'text-center'
+  return (
+    <div className={`w-full max-w-[20rem] flex flex-col gap-2.5 ${align}`}>
+      {card.dateRange && (
+        <p className="text-base font-bold text-ink text-readable">{card.dateRange}</p>
+      )}
+      {blocks.length > 0 ? (
+        blocks.map((block, i) => {
+          const bullet = /^[-•]\s+/.test(block)
+          const text = block.replace(/^[-•]\s+/, '')
+          if (bullet) {
+            return (
+              <p key={i} className="flex gap-2 text-[15px] leading-[1.7] text-body text-readable">
+                <span aria-hidden="true" className="text-primary shrink-0">•</span>
+                <span>{text}</span>
+              </p>
+            )
+          }
+          return (
+            <p
+              key={i}
+              className={`text-readable ${i === 0 ? 'text-lg font-bold text-ink leading-snug' : 'text-[15px] leading-[1.7] text-body'}`}
+            >
+              {text}
+            </p>
+          )
+        })
+      ) : (
+        <p className="text-sm text-muted-soft">요약 정보가 없어요.</p>
       )}
     </div>
+  )
+}
+
+function CategoryBody({ card, theme }: { card: NoticeCard; theme: CardTheme }) {
+  const items = card.items ?? []
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-soft">표시할 항목이 없어요.</p>
+  }
+  return (
+    <ul className="w-full max-w-[22rem] flex flex-col gap-3">
+      {items.map((item, i) => (
+        <li
+          key={i}
+          className="flex items-start gap-3 bg-surface rounded-card shadow-card px-4 py-3.5 text-start"
+        >
+          <span
+            className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${theme.bullet}`}
+            aria-hidden="true"
+          >
+            {i + 1}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-bold text-ink leading-snug text-readable">{item.text}</p>
+            {item.hint ? (
+              <p className="text-sm text-muted mt-1 leading-relaxed text-readable">{item.hint}</p>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
 
