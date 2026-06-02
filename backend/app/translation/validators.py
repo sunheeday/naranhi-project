@@ -42,6 +42,7 @@ _FREE_OF_CHARGE_TOKENS = {
 def validate_hard_facts_by_code(
     source_hard_facts: dict[str, Any],
     translated_hard_facts: dict[str, Any],
+    ingredient_identity_map: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     source = _hard_facts(source_hard_facts)
     translated = _hard_facts(translated_hard_facts)
@@ -95,14 +96,16 @@ def validate_hard_facts_by_code(
             )
 
     meal = source_hard_facts.get("meal_and_allergy") or {}
-    if meal.get("requires_dictionary_mapping"):
+    if meal.get("requires_dictionary_mapping") and not _ingredient_mapping_satisfied(
+        ingredient_identity_map
+    ):
         mismatches.append(
             {
                 "field": "meal_and_allergy",
                 "source_value": "requires_dictionary_mapping=true",
                 "translated_value": "",
                 "issue": "meal or ingredient data requires approved dictionary mapping",
-                "recommended_fix": "route through ingredient identity mapping or human review",
+                "recommended_fix": "route through ingredient identity mapping and preserve unmapped Korean ingredient tokens without guessing",
             }
         )
 
@@ -115,6 +118,17 @@ def validate_hard_facts_by_code(
         "mismatches": mismatches,
         "requires_human_review": False,
     }
+
+
+def _ingredient_mapping_satisfied(ingredient_identity_map: dict[str, Any] | None) -> bool:
+    if not isinstance(ingredient_identity_map, dict):
+        return False
+
+    unmapped = list(ingredient_identity_map.get("unmapped_ingredients") or [])
+    critical_flags = ingredient_identity_map.get("critical_flags") or {}
+    has_unmapped_critical = bool(critical_flags.get("contains_unmapped_critical_item"))
+    mapped = list(ingredient_identity_map.get("mapped_ingredients") or [])
+    return bool(mapped) and not unmapped and not has_unmapped_critical
 
 
 def _hard_facts(value: dict[str, Any]) -> dict[str, Any]:

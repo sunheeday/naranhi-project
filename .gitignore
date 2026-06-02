@@ -67,3 +67,8 @@ supabase/snippets/
 
 # extractor test outputs
 backend/outputs/
+
+# translation-quality iteration runtime outputs
+.agents/translation-quality/iterations/**/pipeline-output/
+.agents/translation-quality/iterations/**/pipeline-output-after/
+.agents/translation-quality/iterations/**/pipeline-output-baseline/

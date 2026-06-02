@@ -3,5 +3,59 @@
   "kind": "meal-menu",
   "issuer": "나란히초등학교",
   "notes": "Tests Arabic religious sensitivity, ingredient gating, and dictionary-only discipline.",
-  "seed_set": "seed-set-v1"
+  "seed_set": "seed-set-v1",
+  "approved_ingredient_dictionary": [
+    {
+      "ingredient_id": "ing_matsul",
+      "canonical_ko": "맛술",
+      "aliases_ko": ["맛술"],
+      "risk_level": "critical",
+      "notes": "Alcohol-derived cooking seasoning."
+    },
+    {
+      "ingredient_id": "ing_gelatin",
+      "canonical_ko": "젤라틴",
+      "aliases_ko": ["젤라틴"],
+      "risk_level": "critical",
+      "notes": "Gelatin source may be religiously sensitive."
+    }
+  ],
+  "approved_ingredient_dictionary_target_by_language": {
+    "en": [
+      {
+        "ingredient_id": "ing_matsul",
+        "target_text": "cooking wine",
+        "risk_level": "critical"
+      },
+      {
+        "ingredient_id": "ing_gelatin",
+        "target_text": "gelatin",
+        "risk_level": "critical"
+      }
+    ],
+    "ru": [
+      {
+        "ingredient_id": "ing_matsul",
+        "target_text": "кулинарное вино",
+        "risk_level": "critical"
+      },
+      {
+        "ingredient_id": "ing_gelatin",
+        "target_text": "желатин",
+        "risk_level": "critical"
+      }
+    ],
+    "ar": [
+      {
+        "ingredient_id": "ing_matsul",
+        "target_text": "نبيذ طبخ",
+        "risk_level": "critical"
+      },
+      {
+        "ingredient_id": "ing_gelatin",
+        "target_text": "جيلاتين",
+        "risk_level": "critical"
+      }
+    ]
+  }
 }

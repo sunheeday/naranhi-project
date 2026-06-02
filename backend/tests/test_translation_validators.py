@@ -142,6 +142,32 @@ class TranslationValidatorsTest(unittest.TestCase):
         self.assertEqual(result["verdict"], "PASS")
         self.assertEqual(result["mismatches"], [])
 
+    def test_validation_accepts_meal_dictionary_mapping_when_all_critical_items_are_mapped(self):
+        result = validate_hard_facts_by_code(
+            {
+                "meal_and_allergy": {
+                    "has_meal_info": True,
+                    "requires_dictionary_mapping": True,
+                }
+            },
+            {
+                "meal_and_allergy": {
+                    "has_meal_info": True,
+                    "requires_dictionary_mapping": False,
+                }
+            },
+            {
+                "mapped_ingredients": [
+                    {"raw_text": "맛술", "ingredient_id": "ing_matsul"},
+                    {"raw_text": "젤라틴", "ingredient_id": "ing_gelatin"},
+                ],
+                "unmapped_ingredients": [],
+                "critical_flags": {"contains_unmapped_critical_item": False},
+            },
+        )
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertEqual(result["mismatches"], [])
+
     def test_validation_still_fails_for_changed_fee_amount(self):
         result = validate_hard_facts_by_code(
             {"hard_facts": {"fees": [{"normalized": "30,000 KRW"}]}},
