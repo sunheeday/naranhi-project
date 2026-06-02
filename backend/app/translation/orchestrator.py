@@ -27,6 +27,7 @@ class TranslationPipelineInput:
     approved_ingredient_dictionary: list[dict[str, Any]]
     approved_ingredient_dictionary_target: list[dict[str, Any]]
     max_auto_fix_attempts_per_stage: int = 1
+    max_target_hard_fact_extraction_attempts: int = 2
 
 
 class TranslationPipeline:
@@ -66,12 +67,10 @@ class TranslationPipeline:
         )
         target_translation = str(target.get("target_translation") or "")
 
-        target_hard_facts = await self.gemini.generate_json(
-            prompt=extract_target_hard_facts_prompt(
-                target_language=payload.target_language,
-                target_translation=target_translation,
-            ),
-            temperature=0.0,
+        target_hard_facts = await self._extract_target_hard_facts_with_retry(
+            payload=payload,
+            source_hard_facts=source_hard_facts,
+            target_translation=target_translation,
         )
 
         hard_fact_validation = validate_hard_facts_by_code(
@@ -110,12 +109,10 @@ class TranslationPipeline:
             target_translation = str(
                 fixed.get("corrected_target_translation") or target_translation
             )
-            target_hard_facts = await self.gemini.generate_json(
-                prompt=extract_target_hard_facts_prompt(
-                    target_language=payload.target_language,
-                    target_translation=target_translation,
-                ),
-                temperature=0.0,
+            target_hard_facts = await self._extract_target_hard_facts_with_retry(
+                payload=payload,
+                source_hard_facts=source_hard_facts,
+                target_translation=target_translation,
             )
             hard_fact_validation = validate_hard_facts_by_code(
                 source_hard_facts,
@@ -123,9 +120,10 @@ class TranslationPipeline:
             )
 
         if hard_fact_validation["verdict"] == "FAIL":
-            return self._admin_review_result(
+            return self._validation_failed_result(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
+                target_hard_facts=target_hard_facts,
                 ingredient_map=ingredient_map,
                 target_translation=target_translation,
                 hard_fact_validation=hard_fact_validation,
@@ -194,9 +192,10 @@ class TranslationPipeline:
             )
 
         if context_tone_validation.get("verdict") != "PASS":
-            return self._admin_review_result(
+            return self._validation_failed_result(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
+                target_hard_facts=target_hard_facts,
                 ingredient_map=ingredient_map,
                 target_translation=target_translation,
                 hard_fact_validation=hard_fact_validation,
@@ -284,11 +283,35 @@ class TranslationPipeline:
             temperature=0.0,
         )
 
-    def _admin_review_result(
+    async def _extract_target_hard_facts_with_retry(
         self,
         *,
         payload: TranslationPipelineInput,
         source_hard_facts: dict[str, Any],
+        target_translation: str,
+    ) -> dict[str, Any]:
+        attempts = max(1, payload.max_target_hard_fact_extraction_attempts)
+        extracted: dict[str, Any] = {}
+
+        for _ in range(attempts):
+            extracted = await self.gemini.generate_json(
+                prompt=extract_target_hard_facts_prompt(
+                    target_language=payload.target_language,
+                    target_translation=target_translation,
+                ),
+                temperature=0.0,
+            )
+            if not _target_hard_facts_need_retry(source_hard_facts, extracted):
+                break
+
+        return extracted
+
+    def _validation_failed_result(
+        self,
+        *,
+        payload: TranslationPipelineInput,
+        source_hard_facts: dict[str, Any],
+        target_hard_facts: dict[str, Any],
         ingredient_map: dict[str, Any],
         target_translation: str,
         hard_fact_validation: dict[str, Any],
@@ -297,13 +320,13 @@ class TranslationPipeline:
         reason: str,
     ) -> dict[str, Any]:
         return {
-            "status": "admin_review_required",
+            "status": "ready_to_save",
             "source_language": "ko",
             "target_language": payload.target_language,
             "source_text": payload.source_text,
             "final_translation": target_translation,
             "source_hard_facts": source_hard_facts,
-            "target_hard_facts": {},
+            "target_hard_facts": target_hard_facts,
             "ingredient_identity_map": ingredient_map,
             "validation": {
                 "hard_fact": {
@@ -318,13 +341,14 @@ class TranslationPipeline:
                 },
             },
             "admin_review": {
-                "required": True,
-                "reason": reason,
-                "priority": _review_priority(hard_fact_validation, context_tone_validation),
+                "required": False,
+                "reason": None,
+                "priority": "normal",
             },
             "metadata": {
-                "validation_status": "human_review_required",
-                "admin_review_reason": reason,
+                "validation_status": "failed",
+                "admin_review_reason": None,
+                "validation_failure_reason": reason,
             },
             "raw_steps": {
                 "hard_fact_validation": hard_fact_validation,
@@ -372,3 +396,40 @@ def _validation_status(validation: dict[str, Any]) -> str:
     if status in {"skipped", "failed", "passed"}:
         return status
     return "passed" if validation.get("verdict") == "PASS" else "failed"
+
+
+_CRITICAL_EXTRACTION_FIELDS = (
+    "dates",
+    "times",
+    "deadlines",
+    "fees",
+    "contacts",
+    "urls",
+    "grade_class_targets",
+)
+
+
+def _target_hard_facts_need_retry(
+    source_hard_facts: dict[str, Any],
+    target_hard_facts: dict[str, Any],
+) -> bool:
+    if not isinstance(target_hard_facts, dict):
+        return True
+
+    target_facts = target_hard_facts.get("hard_facts")
+    if not isinstance(target_facts, dict):
+        return True
+
+    if not any(_fact_list_count(target_facts, field) for field in _CRITICAL_EXTRACTION_FIELDS):
+        source_facts = source_hard_facts.get("hard_facts")
+        if isinstance(source_facts, dict) and any(
+            _fact_list_count(source_facts, field) for field in _CRITICAL_EXTRACTION_FIELDS
+        ):
+            return True
+
+    return False
+
+
+def _fact_list_count(hard_facts: dict[str, Any], field: str) -> int:
+    value = hard_facts.get(field)
+    return len(value) if isinstance(value, list) else 0

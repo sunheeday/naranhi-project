@@ -7,11 +7,11 @@
 
 ## 1. Summary
 
-- **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, parent-action framing, 아랍어 용어/RTL line handling
-- **보류한 이슈:** `n02-field-trip-consent-fee`의 ru target hard-fact extraction failure, `n03-lunch-allergy-halal`의 dictionary/data block
-- **Change Set 수:** 1
-- **변경 파일:** `backend/app/translation/prompts.py`
-- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료 (`pipeline-output-after/training/n01-bike-safety-checklist/`)
+- **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거
+- **보류한 이슈:** `n03-lunch-allergy-halal`의 dictionary/data block
+- **Change Set 수:** 2
+- **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`
+- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료
 
 ## 2. Change Sets
 
@@ -51,17 +51,43 @@
     - ar: `لوح الركل الكهربائي` -> `السكوتر الكهربائي`, title `دليل` -> `إشعار`, contact line one-line 유지
 - **상태:** `applied`
 
+### Change Set #2 — Target fact extraction retry + no-human-review pipeline
+
+- **해결하는 피드백:** `n02-field-trip-consent-fee` / ru에서 번역문은 정상인데 `target_hard_facts`가 비어 gate가 실패하던 케이스, 그리고 user request에 따른 human review 분기 제거
+- **무엇을 바꿨는가:**
+  - 파일: `backend/app/translation/orchestrator.py`
+  - 함수/블록:
+    - `TranslationPipelineInput`
+    - target hard-fact extraction 단계
+    - `_validation_failed_result` 신규 경로
+  - 파일: `backend/app/services/notice_service.py`
+  - 변경 요약:
+    - `extract_target_hard_facts_prompt` 결과가 비거나 critical field를 통째로 놓치면 자동 재시도하도록 추가
+    - hard fact / context validation 실패 시 더 이상 `admin_review_required`로 반환하지 않고, `status=ready_to_save` + `metadata.validation_status=failed`로 계속 반환
+    - fallback translation도 사람 검토 큐로 보내지 않고 동일 정책 적용
+    - 저장 시 `requires_admin_review=false`로 고정하고, 실패 정보는 validation/metadata 쪽에만 남김
+- **왜 이렇게 했는가:**
+  - `n02 ru`는 번역 품질보다 extraction nondeterminism이 문제였고, 같은 번역문 재추출에서 정상 복구됨을 확인했다.
+  - 사용자가 human review 프로세스를 제거해 달라고 명시적으로 요청했다.
+- **기대 효과:**
+  - `n02`/`n04` 계열 run-to-run extractor artifact 감소
+  - 사람 검토 큐 없이도 파이프라인이 끝까지 결과를 저장
+- **회귀 리스크:**
+  - 검증 실패 번역도 저장되므로 downstream consumer가 `validation_status`를 반드시 봐야 함
+  - false negative가 생기면 사람이 막아주던 안전장치가 사라짐
+- **검증 방법:**
+  - `python3 -m py_compile backend/app/translation/orchestrator.py backend/app/services/notice_service.py`
+  - `PYTHONPATH=backend python3 -m unittest backend/tests/test_notice_service_school_only.py backend/tests/test_translation_validators.py`
+  - `n02-field-trip-consent-fee` ru 재실행 결과:
+    - before: `admin_review_required`, `target_hard_facts={}`
+    - after: `ready_to_save`, `hard_fact=passed`, `target_hard_facts` populated
+- **상태:** `applied`
+
 ## 3. Deferred
-
-### Deferred — `n02-field-trip-consent-fee` / ru
-
-- **사유:** 현재 보이는 실패는 번역문 자체보다 `target_hard_facts`가 비어 있는 extractor/gate artifact 가능성이 큼
-- **추가 확인:** 같은 `final_translation`으로 `extract_target_hard_facts_prompt(target_language='ru', ...)`만 별도 재실행했을 때 dates / deadlines / fees / contacts / grade targets가 정상 추출되었음
-- **다음 이터레이션 권고:** translation wording보다 extraction stability / retry policy / empty extraction fallback 쪽으로 이동
 
 ### Deferred — `n03-lunch-allergy-halal`
 
-- **사유:** `맛술`, `젤라틴`이 empty approved dictionary 때문에 의도적으로 `admin_review_required`
+- **사유:** `맛술`, `젤라틴`이 empty approved dictionary 때문에 validation failure가 발생함
 - **다음 이터레이션 권고:** prompt 품질 문제로 보기보다 dictionary/data availability 문제로 분리
 
 ## 4. Proposed for Next Iteration
@@ -75,16 +101,20 @@
   - en: `ready_to_save` -> `ready_to_save` 유지, 문장 자연스러움 개선
   - ru: `ready_to_save` -> `ready_to_save` 유지, 공문체 직역 감소
   - ar: `ready_to_save` -> `ready_to_save` 유지, MSA 용어/제목/연락처 라인 개선
+- `n02-field-trip-consent-fee` / ru
+  - before: `admin_review_required` with empty `target_hard_facts`
+  - after: `ready_to_save`, `hard_fact=passed`, extracted target facts populated
 - baseline 전체는 아직 진행 중이므로 `n02`~`n06`의 after run은 미실행
 
 ## 6. Files Changed
 
 - `backend/app/translation/prompts.py` — Change Set #1 적용
+- `backend/app/translation/orchestrator.py` — Change Set #2 적용
+- `backend/app/services/notice_service.py` — Change Set #2 적용
 
 ## 7. Handoff
 
 - baseline이 아직 9/18 출력만 생성된 상태라 (`n01`~`n03`) 전체 training/held-out 비교는 보류
 - baseline 종료 후 우선 재실행 후보:
   - `n01-bike-safety-checklist` 전체 언어
-  - `n02-field-trip-consent-fee` ru
   - `n03-lunch-allergy-halal`은 dictionary block 분리 확인

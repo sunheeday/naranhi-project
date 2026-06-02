@@ -160,7 +160,7 @@ class NoticeService:
         fallback_title = _optional_str(fallback.get("title"))
 
         return {
-            "status": "admin_review_required",
+            "status": "ready_to_save",
             "source_language": "ko",
             "target_language": target_language,
             "source_text": source_text,
@@ -181,13 +181,15 @@ class NoticeService:
                 },
             },
             "admin_review": {
-                "required": True,
-                "reason": "quota_best_effort_fallback",
-                "priority": "high",
+                "required": False,
+                "reason": None,
+                "priority": "normal",
             },
             "metadata": {
                 "title": fallback_title,
                 "fallback_mode": "quota_best_effort",
+                "validation_status": "failed",
+                "validation_failure_reason": "quota_best_effort_fallback",
             },
             "raw_steps": {
                 "best_effort": fallback,
@@ -210,12 +212,9 @@ class NoticeService:
         admin_review = pipeline_result.get("admin_review") or {}
         validation = pipeline_result.get("validation") or {}
         status = pipeline_result.get("status")
-        validation_status = (
-            "human_review_required"
-            if admin_review.get("required")
-            else "passed"
-            if status == "ready_to_save"
-            else "failed"
+        validation_status = str(
+            metadata.get("validation_status")
+            or ("passed" if status == "ready_to_save" else "failed")
         )
 
         row = {
@@ -231,8 +230,8 @@ class NoticeService:
             "metadata": metadata,
             "raw_pipeline": pipeline_result.get("raw_steps") or {},
             "validation_status": validation_status,
-            "requires_admin_review": bool(admin_review.get("required")),
-            "admin_review_reason": admin_review.get("reason") or metadata.get("admin_review_reason"),
+            "requires_admin_review": False,
+            "admin_review_reason": None,
         }
         upsert = (
             supabase.table("notice_ai_translations")
