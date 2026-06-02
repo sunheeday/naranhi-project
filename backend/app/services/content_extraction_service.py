@@ -240,8 +240,12 @@ class ContentExtractionService:
 
         gemini_calls_used = _gemini_calls_used(result)
         if _is_successful_extraction(result):
+            refined, refine_calls = await _refine_original_text(
+                result, gemini_client=gemini_client, notice_id=notice_id
+            )
+            gemini_calls_used += refine_calls
             try:
-                _save_success(notice, result)
+                _save_success(notice, result, refined)
             except Exception as exc:  # noqa: BLE001 - one bad save must not abort the whole batch.
                 return _save_failure(
                     notice,
@@ -308,13 +312,42 @@ def build_extracted_content(result: Any) -> dict[str, Any]:
     return _jsonable(payload)
 
 
-def _save_success(notice: dict[str, Any], result: Any) -> None:
+async def _refine_original_text(result: Any, *, gemini_client: Any, notice_id: str) -> tuple[str, int]:
+    """추출 원문(raw_text)을 정제(마스킹·외국어 제거·구조 정리)해 original_text 용 본문을 만든다.
+
+    추출과 같은 Gemini(Vertex) 연결을 재사용한다. 정제가 실패하면 원문을 그대로 써서 공지가
+    비거나 유실되지 않게 한다(최소 폴백). 반환: (정제본, 추가 gemini 호출수).
+    """
+    from app.services.refinement_service import refine
+
+    raw_text = str(getattr(result, "raw_text", "") or "")
+    try:
+        refined, tag, calls = await refine(raw_text, gemini=gemini_client)
+        LOGGER.info(
+            "refinement done: notice_id=%s tag=%s chars=%s->%s gemini_calls=%s",
+            notice_id,
+            tag,
+            len(raw_text),
+            len(refined),
+            calls,
+        )
+        return refined, calls
+    except Exception as exc:  # noqa: BLE001 - refinement must never lose a notice; fall back to raw text.
+        LOGGER.warning(
+            "refinement failed, using raw text: notice_id=%s exception=%s",
+            notice_id,
+            sanitize_error(exc),
+        )
+        return raw_text, 0
+
+
+def _save_success(notice: dict[str, Any], result: Any, refined: str) -> None:
     notice_id = str(notice["id"])
     extracted_content = build_extracted_content(result)
 
     payload = {
         "status": "done",
-        "original_text": _scrub_text(str(getattr(result, "raw_text", "") or "")),
+        "original_text": _scrub_text(refined),
         "extracted_content": extracted_content,
         "extraction_next_run_at": None,
         "extraction_error_code": None,

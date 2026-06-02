@@ -21,6 +21,7 @@ from app.services.content_extraction_service import (
     _failure_payload,
     _missing_supabase_config_names,
     _pick_claimable_notice,
+    _refine_original_text,
 )
 
 
@@ -121,15 +122,21 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertNotIn("raw_text", payload["sources"][0])
         self.assertEqual(payload["sources"][0]["raw_text_chars"], 5)
 
-    def test_save_success_payload_excludes_summary_fields(self) -> None:
+    def test_save_success_payload_uses_refined_text(self) -> None:
         client = MagicMock()
 
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
-            _save_success({"id": "notice-1", "summary_translations": {"en": "old"}}, FakeResult())
+            _save_success(
+                {"id": "notice-1", "summary_translations": {"en": "old"}},
+                FakeResult(),
+                "# 정제된 본문입니다",
+            )
 
         payload = client.table.return_value.update.call_args.args[0]
         self.assertEqual(payload["status"], "done")
-        self.assertEqual(payload["original_text"], "전체 원문입니다")
+        # original_text 는 추출 날것(raw_text)이 아니라 정제본이어야 한다.
+        self.assertEqual(payload["original_text"], "# 정제된 본문입니다")
+        self.assertNotEqual(payload["original_text"], FakeResult().raw_text)
         self.assertIn("extracted_content", payload)
         for removed in (
             "summary_oneliner",
@@ -140,6 +147,24 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
             "extraction_finished_at",
         ):
             self.assertNotIn(removed, payload)
+
+    def test_refine_original_text_falls_back_to_raw_on_failure(self) -> None:
+        class BoomGemini:
+            async def generate_text(self, prompt, *, model=None):
+                raise RuntimeError("vertex unavailable")
+
+        import asyncio
+
+        refined, calls = asyncio.run(
+            _refine_original_text(
+                FakeResult(raw_text="원문 그대로 보존"),
+                gemini_client=BoomGemini(),
+                notice_id="notice-1",
+            )
+        )
+        # 정제 실패 시에도 공지를 잃지 않도록 원문을 그대로 쓰고 호출수는 0.
+        self.assertEqual(refined, "원문 그대로 보존")
+        self.assertEqual(calls, 0)
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})

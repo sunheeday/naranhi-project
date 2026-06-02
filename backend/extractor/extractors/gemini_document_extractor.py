@@ -131,6 +131,20 @@ class GeminiDocumentExtractor:
             models=[struct_model],
         )
 
+    async def generate_text(self, prompt: str, *, model: str | None = None) -> str:
+        """순수 텍스트(markdown) 응답을 생성한다 — generate_json 의 텍스트판.
+
+        가정통신문 본문 정제(app.services.refinement_service)가 OCR/추출과 같은 Vertex 연결을
+        그대로 재사용하도록 둔다. JSON 파싱·mime 강제 없이 모델의 텍스트 출력을 그대로 돌려준다.
+        (정제 프롬프트가 마스킹 토큰을 보존해야 하므로 temperature·thinking 등은 모델 기본값 유지.)
+        """
+        if not self.available:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
+        text_model = model or os.getenv("GEMINI_REFINE_MODEL") or os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash")
+        if self.use_vertex:
+            return await self._generate_text_vertex(models=[text_model], prompt=prompt)
+        return await self._generate_text_rest(prompt, models=[text_model])
+
     async def _generate_json_payload(
         self,
         payload: dict[str, Any],
@@ -248,6 +262,65 @@ class GeminiDocumentExtractor:
                     break  # non-retryable -> try next model
         # Do NOT sanitize: Vertex errors carry no API key and we want the real cause.
         raise RuntimeError(f"Gemini(Vertex) request failed: {last_error}")
+
+    async def _generate_text_vertex(self, *, models: list[str], prompt: str) -> str:
+        client = self._get_vertex_client()
+        last_error: Exception | None = None
+        for model in _dedupe(models):
+            for attempt in range(3):
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=model,
+                        contents=[prompt],
+                    )
+                    text = (response.text or "").strip()
+                    if text:
+                        return text
+                    last_error = RuntimeError("Gemini(Vertex) returned empty text")
+                    break  # empty response -> try next model
+                except Exception as exc:  # noqa: BLE001 - surface the real Vertex error.
+                    last_error = exc
+                    message = str(exc).lower()
+                    retryable_tokens = ("429", "resource_exhausted", "503", "unavailable", "504", "deadline")
+                    if any(token in message for token in retryable_tokens):
+                        await asyncio.sleep(2**attempt)
+                        continue
+                    break  # non-retryable -> try next model
+        raise RuntimeError(f"Gemini(Vertex) request failed: {last_error}")
+
+    async def _generate_text_rest(self, prompt: str, *, models: list[str]) -> str:
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        client = self._get_client()
+        last_error: Exception | None = None
+        for model in _dedupe(models):
+            for attempt in range(3):
+                retry_after_seconds = 0.0
+                for api_key in self.api_keys:
+                    try:
+                        response = await client.post(
+                            f"{GEMINI_API_BASE}/{model}:generateContent",
+                            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                            json=payload,
+                        )
+                        response.raise_for_status()
+                        text = _extract_text(response.json()).strip()
+                        if text:
+                            return text
+                        last_error = RuntimeError("Gemini returned empty text")
+                    except httpx.HTTPStatusError as exc:
+                        last_error = exc
+                        retry_after_seconds = max(retry_after_seconds, _retry_after_seconds(exc.response))
+                        if exc.response.status_code in RETRYABLE_HTTP_STATUS_CODES:
+                            continue
+                        raise RuntimeError(sanitize_error(exc)) from exc
+                    except httpx.TimeoutException as exc:
+                        last_error = exc
+                        continue
+                if attempt < 2:
+                    await asyncio.sleep(retry_after_seconds or 2**attempt)
+        if last_error:
+            raise RuntimeError(sanitize_error(last_error)) from last_error
+        raise RuntimeError("Gemini request failed without response")
 
 
 def ocr_prompt(source_name: str) -> str:
