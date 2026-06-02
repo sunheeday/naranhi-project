@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import html
 import shutil
 import subprocess
 import re
+import sys
+import tempfile
 import zlib
 from pathlib import Path
 
+from extractor.markdown_tables import collapse_layout_tables, fix_table_structure
 from extractor.models import ExtractedText
 from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
 from extractor.extractors.image_gemini_extractor import extract_image_text
+
+
+_URL_RE = re.compile(r"(?:https?://|www\.)[A-Za-z0-9./:_?=&%#@~+\-]+")
 
 
 async def extract_hwp_text(
@@ -19,6 +26,17 @@ async def extract_hwp_text(
     work_dir: Path,
 ) -> ExtractedText:
     warnings: list[str] = []
+
+    markdown = _hwp_to_markdown(path, warnings)
+    if len(markdown.strip()) >= 40:  # hwp5html 로 표 구조·앞글자 보존 성공
+        return ExtractedText(
+            source=source_name,
+            method="hwp5html_markdown",
+            text=_append_hwp_hyperlinks(markdown, path),
+            status="success",
+            warnings=warnings,
+            metadata={"quality": _text_quality(markdown)},
+        )
 
     body_text = _try_hwp_ole_bodytext(path, warnings)
     filtered_body_text = _clean_hwp_text(body_text, aggressive=True)
@@ -68,6 +86,95 @@ async def extract_hwp_text(
     if any("encrypted" in item.lower() or "distribution" in item.lower() for item in warnings):
         status = "unsupported_hwp_protected"
     return ExtractedText(source=source_name, method="hwp_fallbacks", text="", status=status, warnings=warnings)
+
+
+def _hwp_to_markdown(path: Path, warnings: list[str]) -> str:
+    """hwp5html -> markdownify 로 표 구조·앞글자를 보존해 markdown 추출.
+
+    기존 OLE 바이너리 추출은 표를 평문으로 뭉개고 앞글자를 흘리므로(2026->026), 표(| |)와
+    글자를 보존하는 hwp5html 경로를 우선 시도한다. hwp5html/markdownify 미설치 환경에선 빈
+    문자열을 돌려 호출부가 기존 체인(OLE/hwp5txt/BinData OCR)으로 폴백하게 한다.
+    """
+    command = _hwp5html_command()
+    if command is None:
+        return ""
+    try:
+        import markdownify  # lazy import: 미설치 환경에선 이 경로만 건너뛰고 폴백
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"hwp5html_skip_no_markdownify: {type(exc).__name__}")
+        return ""
+    temp_dir = Path(tempfile.mkdtemp(prefix="hwp5html-"))
+    try:
+        completed = subprocess.run(
+            [*command, "--output", str(temp_dir), str(path)],
+            capture_output=True,
+            timeout=90,
+        )
+        xhtml = temp_dir / "index.xhtml"
+        if not xhtml.exists():
+            warnings.append(
+                f"hwp5html_failed: returncode={completed.returncode} "
+                f"stderr={completed.stderr.decode('utf-8', 'replace').strip()[:200]}"
+            )
+            return ""
+        md = markdownify.markdownify(
+            xhtml.read_text(encoding="utf-8", errors="replace"), heading_style="ATX"
+        )
+        md = re.sub(r"(?m)^\s*xml version=.*$", "", md)   # xhtml 선언 leak 제거
+        md = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", md)       # 이미지 markdown junk 제거
+        md = re.sub(r"[ \t]+\n", "\n", md)
+        md = re.sub(r"\n{3,}", "\n\n", md)
+        return fix_table_structure(collapse_layout_tables(md.strip())).strip()
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"hwp5html_failed: {type(exc).__name__}: {exc}")
+        return ""
+
+
+def _hwp5html_command() -> list[str] | None:
+    """hwp5html 콘솔 스크립트 경로. (python -m hwp5.hwp5html 은 파일을 생성하지 않아 사용 불가.)"""
+    found = shutil.which("hwp5html")
+    if found:
+        return [found]
+    # pip 는 python 실행파일 옆 Scripts/bin 에 콘솔 스크립트를 설치한다.
+    bin_dir = Path(sys.executable).parent
+    for name in ("hwp5html.exe", "hwp5html"):
+        candidate = bin_dir / name
+        if candidate.exists():
+            return [str(candidate)]
+    return None
+
+
+def _hwp_link_urls(path: Path) -> list[str]:
+    """hwp5proc xml 에서 하이퍼링크 URL 추출 (PARA_TEXT 가 놓치는 링크 보강)."""
+    found = shutil.which("hwp5proc")
+    if found:
+        command = [found]
+    else:
+        bin_dir = Path(sys.executable).parent
+        candidate = next(
+            (bin_dir / n for n in ("hwp5proc.exe", "hwp5proc") if (bin_dir / n).exists()), None
+        )
+        if candidate is None:
+            return []
+        command = [str(candidate)]
+    try:
+        completed = subprocess.run([*command, "xml", str(path)], capture_output=True, timeout=60)
+        xml = html.unescape(completed.stdout.decode("utf-8", "replace"))
+        urls: list[str] = []
+        for match in _URL_RE.finditer(xml):
+            url = re.split(r"HWP[A-Z_]{4,}", match.group(0))[0].rstrip(".,)】] ")
+            if len(url) > 8 and url not in urls:
+                urls.append(url)
+        return urls
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _append_hwp_hyperlinks(markdown: str, path: Path) -> str:
+    missing = [url for url in _hwp_link_urls(path) if url not in markdown]
+    if missing:
+        markdown += "\n\n" + "\n".join(f"[관련링크] {url}" for url in missing)
+    return markdown
 
 
 def _try_hwp_ole_bodytext(path: Path, warnings: list[str]) -> str:

@@ -4,3 +4,5 @@ Pillow==11.1.0
 PyYAML==6.0.2
 olefile==0.47
 openpyxl==3.1.5
+markdownify==1.2.2
+pyhwp==0.1b15
