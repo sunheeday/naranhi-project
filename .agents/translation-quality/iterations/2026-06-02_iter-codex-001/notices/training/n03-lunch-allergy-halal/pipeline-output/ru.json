@@ -1,0 +1,209 @@
+{
+  "status": "admin_review_required",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "# 6월 둘째 주 급식 및 알레르기 안내\n\n학부모님께,\n\n6월 8일(월)부터 6월 12일(금)까지의 급식 주요 메뉴를 안내드립니다.\n\n- 6월 8일(월): 잡곡밥, 돼지고기김치찌개, 달걀말이, 오이무침\n- 6월 9일(화): 카레라이스, 닭다리구이, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 쇠고기미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴이 포함된 젤리\n\n알레르기 유발 식품: 우유, 달걀, 밀, 대두\n주의: 일부 소스에는 맛술이 포함될 수 있습니다.\n\n식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n문의: 영양교사 02-410-7782\n",
+  "final_translation": "Информация о питании и аллергенах на вторую неделю июня\n\nУважаемые родители!\n\nИнформируем Вас об основном меню питания с понедельника, 8 июня, по пятницу, 12 июня.\n\n- Понедельник, 8 июня: Рис из нескольких злаков, Тушеная свинина с кимчи, Яичный рулет, Салат из огурцов\n- Вторник, 9 июня: Рис карри, Запеченная куриная голень, Йогурт\n- Среда, 10 июня: Чачжанмён, Маринованная редька, Жареные пельмени\n- Четверг, 11 июня: Бурый рис, Суп из говядины с морскими водорослями, Тушеный тофу, Кимчи\n- Пятница, 12 июня: Пибимпап, Яичный суп, Желе, содержащее желатин\n\nАллергенные продукты: Молоко, Яйцо, Пшеница, Соя\n\nПримечание: Некоторые соусы могут содержать мирин (кулинарное вино).\n\nМеню может быть изменено в зависимости от условий поставки ингредиентов.\n\nПо вопросам обращаться: Учитель-диетолог 02-410-7782",
+  "source_hard_facts": {
+    "document_type": "meal_and_allergy_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "영양교사"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "6월 둘째 주",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 8일(월)부터 6월 12일(금)까지",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 9일(화)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 10일(수)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 11일(목)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "영양교사 02-410-7782",
+          "normalized": "02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "식단은 식재료 수급 상황에 따라 변경될 수 있습니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "주의: 일부 소스에는 맛술이 포함될 수 있습니다.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "잡곡밥",
+        "돼지고기김치찌개",
+        "달걀말이",
+        "오이무침",
+        "카레라이스",
+        "닭다리구이",
+        "요구르트",
+        "짜장면",
+        "단무지",
+        "군만두",
+        "현미밥",
+        "쇠고기미역국",
+        "두부조림",
+        "김치",
+        "비빔밥",
+        "계란국",
+        "젤라틴이 포함된 젤리"
+      ],
+      "ingredients_raw": [
+        "맛술",
+        "젤라틴"
+      ],
+      "allergens_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": true,
+    "human_review_reason": "Ingredient mapping is missing for '맛술' and '젤라틴'. Year is missing for all dates.",
+    "confidence": 1.0
+  },
+  "target_hard_facts": {},
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [
+      {
+        "raw_text": "맛술",
+        "reason": "No exact or approved alias match found in the dictionary. This is an alcohol-derived ingredient, which is a critical item."
+      },
+      {
+        "raw_text": "젤라틴",
+        "reason": "No exact or approved alias match found in the dictionary. This is a critical item (gelatin)."
+      }
+    ],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": true,
+      "contains_unmapped_critical_item": true
+    },
+    "human_review_required": true,
+    "human_review_reason": "Critical ingredients ('맛술', '젤라틴') were extracted but could not be mapped to an approved ingredient ID because the dictionary is empty. These items require strict matching and human review to ensure dietary and religious restrictions are met."
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "meal_and_allergy",
+          "source_value": "requires_dictionary_mapping=true",
+          "translated_value": "",
+          "issue": "meal or ingredient data requires approved dictionary mapping",
+          "recommended_fix": "route through ingredient identity mapping or human review"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": true,
+    "reason": "hard_fact_validation_failed",
+    "priority": "high"
+  },
+  "metadata": {
+    "validation_status": "human_review_required",
+    "admin_review_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "meal_and_allergy",
+          "source_value": "requires_dictionary_mapping=true",
+          "translated_value": "",
+          "issue": "meal or ingredient data requires approved dictionary mapping",
+          "recommended_fix": "route through ingredient identity mapping or human review"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

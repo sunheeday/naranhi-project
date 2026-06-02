@@ -1,0 +1,340 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "# 5학년 학예회 참가 안내\n\n학부모님께,\n\n5학년 학예회를 아래와 같이 운영합니다. 학생들이 공연 준비를 원활히 할 수 있도록 가정의 협조를 부탁드립니다.\n\n- 행사명: 5학년 학예회\n- 일시: 2026년 11월 6일(금) 14:00\n- 장소: 본교 강당\n- 대상: 5학년 학생 및 보호자\n- 복장: 흰색 상의, 검은색 하의, 실내화\n- 안내장 회신: 2026년 10월 29일(목)까지 담임교사에게 제출\n\n연습 일정과 준비물 세부 내용은 알림장에 추가로 안내할 예정입니다.\n문의: 5학년부 032-440-1188\n",
+  "final_translation": "Руководство по участию в Фестивале выступлений для 5-х классов\n\nУважаемые родители!\n\nМы проведем Фестиваль выступлений для 5-х классов, как указано ниже. Просим Вас оказать содействие дома, чтобы учащиеся могли беспрепятственно подготовиться к выступлению.\n\n- Название мероприятия: Фестиваль выступлений для 5-х классов\n- Дата и время: 6 ноября 2026 г. (пятница), 14:00\n- Место проведения: Школьный актовый зал\n- Целевая аудитория: Учащиеся 5-х классов и их опекуны\n- Форма одежды: Белый верх, черный низ, сменная обувь\n- Ответ на уведомление: Необходимо сдать классному руководителю до 29 октября 2026 г. (четверг)\n\nПодробная информация о расписании репетиций и необходимых материалах будет объявлена отдельно через школьное уведомление (알림장).\n\nСправки: Отдел 5-х классов 032-440-1188",
+  "source_hard_facts": {
+    "document_type": "event_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "5학년부"
+    },
+    "audience": {
+      "grade": "5학년",
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": "보호자"
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년 11월 6일(금)",
+          "normalized": "2026-11-06",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "14:00",
+          "normalized": "14:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "본교 강당",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "흰색 상의, 검은색 하의, 실내화",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "안내장 회신",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026년 10월 29일(목)까지",
+          "normalized": "2026-10-29",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "5학년부 032-440-1188",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "5학년",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "가정의 협조",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "담임교사에게 제출",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "schedule notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "Отдел 5-х классов"
+    },
+    "audience": {
+      "grade": "5",
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "6 ноября 2026 г. (пятница)",
+          "normalized": "2026-11-06",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "29 октября 2026 г. (четверг)",
+          "normalized": "2026-10-29",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "14:00",
+          "normalized": "14:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "Школьный актовый зал",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "Белый верх, черный низ, сменная обувь",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "Ответ на уведомление",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "до 29 октября 2026 г. (четверг)",
+          "normalized": "2026-10-29",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "Отдел 5-х классов 032-440-1188",
+          "normalized": "032-440-1188",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "5-х классов",
+          "normalized": "5",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Учащиеся 5-х классов",
+          "normalized": "5",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "оказать содействие дома, чтобы учащиеся могли беспрепятственно подготовиться к выступлению",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "сдать классному руководителю",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Соблюдать форму одежды: Белый верх, черный низ, сменная обувь",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "5학년 학예회 참가 안내",
+    "summary_ko": "5학년 학예회에 대한 안내입니다.\n학생들의 공연 준비를 위해 가정의 협조를 부탁드립니다.\n\n- 행사명: 5학년 학예회\n- 일시: 2026년 11월 6일(금) 14:00\n- 장소: 본교 강당\n- 대상: 5학년 학생 및 보호자\n- 복장: 흰색 상의, 검은색 하의, 실내화\n- 안내장 회신 마감: 2026년 10월 29일(목)까지 담임교사에게 제출\n- 문의: 5학년부 032-440-1188",
+    "summary_target_language": "Это объявление о Фестивале выступлений для 5-х классов.\nПросим Вас оказать содействие дома для подготовки учащихся.\n\n- Название мероприятия: Фестиваль выступлений для 5-х классов\n- Дата и время: 6 ноября 2026 г. (пятница), 14:00\n- Место проведения: Школьный актовый зал\n- Целевая аудитория: Учащиеся 5-х классов и их опекуны\n- Форма одежды: Белый верх, черный низ, сменная обувь\n- Срок сдачи ответа на уведомление: до 29 октября 2026 г. (четверг) классному руководителю\n- Справки: Отдел 5-х классов 032-440-1188",
+    "document_type": "event_notice",
+    "target_language": "ru",
+    "audience": "5학년 학생 및 보호자",
+    "important_dates": [
+      {
+        "raw_text": "2026년 11월 6일(금)",
+        "normalized": "2026-11-06",
+        "inferred_year_required": false,
+        "confidence": 1.0
+      }
+    ],
+    "deadlines": [
+      {
+        "raw_text": "2026년 10월 29일(목)까지",
+        "normalized": "2026-10-29",
+        "confidence": 1.0
+      }
+    ],
+    "actions_required": [
+      {
+        "raw_text": "가정의 협조",
+        "normalized": null,
+        "confidence": 1.0
+      },
+      {
+        "raw_text": "담임교사에게 제출",
+        "normalized": null,
+        "confidence": 1.0
+      }
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "5th Grade Performance Festival Participation Guide\n\nDear Parents,\n\nWe will be holding the 5th Grade Performance Festival as outlined below. We kindly request your cooperation at home to ensure that students can prepare for the performance smoothly.\n\n- Event Name: 5th Grade Performance Festival\n- Date and Time: 2026-11-06 (Friday) 14:00\n- Location: School Auditorium\n- Target Audience: 5th-grade students and guardians\n- Attire: White top, black bottom, indoor shoes\n- Notice Reply: Submit to the homeroom teacher by 2026-10-29 (Thursday)\n\nDetailed information regarding practice schedules and required materials will be announced separately through the school notice (알림장).\n\nInquiry: 5th Grade Department 032-440-1188",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "Руководство по участию в Фестивале выступлений для 5-х классов\n\nУважаемые родители!\n\nМы проведем Фестиваль выступлений для 5-х классов, как указано ниже. Просим Вас оказать содействие дома, чтобы учащиеся могли беспрепятственно подготовиться к выступлению.\n\n- Название мероприятия: Фестиваль выступлений для 5-х классов\n- Дата и время: 6 ноября 2026 г. (пятница), 14:00\n- Место проведения: Школьный актовый зал\n- Целевая аудитория: Учащиеся 5-х классов и их опекуны\n- Форма одежды: Белый верх, черный низ, сменная обувь\n- Ответ на уведомление: Необходимо сдать классному руководителю до 29 октября 2026 г. (четверг)\n\nПодробная информация о расписании репетиций и необходимых материалах будет объявлена отдельно через школьное уведомление (알림장).\n\nСправки: Отдел 5-х классов 032-440-1188",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "5학년 발표회 참여 안내\n\n학부모님께,\n\n5학년 발표회를 아래와 같이 개최합니다. 학생들이 발표 준비를 원활하게 할 수 있도록 가정에서 협조해 주시기를 부탁드립니다.\n\n- 행사명: 5학년 발표회\n- 일시: 2026년 11월 6일 (금요일), 14시\n- 장소: 학교 강당\n- 대상: 5학년 학생 및 학부모\n- 복장: 흰색 상의, 검은색 하의, 실내화\n- 회신: 2026년 10월 29일 (목요일)까지 담임 선생님께 제출해야 합니다.\n\n리허설 일정 및 필요한 준비물에 대한 자세한 내용은 학교 알림장(알림장)을 통해 별도로 안내될 예정입니다.\n\n문의: 5학년부 032-440-1188",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves all factual information, dates, times, locations, and contact details. The tone is appropriately official and polite, matching the original Korean school notice. The administrative meaning and required actions for parents are clear. The use of '(알림장)' for 'школьное уведомление' is a good practice for specific school terms. No omissions or additions were found, and the back-translation confirms high fidelity to the original meaning."
+    }
+  }
+}

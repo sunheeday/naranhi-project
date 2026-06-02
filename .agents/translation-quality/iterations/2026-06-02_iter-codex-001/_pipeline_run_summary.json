@@ -1,0 +1,362 @@
+{
+  "elapsed_seconds": 1747.7,
+  "notices": [
+    {
+      "id": "n01-bike-safety-checklist",
+      "role": "training",
+      "languages": {
+        "en": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n02-field-trip-consent-fee",
+      "role": "training",
+      "languages": {
+        "en": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 1,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "dates",
+                  "source_value": "2026-09-18",
+                  "translated_value": "2026-09-11, 2026-10-19, 2026-10-21",
+                  "issue": "source fact is missing or changed in translated facts",
+                  "recommended_fix": "restore the source fact with the same meaning"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n03-lunch-allergy-halal",
+      "role": "training",
+      "languages": {
+        "en": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "meal_and_allergy",
+                  "source_value": "requires_dictionary_mapping=true",
+                  "translated_value": "",
+                  "issue": "meal or ingredient data requires approved dictionary mapping",
+                  "recommended_fix": "route through ingredient identity mapping or human review"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "meal_and_allergy",
+                  "source_value": "requires_dictionary_mapping=true",
+                  "translated_value": "",
+                  "issue": "meal or ingredient data requires approved dictionary mapping",
+                  "recommended_fix": "route through ingredient identity mapping or human review"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "meal_and_allergy",
+                  "source_value": "requires_dictionary_mapping=true",
+                  "translated_value": "",
+                  "issue": "meal or ingredient data requires approved dictionary mapping",
+                  "recommended_fix": "route through ingredient identity mapping or human review"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n04-school-talent-show",
+      "role": "training",
+      "languages": {
+        "en": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n05-parent-digital-safety-workshop",
+      "role": "held_out",
+      "languages": {
+        "en": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 1,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n06-health-class-table",
+      "role": "held_out",
+      "languages": {
+        "en": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "times",
+                  "source_value": "09:00, 09:40, 10:00, 10:40",
+                  "translated_value": "18:00",
+                  "issue": "translated facts contain a new critical value",
+                  "recommended_fix": "remove unsupported critical value unless it exists in source"
+                },
+                {
+                  "field": "grade_class_targets",
+                  "source_value": "grade:1, grade:2, grade:3, grade:4, grade:5, grade:6",
+                  "translated_value": "",
+                  "issue": "source fact is missing or changed in translated facts",
+                  "recommended_fix": "restore the source fact with the same meaning"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "driver_error",
+          "validation": null
+        },
+        "ar": {
+          "status": "admin_review_required",
+          "validation": {
+            "hard_fact": {
+              "status": "failed",
+              "attempts": 1,
+              "issues": [
+                {
+                  "field": "times",
+                  "source_value": "09:00, 09:40, 10:00, 10:40",
+                  "translated_value": "18:00",
+                  "issue": "translated facts contain a new critical value",
+                  "recommended_fix": "remove unsupported critical value unless it exists in source"
+                },
+                {
+                  "field": "grade_class_targets",
+                  "source_value": "grade:1, grade:2, grade:3, grade:4, grade:5, grade:6",
+                  "translated_value": "",
+                  "issue": "source fact is missing or changed in translated facts",
+                  "recommended_fix": "restore the source fact with the same meaning"
+                }
+              ]
+            },
+            "context_tone": {
+              "status": "skipped",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

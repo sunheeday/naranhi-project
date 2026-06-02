@@ -1,0 +1,345 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "en",
+  "source_text": "# 자전거 및 개인형 이동장치 안전 수칙 안내\n\n학부모님께,\n\n최근 자전거와 전동 킥보드 이용이 늘어나면서 학생 안전사고 예방을 위한 기본 수칙을 다시 안내드립니다.\n\n- 학생은 자전거 탑승 시 반드시 안전모를 착용해야 합니다.\n- 무면허 전동 킥보드 운행은 금지되며, 2인 탑승도 금지됩니다.\n- 야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주시기 바랍니다.\n- 교차로, 횡단보도, 학교 정문 앞에서는 반드시 내려서 이동하도록 지속적으로 이야기해 주시기 바랍니다.\n- 비가 오는 날에는 가급적 자전거 이용을 자제하도록 가정에서 지도해 주시기 바랍니다.\n\n문의: 학생안전부 032-555-1207\n",
+  "final_translation": "Notice Regarding Safety Rules for Bicycles and Personal Mobility Devices\n\nDear Parents,\n\nAs the use of bicycles and electric kickboards has recently increased, we are re-notifying you of the basic rules for preventing student safety accidents.\n\n- Students must wear a safety helmet when riding a bicycle.\n- Unlicensed electric kickboard operation is prohibited, and riding with two people is also prohibited.\n- Please guide them to wear bright colored clothes or reflective devices when moving at night.\n- Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.\n- Please guide them at home to refrain from using bicycles as much as possible on rainy days.\n\nInquiries: Student Safety Department 032-555-1207",
+  "source_hard_facts": {
+    "document_type": "safety_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "학생안전부"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [],
+      "times": [],
+      "locations": [
+        {
+          "raw_text": "교차로",
+          "normalized": "intersection",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "횡단보도",
+          "normalized": "crosswalk",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "학교 정문 앞",
+          "normalized": "in front of the school main gate",
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "안전모",
+          "normalized": "safety helmet",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "밝은 색 옷",
+          "normalized": "bright colored clothes",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "반사 장치",
+          "normalized": "reflective device",
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "학생안전부",
+          "normalized": "Student Safety Department",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "032-555-1207",
+          "normalized": "032-555-1207",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [
+        {
+          "raw_text": "학생은 자전거 탑승 시 반드시 안전모를 착용해야 합니다.",
+          "normalized": "Students must wear a safety helmet when riding a bicycle.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주시기 바랍니다.",
+          "normalized": "Please guide them to wear bright colored clothes or reflective devices when moving at night.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "교차로, 횡단보도, 학교 정문 앞에서는 반드시 내려서 이동하도록 지속적으로 이야기해 주시기 바랍니다.",
+          "normalized": "Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "비가 오는 날에는 가급적 자전거 이용을 자제하도록 가정에서 지도해 주시기 바랍니다.",
+          "normalized": "Please guide them at home to refrain from using bicycles as much as possible on rainy days.",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "무면허 전동 킥보드 운행은 금지되며",
+          "normalized": "Unlicensed electric kickboard operation is prohibited",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2인 탑승도 금지됩니다.",
+          "normalized": "Riding with two people is also prohibited.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "Notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "Student Safety Department"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [],
+      "times": [],
+      "locations": [
+        {
+          "raw_text": "intersections",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "crosswalks",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "front of the school main gate",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "safety helmet",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "bright colored clothes",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "reflective devices",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "Student Safety Department 032-555-1207",
+          "normalized": "032-555-1207",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [
+        {
+          "raw_text": "Students must wear a safety helmet when riding a bicycle.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Unlicensed electric kickboard operation is prohibited",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "riding with two people is also prohibited.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Please guide them to wear bright colored clothes or reflective devices when moving at night.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Please guide them at home to refrain from using bicycles as much as possible on rainy days.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "Unlicensed electric kickboard operation is prohibited",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "riding with two people is also prohibited.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "refrain from using bicycles as much as possible on rainy days",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "자전거 및 개인형 이동장치 안전 수칙 안내",
+    "summary_ko": "최근 자전거 및 전동 킥보드 이용 증가에 따른 학생 안전사고 예방을 위한 기본 수칙을 안내드립니다.\n\n- 학생은 자전거 탑승 시 반드시 안전모를 착용해야 합니다.\n- 무면허 전동 킥보드 운행 및 2인 탑승은 금지됩니다.\n- 야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주십시오.\n- 교차로, 횡단보도, 학교 정문 앞에서는 반드시 내려서 이동하도록 지도해 주십시오.\n- 비 오는 날에는 자전거 이용을 자제하도록 가정에서 지도해 주십시오.",
+    "summary_target_language": "We are re-notifying you of basic rules to prevent student safety accidents due to the recent increase in bicycle and electric kickboard use.\n\n- Students must wear a safety helmet when riding a bicycle.\n- Unlicensed electric kickboard operation and riding with two people are prohibited.\n- Please guide them to wear bright colored clothes or reflective devices when moving at night.\n- Please guide them to dismount and walk at intersections, crosswalks, and in front of the school main gate.\n- Please guide them at home to refrain from using bicycles as much as possible on rainy days.",
+    "document_type": "safety_notice",
+    "target_language": "en",
+    "audience": "Parents and Students",
+    "important_dates": [],
+    "deadlines": [],
+    "actions_required": [
+      "Students must wear a safety helmet when riding a bicycle.",
+      "Please guide them to wear bright colored clothes or reflective devices when moving at night.",
+      "Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.",
+      "Please guide them at home to refrain from using bicycles as much as possible on rainy days."
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Notice Regarding Safety Rules for Bicycles and Personal Mobility Devices\n\nDear Parents,\n\nAs the use of bicycles and electric kickboards has recently increased, we are re-notifying you of the basic rules for preventing student safety accidents.\n\n- Students must wear a safety helmet when riding a bicycle.\n- Unlicensed electric kickboard operation is prohibited, and riding with two people is also prohibited.\n- Please guide them to wear bright colored clothes or reflective devices when moving at night.\n- Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.\n- Please guide them at home to refrain from using bicycles as much as possible on rainy days.\n\nInquiries: Student Safety Department 032-555-1207",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "Notice Regarding Safety Rules for Bicycles and Personal Mobility Devices\n\nDear Parents,\n\nAs the use of bicycles and electric kickboards has recently increased, we are re-notifying you of the basic rules for preventing student safety accidents.\n\n- Students must wear a safety helmet when riding a bicycle.\n- Unlicensed electric kickboard operation is prohibited, and riding with two people is also prohibited.\n- Please guide them to wear bright colored clothes or reflective devices when moving at night.\n- Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.\n- Please guide them at home to refrain from using bicycles as much as possible on rainy days.\n\nInquiries: Student Safety Department 032-555-1207",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "자전거 및 개인형 이동장치 안전 수칙 안내\n\n학부모님께,\n\n최근 자전거 및 전동 킥보드 사용이 증가함에 따라, 학생 안전사고 예방을 위한 기본 수칙을 다시 안내드립니다.\n\n- 학생들은 자전거를 탈 때 안전 헬멧을 착용해야 합니다.\n- 무면허 전동 킥보드 운행은 금지되며, 두 명이 함께 타는 것도 금지됩니다.\n- 야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주십시오.\n- 교차로, 횡단보도, 학교 정문 앞에서 내리고 걷도록 계속해서 일러주십시오.\n- 비 오는 날에는 가급적 자전거 사용을 자제하도록 가정에서 지도해 주십시오.\n\n문의: 학생안전부 032-555-1207",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 1.0,
+      "tone_score": 1.0,
+      "clarity_score": 1.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves the context, tone, and all factual information from the original Korean notice. All safety rules and instructions are clearly conveyed without any omissions or additions. The language remains official and polite, suitable for a school notice to parents. No critical information is mistranslated, and the hard facts are correctly extracted and reflected."
+    }
+  }
+}
