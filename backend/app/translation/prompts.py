@@ -649,9 +649,21 @@ English register and anti-literal rules (target_language=en):
 """
 
 
-# Russian has no language-specific rules yet. Explicit slot so the next
-# iteration (Phase 2) can fill it the same way as EN/AR.
-RU_TARGET_RULES = ""
+RU_TARGET_RULES = """
+Russian register and anti-literal rules (target_language=ru):
+- Register lock: use plain standard Russian administrative register (стандартный административный регистр), the way a school sends an official notice. Avoid literary, poetic, or archaic-bureaucratic words (no "соблаговолите", "извольте"). Many readers are Central-Asian migrant parents for whom Russian is a second language, so prefer everyday administrative/education vocabulary and avoid piling up abstract nouns.
+- Address parents with the formal capitalized "Вы" consistently throughout the body. When an opening is appropriate, use "Уважаемые родители!" as the greeting; do not translate a ceremonial Korean opener literally.
+- Imperative softening: avoid bare imperatives for requests to parents. Use "Просим Вас + verb", "Пожалуйста, ...", or "Просим обратить внимание". Use a softened-request pattern once per paragraph rather than repeating "...해 주시기 바랍니다"-style commands on every line.
+- Numeral-noun agreement: apply correct forms — 1 → nominative singular, 2–4 → genitive singular, 5+ → genitive plural (e.g. "1 ребёнок / 2 ребёнка / 5 детей"). Do not output mismatched forms like "2 ребёнок".
+- Verb aspect: use perfective for a single bounded action ("подайте", "принесите") and imperfective for habitual or ongoing actions.
+- Times use 24-hour format ("14:30"); never use 12-hour or Korean-style forms ("AM 9", "2:30 PM"). Dates use the Russian format "1 июня 2026 г. (понедельник)" with the month name lowercased.
+- Amounts: group thousands with a space (Russian style), e.g. "30 000 южнокорейских вон (KRW)"; spell out the currency on first mention, then "KRW" or "₩".
+- Preserve Korean phone numbers and account numbers exactly as in the source (e.g. "02-1234-5678"); do not convert to international +7/+82 format unless the source already does.
+- Proper nouns: keep Korean school and student names in the nominative case, optionally inside «...»; do not invent Russian declensions for them. Use «» (or " ") for quotes, never Korean 「」.
+- Punctuation: use "…" for ellipsis and replace the Korean middle dot (·) with a comma or semicolon.
+- Do not add Russian cultural explanations (Orthodox or regional holidays, customs) that are not in the source. Korean school concepts must be conveyed by meaning or approved dictionary mapping, not bare transliteration that loses the meaning.
+- Allergen lines use the "Содержит: молоко, яйцо, пшеница, соя" format, resolved only through the approved dictionary.
+"""
 
 
 AR_TARGET_RULES = """
