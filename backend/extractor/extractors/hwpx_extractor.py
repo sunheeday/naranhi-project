@@ -7,6 +7,7 @@ from xml.etree import ElementTree
 
 from extractor.archive_security import validate_zip_limits
 from extractor.budget import ExtractionBudget
+from extractor.markdown_tables import collapse_layout_tables, fix_table_structure
 from extractor.models import ExtractedText
 from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
 from extractor.extractors.image_gemini_extractor import extract_image_text
@@ -59,44 +60,30 @@ async def extract_hwpx_text(
 
 def _extract_hwpx_structured_text(path: Path) -> str:
     validate_zip_limits(path)
+    blocks: list[str] = []
     with zipfile.ZipFile(path) as archive:
         section_names = sorted(
             name for name in archive.namelist()
             if name.startswith("Contents/section") and name.endswith(".xml")
         )
-        paragraphs: list[str] = []
         for name in section_names:
             root = ElementTree.fromstring(archive.read(name))
-            # 각 <t> 를 '가장 가까운 <p> 조상'으로 묶되, 문서 순서대로 끊어 한 줄씩 만든다.
-            # - 표 셀처럼 <p> 안에 <p> 가 중첩돼도 각 <t> 는 가장 안쪽 <p> 한 곳에만 귀속되어,
-            #   바깥 문단이 안쪽 셀 텍스트까지 끌어와 2~3중 중복되던 버그가 생기지 않는다.
-            # - 같은 바깥 문단이 표를 사이에 두고 앞/뒤로 나뉘어도 문서 순서대로 별도 줄로 끊어,
-            #   '앞+뒤'가 한 줄로 붙고 표가 뒤로 밀리는 순서 꼬임을 막는다.
-            # - <p> 조상이 없는 <t>(비표준/제어 텍스트)는 예전처럼 버린다.
+            # 본문 <p> 는 텍스트로, <tbl> 은 markdown 표(| |)로 뽑는다.
+            # - 표를 평문으로 뭉개지 않으므로 정제 단계의 '표 마스킹'이 표를 보호 → LLM 의 셀 값 변조 차단.
+            # - 표 셀 안 <p> 중첩에 의한 본문 2~3중 중복도 'tbl 조상이 있으면 본문 <p> 로 안 잡는다'로 자동 방지.
             parents = {child: parent for parent in root.iter() for child in parent}
-            lines: list[list[str]] = []
-            current_p: ElementTree.Element | None = None
-            for node in root.iter():
-                if _local_name(node.tag) != "t" or not node.text:
-                    continue
-                nearest_p = None
-                ancestor = parents.get(node)
-                while ancestor is not None:
-                    if _local_name(ancestor.tag) == "p":
-                        nearest_p = ancestor
-                        break
-                    ancestor = parents.get(ancestor)
-                if nearest_p is None:
-                    continue
-                if nearest_p is not current_p:
-                    lines.append([])
-                    current_p = nearest_p
-                lines[-1].append(node.text)
-            for texts in lines:
-                line = _clean_inline("".join(texts))
-                if line:
-                    paragraphs.append(line)
-        return "\n".join(paragraphs)
+            for element in root.iter():
+                local = _local_name(element.tag)
+                if local == "p" and not _nearest_is_table(element, parents):
+                    text = _paragraph_text(element)
+                    if text:
+                        blocks.append(text)
+                elif local == "tbl" and not _nearest_is_table(element, parents):
+                    table_md = _table_to_markdown(element)
+                    if table_md:
+                        blocks.append(table_md)
+    md = "\n".join(blocks)
+    return fix_table_structure(collapse_layout_tables(md))
 
 
 async def _ocr_hwpx_images(
@@ -136,5 +123,53 @@ def _local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
 
-def _clean_inline(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
+def _nearest_is_table(element: ElementTree.Element, parents: dict) -> bool:
+    """element 의 조상 중 <tbl> 이 있으면 True (표 셀 내부 요소 판별)."""
+    ancestor = parents.get(element)
+    while ancestor is not None:
+        if _local_name(ancestor.tag) == "tbl":
+            return True
+        ancestor = parents.get(ancestor)
+    return False
+
+
+def _paragraph_text(element: ElementTree.Element, *, stop_at_table: bool = True) -> str:
+    """element 하위 <t> 텍스트를 모아 한 줄로. stop_at_table 이면 중첩 표 안 텍스트는 제외."""
+    parts: list[str] = []
+
+    def walk(node: ElementTree.Element) -> None:
+        for child in node:
+            local = _local_name(child.tag)
+            if local == "tbl" and stop_at_table:
+                continue
+            if local == "t" and child.text:
+                parts.append(child.text)
+            walk(child)
+
+    walk(element)
+    return re.sub(r"\s+", " ", "".join(parts)).strip()
+
+
+def _table_to_markdown(table: ElementTree.Element) -> str:
+    """<tbl> 을 markdown 표로. 첫 행을 헤더로 두고 행마다 열 수를 맞춘다."""
+    rows: list[list[str]] = []
+
+    def find_rows(node: ElementTree.Element) -> None:
+        for child in node:
+            if _local_name(child.tag) == "tr":
+                rows.append(
+                    [_paragraph_text(cell, stop_at_table=False) for cell in child if _local_name(cell.tag) == "tc"]
+                )
+            else:
+                find_rows(child)
+
+    find_rows(table)
+    rows = [row for row in rows if any(cell for cell in row)]
+    if not rows:
+        return ""
+    ncols = max(len(row) for row in rows)
+    rows = [row + [""] * (ncols - len(row)) for row in rows]
+    md = ["| " + " | ".join(rows[0]) + " |", "|" + " --- |" * ncols]
+    for row in rows[1:]:
+        md.append("| " + " | ".join(row) + " |")
+    return "\n".join(md)
