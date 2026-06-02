@@ -282,6 +282,7 @@ Translation rules:
 - If the English pivot contains Korean-literal notice phrasing, repair it into natural parent-facing language in the target language instead of copying the literal wording. Examples of literals to repair include "re-notify", "student safety accidents", "guide them to ...", "continuously tell them ...", or other word-for-word reporting-verb phrasing.
 - When a Korean notice addresses parents and asks them to supervise, remind, guide, or talk with a child at home, express that as a natural caregiver-action frame in the target language rather than a literal "guide/tell/instruct them" verb chain.
 - Translate notice-style titles as natural school-notice headings for parents, not as bureaucratic labels like "Notice Regarding ..." or manual/booklet labels unless the source is truly a manual.
+- If the English pivot explains a Korean school concept in plain language, do not reintroduce the Korean term in parentheses unless it is necessary to preserve an official name from the source. Prefer a plain target-language school term when that already conveys the function clearly.
 - Do not add facts, cultural explanations, or helpful details beyond the source.
 - Preserve numbers, dates, times, locations, amounts, contacts, URLs, grade/class targets, submissions, and deadlines.
 - Resolve ingredient placeholders only through the approved target-language dictionary.
@@ -322,6 +323,12 @@ Extraction rules:
 - For normalized, use language-independent canonical values when possible: YYYY-MM-DD, HH:mm, exact numeric strings, exact URLs, exact phone numbers.
 - For translated semantic fields such as locations/materials/actions, keep raw_text in the target language and use normalized only if a language-independent canonical value is clear.
 - Do not infer source facts that are not present in TARGET_TRANSLATION.
+- Read each table, bullet list, schedule line, and label-value row as structured content. Inspect every row/cell/line before deciding an array is empty.
+- If a line contains a due date, payment deadline, submission deadline, or other "by/until/до/بحلول/마감"-type phrasing, extract it into `deadlines` even if the same date also appears in `dates`.
+- If the translation visibly contains a date, time, fee, phone number, URL, submission item, or grade/class target, do not omit it from the corresponding array. When uncertain, keep the `raw_text` and leave `normalized` null instead of dropping the fact.
+- If the translation contains a time range, date range, or paired start/end facts on the same line, extract every visible component.
+- If the translation contains a parent response or form-return line, capture both the submission item and the action/deadline facts that appear on that line.
+- Before returning JSON, self-check for obvious omissions: if TARGET_TRANSLATION visibly contains dates, times, amounts, contacts, deadlines, submissions, or grade/class targets but the corresponding arrays are empty, revise the extraction and fill them.
 
 Return this JSON schema:
 {HARD_FACT_SCHEMA}"""
@@ -732,7 +739,8 @@ Russian register and anti-literal rules (target_language=ru):
   - `지속적으로 이야기해 주시기 바랍니다` -> `Просим Вас регулярно напоминать ...`, not a literal "постоянно говорить ..."
   - `안전사고 예방` -> plain safety wording natural to school notices, not heavy literal noun chains
   - `무면허` means lack of a license/entitlement; do not weaken it to vague "without proper permission" if the source is specifically about a license.
-- Prefer natural notice headings such as `Правила безопасности при езде на велосипеде и электросамокате` over bureaucratic or manual-like noun chains.
+- Prefer natural notice headings such as `Информация о ...`, `Уведомление о ...`, or `Правила безопасности ...` over bureaucratic or manual-like noun chains. Do not title an ordinary notice `Руководство ...` unless the source is truly a handbook.
+- If a plain Russian school term already conveys the meaning, do not keep a Korean school term in parentheses. For example, use `школьное уведомление` rather than `школьное уведомление (알림장)` unless the Korean term itself is essential.
 """
 
 
@@ -754,6 +762,7 @@ Arabic register, RTL, and sentence rules (target_language=ar):
 - Avoid literal calques for common mobility and safety wording. Use widely understood pan-Arab MSA terms instead of component-by-component translations. Example: avoid `لوح الركل الكهربائي` for `전동 킥보드`; use a broadly understood MSA term such as `سكوتر كهربائي`.
 - Avoid noun-heavy calques like `حوادث سلامة الطلاب` when plain school-notice safety wording is more natural.
 - For safety actions, make the physical action explicit when Korean implies a sequence. For example, in biking/scooter contexts, express `내려서 이동` as dismounting first and then proceeding on foot, not as a vague motion phrase.
+- If a plain Arabic school term already conveys the meaning, do not append the Korean source term in parentheses. For example, prefer `إشعار المدرسة` or `دفتر الإشعارات المدرسية` without `(알림장)` unless the Korean term itself is essential to identify the item.
 - Pork, alcohol-derived ingredients, gelatin, and allergen-sensitive meal items must be resolved only through the approved dictionary. Never guess or transliterate an uncertain ingredient.
 - Do not add facts, and do not move a fact to a line where it did not appear in the source.
 """

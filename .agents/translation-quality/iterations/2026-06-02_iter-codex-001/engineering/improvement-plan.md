@@ -7,11 +7,11 @@
 
 ## 1. Summary
 
-- **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거
+- **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거, `n04-school-talent-show`의 ru/ar 제목 톤과 target fact extractor 규칙 보강
 - **보류한 이슈:** `n03-lunch-allergy-halal`의 dictionary/data block
-- **Change Set 수:** 2
+- **Change Set 수:** 3
 - **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`
-- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료
+- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료, `n04-school-talent-show` ru/ar 재실행 완료
 
 ## 2. Change Sets
 
@@ -83,6 +83,42 @@
     - after: `ready_to_save`, `hard_fact=passed`, `target_hard_facts` populated
 - **상태:** `applied`
 
+### Change Set #3 — Target fact extractor hardening + notice-title cleanup
+
+- **해결하는 피드백:** `extract_target_hard_facts_prompt`가 날짜/마감/제출물/학년 정보를 배열에 빠뜨릴 수 있는 구조적 약점, `n04-school-talent-show`의 ru/ar 제목이 `guide/manual` 쪽으로 기울던 문제
+- **무엇을 바꿨는가:**
+  - 파일: `backend/app/translation/prompts.py`
+  - 함수/블록:
+    - `translate_en_to_target_prompt`
+    - `extract_target_hard_facts_prompt`
+    - `RU_TARGET_RULES`
+    - `AR_TARGET_RULES`
+  - 변경 요약:
+    - target translation 단계에서 plain target-language school term으로 충분한 경우 한국어 원어 괄호를 다시 붙이지 않도록 일반 규칙 추가
+    - extractor prompt에 table/list/label-value line 전체를 훑고, date/time/fee/contact/submission/grade가 보이면 corresponding array를 비워두지 말라는 self-check 규칙 추가
+    - `by/until/до/بحلول`류 마감 표현은 `deadlines`에 반드시 넣도록 명시
+    - 러시아어 제목 규칙을 `Информация ...` / `Уведомление ...` 계열로 강화하고 `Руководство ...` 금지
+    - 아랍어 제목 규칙을 `إشعار ...` / `تنبيه ...` 계열로 강화하고 불필요한 `(알림장)` 병기 금지
+- **왜 이렇게 했는가:**
+  - `n02 ru`에서 확인한 extraction instability는 orchestrator retry만으로 막기보다 extractor prompt 자체도 더 구조적으로 만들어 두는 편이 안정적이다.
+  - `n04`는 validation은 통과했지만 ru/ar 모두 title register와 한국어 괄호 용어가 parent-facing notice 품질을 깎고 있었다.
+- **기대 효과:**
+  - `Hard Fact Preservation`
+  - `Naturalness / Readability`
+  - `Tone & Register`
+  - `Action Clarity`
+- **회귀 리스크:**
+  - 일부 문서에서 원어 병기가 실제로 필요한 경우까지 과하게 생략할 수 있음
+  - extractor가 너무 공격적으로 facts를 채우면 중복 추출이 늘 수 있음
+- **검증 방법:**
+  - `python3 -m py_compile backend/app/translation/prompts.py`
+  - `n04-school-talent-show` ru/ar 재실행 완료
+  - before/after 확인:
+    - ru: `Руководство ...` 제거, `(알림장)` 제거, `school notice` 계열 표현 유지
+    - ar: title `دليل ...` -> `إشعار بخصوص ...`, `(알림장)` 제거
+    - ru/ar 모두 `ready_to_save`, `hard_fact=passed`, `context_tone=passed`
+- **상태:** `applied`
+
 ## 3. Deferred
 
 ### Deferred — `n03-lunch-allergy-halal`
@@ -104,11 +140,15 @@
 - `n02-field-trip-consent-fee` / ru
   - before: `admin_review_required` with empty `target_hard_facts`
   - after: `ready_to_save`, `hard_fact=passed`, extracted target facts populated
+- `n04-school-talent-show`
+  - ru: `ready_to_save` 유지, title/manual tone 제거, Korean parenthetical school-term 제거
+  - ar: `ready_to_save` 유지, title `إشعار ...`로 수정, Korean parenthetical school-term 제거
 - baseline 전체는 아직 진행 중이므로 `n02`~`n06`의 after run은 미실행
 
 ## 6. Files Changed
 
 - `backend/app/translation/prompts.py` — Change Set #1 적용
+- `backend/app/translation/prompts.py` — Change Set #3 적용
 - `backend/app/translation/orchestrator.py` — Change Set #2 적용
 - `backend/app/services/notice_service.py` — Change Set #2 적용
 
