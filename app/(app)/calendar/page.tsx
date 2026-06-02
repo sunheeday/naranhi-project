@@ -9,6 +9,7 @@ import {
   UnsupportedTimetableError,
   type TimetablePeriod,
 } from '@/lib/neis'
+import BrandHeader from '@/components/brand/BrandHeader'
 import CalendarTabs from './CalendarTabs'
 import { type ScheduleEvent } from './CalendarView'
 import { type TimetableDayEntry } from './TimetableWeekView'
@@ -176,12 +177,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   return (
     <main className="flex flex-col min-h-screen pb-20">
-      <header className="sticky top-0 bg-surface border-b border-border px-6 py-4 z-10">
-        <h1 className="text-lg font-bold text-text-primary">{messages.calendar.title}</h1>
-        {childLabel && (
-          <p className="text-xs text-muted truncate mt-0.5">{childLabel}</p>
-        )}
-      </header>
+      <BrandHeader title={messages.calendar.title} subtitle={childLabel || undefined} character="walk" />
 
       {errorMessage && (
         <div role="alert" className="mx-6 mt-4 rounded-card border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
