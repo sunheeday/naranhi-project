@@ -4,6 +4,7 @@ import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import { getCachedOrFetchMealsForRange, translateMealsForLocale, type Meal } from '@/lib/neis'
+import BrandHeader from '@/components/brand/BrandHeader'
 import MealWeekView, { type DayEntry } from './MealWeekView'
 
 interface Props {
@@ -138,12 +139,7 @@ export default async function MealsPage({ searchParams }: Props) {
 
   return (
     <main className="flex flex-col min-h-screen pb-20">
-      <header className="sticky top-0 bg-surface border-b border-border px-6 py-4 z-10">
-        <h1 className="text-lg font-bold text-text-primary">{m.title ?? '급식'}</h1>
-        {childLabel && (
-          <p className="text-xs text-muted truncate mt-0.5">{childLabel}</p>
-        )}
-      </header>
+      <BrandHeader title={m.title ?? '급식'} subtitle={childLabel || undefined} character="readingYellow" />
 
       {unsupported && (
         <div role="alert" className="mx-6 mt-4 rounded-card border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

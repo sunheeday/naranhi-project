@@ -1,57 +1,66 @@
 @import "tailwindcss";
 
 @theme {
-  /* ─── Action / Brand ───────────────────────────────── */
-  --color-primary: #111111;
-  --color-primary-active: #242424;
+  /* ─── Action / Brand (나리·누리 캐릭터 팔레트) ───────── */
+  /* 누리(파랑) 메인 액션, 나리(노랑) 긍정/완료 포인트 */
+  --color-primary: #5DAFEA;
+  --color-primary-active: #3F94D4;
+  --color-primary-soft: #EAF7FF;
   --color-on-primary: #FFFFFF;
-  --color-brand-accent: #4A7FE7;
-  --color-brand-accent-soft: #EEF3FF;
+
+  --color-brand-sun: #FFD75A;
+  --color-brand-sun-soft: #FFF7D6;
+  --color-brand-coral: #FF9CA3;
+  --color-brand-orange: #FF9A22;
+
+  /* 호환용 accent(이전 블루) → 브랜드 블루로 통합 */
+  --color-brand-accent: #5DAFEA;
+  --color-brand-accent-soft: #EAF7FF;
 
   /* ─── Card Categories (학부모 인식 컬러) ──────────── */
   --color-cat-supply: #10B981;
   --color-cat-supply-bg: #ECFDF5;
-  --color-cat-action: #F59E0B;
-  --color-cat-action-bg: #FFFBEB;
-  --color-cat-schedule: #4A7FE7;
-  --color-cat-schedule-bg: #EEF3FF;
+  --color-cat-action: #F59A1F;
+  --color-cat-action-bg: #FFF6E6;
+  --color-cat-schedule: #5DAFEA;
+  --color-cat-schedule-bg: #EAF7FF;
   --color-warning-strong: #DC2626;
 
   /* ─── Surface ─────────────────────────────────────── */
-  --color-canvas: #FFFFFF;
+  --color-canvas: #FBFDFF;
   --color-surface: #FFFFFF;
-  --color-surface-soft: #FAFAFA;
-  --color-surface-card: #F7F7F8;
+  --color-surface-soft: #F1F8FF;
+  --color-surface-card: #FFFFFF;
   --color-surface-strong: #E5E7EB;
-  --color-bg: #FFFFFF;
-  --color-hairline: #E5E7EB;
-  --color-hairline-soft: #F3F4F6;
-  --color-border: #E5E7EB;
+  --color-bg: #F1F8FF;
+  --color-hairline: #E6EEF5;
+  --color-hairline-soft: #EFF4F9;
+  --color-border: #E6EEF5;
 
   /* ─── Text ─────────────────────────────────────────── */
-  --color-ink: #111111;
-  --color-body: #374151;
-  --color-text-primary: #111111;
-  --color-text-secondary: #6B7280;
-  --color-text-disabled: #9CA3AF;
-  --color-muted: #6B7280;
-  --color-muted-soft: #9CA3AF;
+  --color-ink: #2B211C;
+  --color-body: #4B423C;
+  --color-text-primary: #2B211C;
+  --color-text-secondary: #7A726C;
+  --color-text-disabled: #B3ABA5;
+  --color-muted: #7A726C;
+  --color-muted-soft: #A89F99;
 
   /* ─── Semantic ─────────────────────────────────────── */
   --color-success: #10B981;
-  --color-warning: #F59E0B;
+  --color-warning: #F59A1F;
   --color-error: #DC2626;
 
   /* ─── 호환용: 기존 카드 스타일 토큰 (점진 마이그레이션) ─── */
   --color-card-supply: #10B981;
   --color-card-supply-bg: #ECFDF5;
-  --color-card-action: #F59E0B;
-  --color-card-action-bg: #FFFBEB;
-  --color-card-schedule: #4A7FE7;
-  --color-card-schedule-bg: #EEF3FF;
-  --color-accent: #F59E0B;
-  --color-accent-light: #FFFBEB;
-  --color-primary-light: #EEF3FF;
+  --color-card-action: #F59A1F;
+  --color-card-action-bg: #FFF6E6;
+  --color-card-schedule: #5DAFEA;
+  --color-card-schedule-bg: #EAF7FF;
+  --color-accent: #FFD75A;
+  --color-accent-light: #FFF7D6;
+  --color-primary-light: #EAF7FF;
 
   /* ─── Typography ───────────────────────────────────── */
   --font-sans: var(--font-noto-sans), var(--font-noto-kr), var(--font-noto-sc), var(--font-noto-arabic),
@@ -92,12 +101,12 @@
   --radius-pill: 9999px;
   --radius-full: 9999px;
 
-  /* ─── Shadow ──────────────────────────────────────── */
-  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-nav: 0 -4px 16px rgba(0, 0, 0, 0.04);
-  --shadow-strong: 0 -4px 16px rgba(0, 0, 0, 0.08);
-  --shadow-btn-primary: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* ─── Shadow (브랜드 블루 톤이 살짝 섞인 부드러운 그림자) ─ */
+  --shadow-soft: 0 2px 10px rgba(45, 92, 138, 0.06);
+  --shadow-card: 0 4px 14px rgba(45, 92, 138, 0.07);
+  --shadow-nav: 0 -4px 16px rgba(45, 92, 138, 0.06);
+  --shadow-strong: 0 -4px 16px rgba(45, 92, 138, 0.1);
+  --shadow-btn-primary: 0 4px 12px rgba(93, 175, 234, 0.35);
 
   /* ─── Container ───────────────────────────────────── */
   --container-app: 480px;
@@ -127,4 +136,32 @@ html, body {
 /* RTL 보정: 화살표 등 방향성 아이콘 자동 flip */
 [dir="rtl"] .rtl-flip {
   transform: scaleX(-1);
+}
+
+/* ─── 브랜드 헤더 배경: 옅은 블루 → 캔버스 그라데이션 ─── */
+.brand-header-bg {
+  background: linear-gradient(180deg, #EAF7FF 0%, #F4FBFF 60%, var(--color-canvas) 100%);
+}
+
+/* 배경이 투명한 캐릭터 자체에 살짝 그림자를 줘 평면 스티커처럼 보이지 않게 한다. */
+.character-shadow {
+  filter: drop-shadow(0 6px 9px rgba(45, 92, 138, 0.18));
+}
+
+/* 다국어 본문 가독성:
+   - word-break: keep-all → 한국어/중국어 등 CJK에서 단어(어절) 중간이 깨지지 않고 띄어쓰기 단위로만 줄바꿈
+   - overflow-wrap: anywhere → URL·계좌번호처럼 띄어쓰기 없는 아주 긴 토큰만 강제 줄바꿈해 넘침 방지
+   - text-wrap: pretty → 마지막 줄에 한 단어만 남는 고아 줄 완화
+   어떤 언어(아랍어/타이어/라틴/키릴 포함)에서도 안전하게 동작한다. */
+.text-readable {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+/* 캐릭터를 감싸는 둥근 원형 배경(흰빛 → 옅은 블루)에 얇은 링과 부드러운 그림자. */
+.character-disc {
+  background: radial-gradient(circle at 50% 38%, #FFFFFF 0%, #F1F8FF 100%);
+  border: 1px solid rgba(93, 175, 234, 0.12);
+  box-shadow: 0 4px 14px rgba(45, 92, 138, 0.1);
 }

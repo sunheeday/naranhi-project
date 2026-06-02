@@ -4,6 +4,8 @@ import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import BrandHeader from '@/components/brand/BrandHeader'
+import CharacterImage from '@/components/brand/CharacterImage'
 import LogoutButton from './LogoutButton'
 import SchoolReselect from './SchoolReselect'
 
@@ -45,13 +47,28 @@ export default async function SettingsPage() {
     child = result.data
   }
 
+  const childGradeLabel = child
+    ? `${child.grade}-${child.class_no ?? ''}`
+    : ''
+
   return (
     <main className="flex flex-col min-h-screen pb-20">
-      <header className="sticky top-0 bg-surface border-b border-border px-6 py-4 z-10">
-        <h1 className="text-lg font-bold text-text-primary">{messages.settings.title}</h1>
-      </header>
+      <BrandHeader title={messages.settings.title} />
 
       <div className="flex flex-col gap-6 px-6 pt-6">
+        {child && (
+          <section
+            className="flex items-center gap-4 rounded-card bg-primary-soft p-4"
+            aria-label={messages.settings.school_section_title ?? '학교 정보'}
+          >
+            <CharacterImage character="holdingHands" size={56} disc className="shrink-0" />
+            <div className="min-w-0">
+              <p className="text-base font-bold text-ink truncate">{child.school_name}</p>
+              <p className="text-sm text-muted mt-0.5 truncate">{childGradeLabel}</p>
+            </div>
+          </section>
+        )}
+
         <section aria-labelledby="lang-heading">
           <h2 id="lang-heading" className="text-sm font-semibold text-text-secondary mb-3">
             {messages.settings.language}
