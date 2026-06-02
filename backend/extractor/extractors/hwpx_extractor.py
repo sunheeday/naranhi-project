@@ -67,12 +67,32 @@ def _extract_hwpx_structured_text(path: Path) -> str:
         paragraphs: list[str] = []
         for name in section_names:
             root = ElementTree.fromstring(archive.read(name))
-            for paragraph in _iter_by_local_name(root, "p"):
-                texts = [
-                    node.text or ""
-                    for node in paragraph.iter()
-                    if _local_name(node.tag) == "t" and node.text
-                ]
+            # 각 <t> 를 '가장 가까운 <p> 조상'으로 묶되, 문서 순서대로 끊어 한 줄씩 만든다.
+            # - 표 셀처럼 <p> 안에 <p> 가 중첩돼도 각 <t> 는 가장 안쪽 <p> 한 곳에만 귀속되어,
+            #   바깥 문단이 안쪽 셀 텍스트까지 끌어와 2~3중 중복되던 버그가 생기지 않는다.
+            # - 같은 바깥 문단이 표를 사이에 두고 앞/뒤로 나뉘어도 문서 순서대로 별도 줄로 끊어,
+            #   '앞+뒤'가 한 줄로 붙고 표가 뒤로 밀리는 순서 꼬임을 막는다.
+            # - <p> 조상이 없는 <t>(비표준/제어 텍스트)는 예전처럼 버린다.
+            parents = {child: parent for parent in root.iter() for child in parent}
+            lines: list[list[str]] = []
+            current_p: ElementTree.Element | None = None
+            for node in root.iter():
+                if _local_name(node.tag) != "t" or not node.text:
+                    continue
+                nearest_p = None
+                ancestor = parents.get(node)
+                while ancestor is not None:
+                    if _local_name(ancestor.tag) == "p":
+                        nearest_p = ancestor
+                        break
+                    ancestor = parents.get(ancestor)
+                if nearest_p is None:
+                    continue
+                if nearest_p is not current_p:
+                    lines.append([])
+                    current_p = nearest_p
+                lines[-1].append(node.text)
+            for texts in lines:
                 line = _clean_inline("".join(texts))
                 if line:
                     paragraphs.append(line)
@@ -110,12 +130,6 @@ async def _ocr_hwpx_images(
                 )
             )
     return results
-
-
-def _iter_by_local_name(root: ElementTree.Element, local_name: str):
-    for item in root.iter():
-        if _local_name(item.tag) == local_name:
-            yield item
 
 
 def _local_name(tag: str) -> str:
