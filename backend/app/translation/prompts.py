@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -194,6 +195,11 @@ Translation rules:
 - Preserve ingredient_id placeholders exactly. Do not translate placeholders.
 - If a hard fact conflicts with extracted_hard_facts, extracted_hard_facts wins.
 
+Meaning-resolution rules (carry the *intended meaning*, not the surface words):
+- Resolve each item using its surrounding context. A short table cell, list item, or heading must be read together with its row/column/section context, not as an isolated phrase. Example: under a nutrition/healthy-eating section, "신호등을 지켜라" means follow the food traffic-light (nutrition grade) guide, NOT obey a road traffic light. Translate the intended meaning.
+- For Korean school/administrative concepts that a migrant parent may not know (e.g. 수련회, 알림장, 돌봄교실, 방과후, 체험학습, 학예회), render the function in plain English and, when helpful, keep the original term in parentheses, e.g. "overnight school camp (수련회)". This is meaning disambiguation, not adding new facts — do not invent dates, fees, or details that are not in the source.
+- Never carry over a literal phrase whose meaning depends on Korean-only context if that produces a wrong meaning in English.
+
 Return JSON:
 {{
   "pivot_translation_en": "",
@@ -212,6 +218,7 @@ def translate_en_to_target_prompt(
     target_dictionary: list[dict[str, Any]],
 ) -> str:
     target_name = _language_name(target_language)
+    language_specific_rules = _target_language_specific_rules(target_language)
     return f"""{COMMON_SYSTEM_PROMPT}
 
 Task:
@@ -245,7 +252,7 @@ Translation rules:
 - Resolve ingredient placeholders only through the approved target-language dictionary.
 - If a target-language ingredient name is unavailable or uncertain, set human_review_required=true.
 - Do not directly translate ingredient names yourself.
-
+{language_specific_rules}
 Return JSON:
 {{
   "target_translation": "",
@@ -597,6 +604,75 @@ Return JSON:
   "cache_key_candidates": [],
   "admin_review_reason": null
 }}"""
+
+
+# ---------------------------------------------------------------------------
+# Per-language profiles
+#
+# Each profile carries the language-specific guidance that is *combined* with
+# the language-agnostic COMMON_SYSTEM_PROMPT and the per-stage templates above.
+# Today only ``target_rules`` is populated (injected into
+# translate_en_to_target_prompt). To give a language guidance in more stages,
+# add a field here (e.g. context_tone_rules) and inject it where needed —
+# keeping all per-language knowledge in this one block.
+#
+# These rules should stay aligned with the evaluation personas in
+# .agents/translation-quality/language-criteria/<code>.md (single source of
+# truth for "what good looks like" per language).
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LanguageProfile:
+    """Language-specific translation guidance combined with the common prompt.
+
+    ``target_rules`` is appended inside translate_en_to_target_prompt. An empty
+    string means no language-specific rules yet (e.g. Russian — planned).
+    """
+
+    code: str
+    name: str
+    target_rules: str = ""
+
+
+EN_TARGET_RULES = """
+English register and anti-literal rules (target_language=en):
+- Register lock: use US public-school administrative communication — polite, neutral, action-oriented. No legalese ("hereby notify", "the undersigned", "pursuant to"), no marketing tone, no slang.
+- Parent-facing actions must read as natural guidance, not a literal Korean command list. Convert noun-style or imperative-list instructions into "Make sure your child ..." / "Please talk with your child about ..." / "Please be sure to ..." form.
+  - Do NOT output literal directives such as "Confirm helmet wearing", "Guide against operating ...", "Prohibit ...", "Continuously converse with them". Instead: "Make sure your child wears a helmet", "Please talk with your child about not riding unlicensed e-scooters or unsafe bicycles".
+- Safety checklists: keep each item as a clear parent action verb, not a bare noun phrase.
+- Times use one consistent format, e.g. "9 AM" / "2:30 PM" (never "AM 9", "PM 2"). Dates use one consistent format and may include the weekday.
+- Korean phone numbers stay in Korean national format (e.g. "032-320-0096"); do not convert to international +82 form unless the source already uses it.
+- Greetings: a ceremonial Korean opener ("안녕하십니까") may become a single short line ("Dear parents and guardians,") or be omitted. Never alter the factual body.
+- Do not add explanations beyond the source; meaning disambiguation of Korean school concepts (with the original term in parentheses) is allowed but must not invent facts.
+- Table column structure: keep a source table as ONE table with the same columns and the same number of rows. Do not split a single table into two tables, and do not break one row's cells across separate tables. If a row pairs related cells (e.g. a program/topic in one column and its instructor/time in the next), keep those cells on the same row so a parent can read across the row. Reproduce the source column order.
+"""
+
+
+# Russian has no language-specific rules yet. Explicit slot so the next
+# iteration (Phase 2) can fill it the same way as EN/AR.
+RU_TARGET_RULES = ""
+
+
+AR_TARGET_RULES = """
+Arabic line-structure and sentence rules (target_language=ar):
+- Preserve the source's label–value line structure. Each labeled line (e.g. "문의: ... ☎ ...", "접수 방법: ...", "신청 기간: ...") becomes its own line in Arabic. Do not merge a value from one line into a neighboring line.
+  - Do NOT fuse adjacent items: the email from a "submission method / 접수" line must not be appended to the "inquiry / 문의" line, and vice versa. Keep each fact on the line where the source placed it.
+- Segment long administrative compound sentences. Prefer several short, clear sentences over one long chained clause. A migrant parent should be able to follow each instruction on its own; do not pile multiple actions, conditions, and contacts into a single run-on sentence.
+- Keep the official, polite register accessible Modern Standard Arabic. Do not add facts, and do not move a fact to a line where it did not appear in the source.
+"""
+
+
+LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
+    "en": LanguageProfile(code="en", name="English", target_rules=EN_TARGET_RULES),
+    "ru": LanguageProfile(code="ru", name="Russian", target_rules=RU_TARGET_RULES),
+    "ar": LanguageProfile(code="ar", name="Arabic", target_rules=AR_TARGET_RULES),
+}
+
+
+def _target_language_specific_rules(target_language: str) -> str:
+    profile = LANGUAGE_PROFILES.get(target_language)
+    return profile.target_rules if profile is not None else ""
 
 
 def _language_name(code: str) -> str:
