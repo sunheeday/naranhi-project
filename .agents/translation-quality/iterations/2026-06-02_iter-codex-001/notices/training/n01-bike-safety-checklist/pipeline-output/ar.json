@@ -1,0 +1,350 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ar",
+  "source_text": "# 자전거 및 개인형 이동장치 안전 수칙 안내\n\n학부모님께,\n\n최근 자전거와 전동 킥보드 이용이 늘어나면서 학생 안전사고 예방을 위한 기본 수칙을 다시 안내드립니다.\n\n- 학생은 자전거 탑승 시 반드시 안전모를 착용해야 합니다.\n- 무면허 전동 킥보드 운행은 금지되며, 2인 탑승도 금지됩니다.\n- 야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주시기 바랍니다.\n- 교차로, 횡단보도, 학교 정문 앞에서는 반드시 내려서 이동하도록 지속적으로 이야기해 주시기 바랍니다.\n- 비가 오는 날에는 가급적 자전거 이용을 자제하도록 가정에서 지도해 주시기 바랍니다.\n\n문의: 학생안전부 032-555-1207\n",
+  "final_translation": "دليل قواعد السلامة للدراجات الهوائية وأجهزة التنقل الشخصية\n\nحضرات أولياء الأمور الكرام،\n\nنظرًا للزيادة الأخيرة في استخدام الدراجات الهوائية ولوحات الركل الكهربائية، فإننا نعيد إبلاغكم بالقواعد الأساسية للوقاية من حوادث سلامة الطلاب.\n\n*   يجب على الطلاب ارتداء خوذة السلامة عند ركوب الدراجة الهوائية.\n*   يُحظر تشغيل لوح الركل الكهربائي بدون ترخيص، كما يُحظر الركوب لشخصين.\n*   يرجى توجيههم لارتداء ملابس ذات ألوان فاتحة أو أجهزة عاكسة عند التنقل ليلاً.\n*   يرجى تذكيرهم باستمرار بالنزول والمشي عند التقاطعات ومعابر المشاة وأمام البوابة الرئيسية للمدرسة.\n*   يرجى توجيههم في المنزل للامتناع عن استخدام الدراجات الهوائية قدر الإمكان في الأيام الممطرة.\n\nللاستفسارات:\nقسم سلامة الطلاب: 032-555-1207",
+  "source_hard_facts": {
+    "document_type": "safety_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "학생안전부"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [],
+      "times": [],
+      "locations": [
+        {
+          "raw_text": "교차로",
+          "normalized": "intersection",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "횡단보도",
+          "normalized": "crosswalk",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "학교 정문 앞",
+          "normalized": "in front of the school main gate",
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "안전모",
+          "normalized": "safety helmet",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "밝은 색 옷",
+          "normalized": "bright colored clothes",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "반사 장치",
+          "normalized": "reflective device",
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "학생안전부",
+          "normalized": "Student Safety Department",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "032-555-1207",
+          "normalized": "032-555-1207",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [
+        {
+          "raw_text": "학생은 자전거 탑승 시 반드시 안전모를 착용해야 합니다.",
+          "normalized": "Students must wear a safety helmet when riding a bicycle.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주시기 바랍니다.",
+          "normalized": "Please guide them to wear bright colored clothes or reflective devices when moving at night.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "교차로, 횡단보도, 학교 정문 앞에서는 반드시 내려서 이동하도록 지속적으로 이야기해 주시기 바랍니다.",
+          "normalized": "Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "비가 오는 날에는 가급적 자전거 이용을 자제하도록 가정에서 지도해 주시기 바랍니다.",
+          "normalized": "Please guide them at home to refrain from using bicycles as much as possible on rainy days.",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "무면허 전동 킥보드 운행은 금지되며",
+          "normalized": "Unlicensed electric kickboard operation is prohibited",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2인 탑승도 금지됩니다.",
+          "normalized": "Riding with two people is also prohibited.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "safety_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "قسم سلامة الطلاب"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [],
+      "times": [],
+      "locations": [
+        {
+          "raw_text": "التقاطعات",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "معابر المشاة",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "أمام البوابة الرئيسية للمدرسة",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "المنزل",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "خوذة السلامة",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "ملابس ذات ألوان فاتحة",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "أجهزة عاكسة",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "قسم سلامة الطلاب: 032-555-1207",
+          "normalized": "032-555-1207",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [
+        {
+          "raw_text": "يجب على الطلاب ارتداء خوذة السلامة عند ركوب الدراجة الهوائية.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يُحظر تشغيل لوح الركل الكهربائي بدون ترخيص",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يُحظر الركوب لشخصين",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يرجى توجيههم لارتداء ملابس ذات ألوان فاتحة أو أجهزة عاكسة عند التنقل ليلاً.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يرجى تذكيرهم باستمرار بالنزول والمشي عند التقاطعات ومعابر المشاة وأمام البوابة الرئيسية للمدرسة.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يرجى توجيههم في المنزل للامتناع عن استخدام الدراجات الهوائية قدر الإمكان في الأيام الممطرة.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "يُحظر تشغيل لوح الركل الكهربائي بدون ترخيص",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "يُحظر الركوب لشخصين",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "الامتناع عن استخدام الدراجات الهوائية قدر الإمكان في الأيام الممطرة",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "자전거 및 개인형 이동장치 안전 수칙 안내",
+    "summary_ko": "학부모님께,\n최근 자전거와 전동 킥보드 이용 증가에 따른 학생 안전사고 예방을 위한 기본 수칙을 안내드립니다.\n\n- 학생은 자전거 탑승 시 반드시 안전모를 착용해야 합니다.\n- 무면허 전동 킥보드 운행 및 2인 탑승은 금지됩니다.\n- 야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주십시오.\n- 교차로, 횡단보도, 학교 정문 앞에서는 반드시 내려서 이동하도록 지속적으로 이야기해 주십시오.\n- 비 오는 날에는 가정에서 자전거 이용을 자제하도록 지도해 주십시오.\n\n문의: 학생안전부 032-555-1207",
+    "summary_target_language": "حضرات أولياء الأمور الكرام،\nنظرًا للزيادة الأخيرة في استخدام الدراجات الهوائية ولوحات الركل الكهربائية، نعيد إبلاغكم بالقواعد الأساسية للوقاية من حوادث سلامة الطلاب.\n\n- يجب على الطلاب ارتداء خوذة السلامة عند ركوب الدراجة الهوائية.\n- يُحظر تشغيل لوح الركل الكهربائي بدون ترخيص، كما يُحظر الركوب لشخصين.\n- يرجى توجيههم لارتداء ملابس ذات ألوان فاتحة أو أجهزة عاكسة عند التنقل ليلاً.\n- يرجى تذكيرهم باستمرار بالنزول والمشي عند التقاطعات ومعابر المشاة وأمام البوابة الرئيسية للمدرسة.\n- يرجى توجيههم في المنزل للامتناع عن استخدام الدراجات الهوائية قدر الإمكان في الأيام الممطرة.\n\nللاستفسارات:\nقسم سلامة الطلاب: 032-555-1207",
+    "document_type": "safety_notice",
+    "target_language": "ar",
+    "audience": "parents, students",
+    "important_dates": [],
+    "deadlines": [],
+    "actions_required": [
+      "Students must wear a safety helmet when riding a bicycle.",
+      "Please guide them to wear bright colored clothes or reflective devices when moving at night.",
+      "Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.",
+      "Please guide them at home to refrain from using bicycles as much as possible on rainy days."
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "# Guide to Safety Rules for Bicycles and Personal Mobility Devices\n\nDear Parents,\n\nAs the use of bicycles and electric kickboards has recently increased, we are re-notifying you of the basic rules for preventing student safety accidents.\n\n- Students must wear a safety helmet when riding a bicycle.\n- Unlicensed electric kickboard operation is prohibited, and riding with two people is also prohibited.\n- Please guide them to wear bright colored clothes or reflective devices when moving at night.\n- Please continuously tell them to dismount and walk when at intersections, crosswalks, and in front of the school main gate.\n- Please guide them at home to refrain from using bicycles as much as possible on rainy days.\n\nInquiries:\n- Student Safety Department: 032-555-1207",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "دليل قواعد السلامة للدراجات الهوائية وأجهزة التنقل الشخصية\n\nحضرات أولياء الأمور الكرام،\n\nنظرًا للزيادة الأخيرة في استخدام الدراجات الهوائية ولوحات الركل الكهربائية، فإننا نعيد إبلاغكم بالقواعد الأساسية للوقاية من حوادث سلامة الطلاب.\n\n*   يجب على الطلاب ارتداء خوذة السلامة عند ركوب الدراجة الهوائية.\n*   يُحظر تشغيل لوح الركل الكهربائي بدون ترخيص، كما يُحظر الركوب لشخصين.\n*   يرجى توجيههم لارتداء ملابس ذات ألوان فاتحة أو أجهزة عاكسة عند التنقل ليلاً.\n*   يرجى تذكيرهم باستمرار بالنزول والمشي عند التقاطعات ومعابر المشاة وأمام البوابة الرئيسية للمدرسة.\n*   يرجى توجيههم في المنزل للامتناع عن استخدام الدراجات الهوائية قدر الإمكان في الأيام الممطرة.\n\nللاستفسارات:\nقسم سلامة الطلاب: 032-555-1207",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "자전거 및 개인형 이동 장치 안전 수칙 안내\n\n학부모님께,\n\n최근 자전거 및 전동 킥보드 사용 증가로 인해, 학생 안전사고 예방을 위한 기본 수칙을 다시 알려드립니다.\n\n*   학생들은 자전거를 탈 때 안전모를 착용해야 합니다.\n*   무면허 전동 킥보드 운행은 금지되며, 2인 탑승도 금지됩니다.\n*   야간 이동 시 밝은 색 옷이나 반사 장치를 착용하도록 지도해 주십시오.\n*   교차로, 횡단보도, 학교 정문 앞에서는 내려서 걸어가도록 지속적으로 상기시켜 주십시오.\n*   비 오는 날에는 가급적 자전거 사용을 자제하도록 가정에서 지도해 주십시오.\n\n문의:\n학생 안전부: 032-555-1207",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 1.0,
+      "tone_score": 1.0,
+      "clarity_score": 1.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves the context, tone, and all factual information from the original Korean notice. The administrative meaning and clarity for parents are excellent. No issues found."
+    }
+  }
+}

@@ -51,6 +51,16 @@ Readability & line-break formatting (applies to EVERY language, including the En
 - This is formatting only: do not add, remove, merge, reorder, or alter any fact, number, name, tone, or instruction while shaping the line breaks."""
 
 
+ARABIC_READABILITY_RULES = """
+Readability & line-break formatting for Arabic:
+- Output clean, mobile-friendly RTL paragraphs. Separate distinct ideas with ONE blank line.
+- Keep each paragraph short (about 1-3 sentences). Split long administrative text into logical short paragraphs.
+- Put each distinct concrete fact on its own line, but do NOT force the ASCII prefix "- ". Use a natural Arabic list line or a plain separate line if that reads more clearly in RTL.
+- Never insert a line break in the middle of a sentence, between a number and its unit, or between a label and its value.
+- Collapse any run of 3+ blank lines into a single blank line. Trim trailing spaces.
+- This is formatting only: do not add, remove, merge, reorder, or alter any fact, number, name, tone, or instruction while shaping the line breaks."""
+
+
 HARD_FACT_SCHEMA = """{
   "document_type": "",
   "sender": {"school": null, "organization": null, "person_or_role": null},
@@ -213,6 +223,12 @@ Meaning-resolution rules (carry the *intended meaning*, not the surface words):
 - Resolve each item using its surrounding context. A short table cell, list item, or heading must be read together with its row/column/section context, not as an isolated phrase. Example: under a nutrition/healthy-eating section, "신호등을 지켜라" means follow the food traffic-light (nutrition grade) guide, NOT obey a road traffic light. Translate the intended meaning.
 - For Korean school/administrative concepts that a migrant parent may not know (e.g. 수련회, 알림장, 돌봄교실, 방과후, 체험학습, 학예회), render the function in plain English and, when helpful, keep the original term in parentheses, e.g. "overnight school camp (수련회)". This is meaning disambiguation, not adding new facts — do not invent dates, fees, or details that are not in the source.
 - Never carry over a literal phrase whose meaning depends on Korean-only context if that produces a wrong meaning in English.
+- Convert common Korean notice formulas into natural parent-facing English rather than preserving their surface wording. Examples:
+  - `다시 안내드립니다` -> "we would like to remind you..." / "this is a reminder about ..."
+  - `안전사고 예방` -> "to help prevent accidents and keep students safe", not "prevent safety accidents"
+  - `지도해 주시기 바랍니다` -> "Please make sure your child..." / "Please remind your child..."
+  - `지속적으로 이야기해 주시기 바랍니다` -> "Please keep reminding your child..."
+- For common everyday mobility terms, prefer plain widely understood English over Korean-literal components. Example: use "e-scooter" rather than carrying over "kickboard" wording unless the source itself requires the Korean term.
 {READABILITY_RULES}
 
 Return JSON:
@@ -234,6 +250,7 @@ def translate_en_to_target_prompt(
 ) -> str:
     target_name = _language_name(target_language)
     language_specific_rules = _target_language_specific_rules(target_language)
+    readability_rules = _readability_rules_for_target(target_language)
     return f"""{COMMON_SYSTEM_PROMPT}
 
 Task:
@@ -262,13 +279,16 @@ Translation rules:
 - Output target_translation in {target_name}.
 - Preserve the official, polite school-notice tone.
 - Make parent/student actions clear.
+- If the English pivot contains Korean-literal notice phrasing, repair it into natural parent-facing language in the target language instead of copying the literal wording. Examples of literals to repair include "re-notify", "student safety accidents", "guide them to ...", "continuously tell them ...", or other word-for-word reporting-verb phrasing.
+- When a Korean notice addresses parents and asks them to supervise, remind, guide, or talk with a child at home, express that as a natural caregiver-action frame in the target language rather than a literal "guide/tell/instruct them" verb chain.
+- Translate notice-style titles as natural school-notice headings for parents, not as bureaucratic labels like "Notice Regarding ..." or manual/booklet labels unless the source is truly a manual.
 - Do not add facts, cultural explanations, or helpful details beyond the source.
 - Preserve numbers, dates, times, locations, amounts, contacts, URLs, grade/class targets, submissions, and deadlines.
 - Resolve ingredient placeholders only through the approved target-language dictionary.
 - If a target-language ingredient name is unavailable or uncertain, set human_review_required=true.
 - Do not directly translate ingredient names yourself.
 {language_specific_rules}
-{READABILITY_RULES}
+{readability_rules}
 Return JSON:
 {{
   "target_translation": "",
@@ -362,6 +382,8 @@ def fix_hard_facts_prompt(
     target_dictionary: list[dict[str, Any]],
 ) -> str:
     target_name = _language_name(target_language)
+    language_specific_rules = _target_language_specific_rules(target_language)
+    readability_rules = _readability_rules_for_target(target_language)
     return f"""{COMMON_SYSTEM_PROMPT}
 
 Task:
@@ -399,7 +421,8 @@ Correction rules:
 - Ingredient/allergy corrections must use only approved dictionary target names.
 - If the issue cannot be fixed safely, set human_review_required=true.
 - Keep the existing clean paragraph/line-break formatting of the translation; do not collapse it into a single block.
-{READABILITY_RULES}
+{language_specific_rules}
+{readability_rules}
 
 Return JSON:
 {{
@@ -451,6 +474,8 @@ def validate_context_tone_prompt(
     target_language: str,
 ) -> str:
     target_name = _language_name(target_language)
+    language_specific_rules = _target_language_specific_rules(target_language)
+    readability_rules = _readability_rules_for_target(target_language)
     return f"""{COMMON_SYSTEM_PROMPT}
 
 Task:
@@ -551,7 +576,8 @@ Correction rules:
 - Keep parent/student actions clear.
 - If a safe automatic correction is not possible, set human_review_required=true.
 - Keep the existing clean paragraph/line-break formatting of the translation; do not collapse it into a single block.
-{READABILITY_RULES}
+{language_specific_rules}
+{readability_rules}
 
 Return JSON:
 {{
@@ -649,7 +675,7 @@ class LanguageProfile:
     """Language-specific translation guidance combined with the common prompt.
 
     ``target_rules`` is appended inside translate_en_to_target_prompt. An empty
-    string means no language-specific rules yet (e.g. Russian — planned).
+    string means no language-specific rules are registered for that language.
     """
 
     code: str
@@ -660,14 +686,27 @@ class LanguageProfile:
 EN_TARGET_RULES = """
 English register and anti-literal rules (target_language=en):
 - Register lock: use US public-school administrative communication — polite, neutral, action-oriented. No legalese ("hereby notify", "the undersigned", "pursuant to"), no marketing tone, no slang.
+- Default to American English spelling and school-administration phrasing unless the source explicitly requires another variety.
+- Use plain parent-facing English. Prefer "parents and guardians" / "parent or guardian" when the Korean source addresses 보호자 broadly; do not narrow the audience to only "parents" if the source is inclusive.
 - Parent-facing actions must read as natural guidance, not a literal Korean command list. Convert noun-style or imperative-list instructions into "Make sure your child ..." / "Please talk with your child about ..." / "Please be sure to ..." form.
   - Do NOT output literal directives such as "Confirm helmet wearing", "Guide against operating ...", "Prohibit ...", "Continuously converse with them". Instead: "Make sure your child wears a helmet", "Please talk with your child about not riding unlicensed e-scooters or unsafe bicycles".
 - Safety checklists: keep each item as a clear parent action verb, not a bare noun phrase.
+- For every required action, make WHAT to do, WHEN to do it, and HOW/where to do it easy to spot in the same paragraph or bullet when the source provides those facts.
 - Times use one consistent format, e.g. "9 AM" / "2:30 PM" (never "AM 9", "PM 2"). Dates use one consistent format and may include the weekday.
 - Korean phone numbers stay in Korean national format (e.g. "032-320-0096"); do not convert to international +82 form unless the source already uses it.
+- Grades/classes: use one consistent K-12 style such as "Grade 1, Class 3" on first mention. Do not mix "1st grade", "Year 1", and "1-3" in the same notice unless the source itself requires both forms.
 - Greetings: a ceremonial Korean opener ("안녕하십니까") may become a single short line ("Dear parents and guardians,") or be omitted. Never alter the factual body.
 - Do not add explanations beyond the source; meaning disambiguation of Korean school concepts (with the original term in parentheses) is allowed but must not invent facts.
+- Anti-literal Korean notice formula fixes:
+  - `재안내드립니다` / `다시 안내드립니다` -> "we would like to remind you..." / "this is a reminder about ..."
+  - `안전사고 예방` -> "to help prevent accidents and keep students safe", not "prevent safety accidents"
+  - `지도해 주시기 바랍니다` -> "Please make sure your child..." / "Please remind your child...", not "Please guide them to ..."
+  - `지속적으로 이야기해 주시기 바랍니다` -> "Please keep reminding your child...", not "Please continuously tell them ..."
+  - `전동 킥보드` in parent notices -> "e-scooter", not "electric kickboard"
+- Prefer concise notice headings such as "Bicycle and E-Scooter Safety Guidelines" over mechanical titles like "Notice Regarding ..."
 - Table column structure: keep a source table as ONE table with the same columns and the same number of rows. Do not split a single table into two tables, and do not break one row's cells across separate tables. If a row pairs related cells (e.g. a program/topic in one column and its instructor/time in the next), keep those cells on the same row so a parent can read across the row. Reproduce the source column order.
+- Allergy lines should read in a clear parent-facing format such as "Contains: milk, egg, wheat, soy" when the source provides that information through approved mappings.
+- English may be slightly longer than the Korean source when needed for clarity, but do not add explanatory facts that are not in the source.
 """
 
 
@@ -676,24 +715,47 @@ Russian register and anti-literal rules (target_language=ru):
 - Register lock: use plain standard Russian administrative register (стандартный административный регистр), the way a school sends an official notice. Avoid literary, poetic, or archaic-bureaucratic words (no "соблаговолите", "извольте"). Many readers are Central-Asian migrant parents for whom Russian is a second language, so prefer everyday administrative/education vocabulary and avoid piling up abstract nouns.
 - Address parents with the formal capitalized "Вы" consistently throughout the body. When an opening is appropriate, use "Уважаемые родители!" as the greeting; do not translate a ceremonial Korean opener literally.
 - Imperative softening: avoid bare imperatives for requests to parents. Use "Просим Вас + verb", "Пожалуйста, ...", or "Просим обратить внимание". Use a softened-request pattern once per paragraph rather than repeating "...해 주시기 바랍니다"-style commands on every line.
+- For each required action, make "что нужно сделать / к какому сроку / как или куда" easy to find in the same sentence, paragraph, or bullet whenever the source provides those facts.
 - Numeral-noun agreement: apply correct forms — 1 → nominative singular, 2–4 → genitive singular, 5+ → genitive plural (e.g. "1 ребёнок / 2 ребёнка / 5 детей"). Do not output mismatched forms like "2 ребёнок".
 - Verb aspect: use perfective for a single bounded action ("подайте", "принесите") and imperfective for habitual or ongoing actions.
 - Times use 24-hour format ("14:30"); never use 12-hour or Korean-style forms ("AM 9", "2:30 PM"). Dates use the Russian format "1 июня 2026 г. (понедельник)" with the month name lowercased.
 - Amounts: group thousands with a space (Russian style), e.g. "30 000 южнокорейских вон (KRW)"; spell out the currency on first mention, then "KRW" or "₩".
 - Preserve Korean phone numbers and account numbers exactly as in the source (e.g. "02-1234-5678"); do not convert to international +7/+82 format unless the source already does.
+- Grades/classes: use one consistent rendering style within a notice, for example "1-й класс, 3-й подкласс" or "1-3". Do not drift between multiple styles for the same target group.
 - Proper nouns: keep Korean school and student names in the nominative case, optionally inside «...»; do not invent Russian declensions for them. Use «» (or " ") for quotes, never Korean 「」.
 - Punctuation: use "…" for ellipsis and replace the Korean middle dot (·) with a comma or semicolon.
 - Do not add Russian cultural explanations (Orthodox or regional holidays, customs) that are not in the source. Korean school concepts must be conveyed by meaning or approved dictionary mapping, not bare transliteration that loses the meaning.
 - Allergen lines use the "Содержит: молоко, яйцо, пшеница, соя" format, resolved only through the approved dictionary.
+- Anti-literal Korean notice formula fixes:
+  - `다시 안내드립니다` -> `напоминаем Вам ...`, not `повторно информируем Вас ...`
+  - `지도해 주시기 바랍니다` -> `Просим Вас напомнить ребёнку ...` / `Просим Вас проследить, чтобы ...`, not `проинструктируйте ...`
+  - `지속적으로 이야기해 주시기 바랍니다` -> `Просим Вас регулярно напоминать ...`, not a literal "постоянно говорить ..."
+  - `안전사고 예방` -> plain safety wording natural to school notices, not heavy literal noun chains
+  - `무면허` means lack of a license/entitlement; do not weaken it to vague "without proper permission" if the source is specifically about a license.
+- Prefer natural notice headings such as `Правила безопасности при езде на велосипеде и электросамокате` over bureaucratic or manual-like noun chains.
 """
 
 
 AR_TARGET_RULES = """
-Arabic line-structure and sentence rules (target_language=ar):
+Arabic register, RTL, and sentence rules (target_language=ar):
+- Use accessible Modern Standard Arabic (MSA, الفصحى) for a school notice. Do not use dialect (Egyptian, Levantine, Gulf, etc.), poetic phrasing, or religious sermon style.
+- When a greeting is appropriate, use a school-administrative opener such as "حضرات أولياء الأمور الكرام،". Do not translate Korean ceremonial greetings literally.
+- Use polite request structures such as "يرجى ..." or "نرجو من حضراتكم ..." for parent actions. Avoid bare imperatives unless the source is an urgent safety command.
+- When the source is a notice to parents listing student safety rules, render each item as parent guidance such as `يرجى التأكد من ...` or `يرجى تنبيه أبنائكم إلى ...` unless the Korean source is truly a direct command addressed to students.
 - Preserve the source's label–value line structure. Each labeled line (e.g. "문의: ... ☎ ...", "접수 방법: ...", "신청 기간: ...") becomes its own line in Arabic. Do not merge a value from one line into a neighboring line.
   - Do NOT fuse adjacent items: the email from a "submission method / 접수" line must not be appended to the "inquiry / 문의" line, and vice versa. Keep each fact on the line where the source placed it.
+  - Keep each source label-value pair on one physical line unless the source itself breaks it. For Arabic contact lines with Latin digits, do not put the label on one line and the phone number on the next.
 - Segment long administrative compound sentences. Prefer several short, clear sentences over one long chained clause. A migrant parent should be able to follow each instruction on its own; do not pile multiple actions, conditions, and contacts into a single run-on sentence.
-- Keep the official, polite register accessible Modern Standard Arabic. Do not add facts, and do not move a fact to a line where it did not appear in the source.
+- Use Western digits 0-9 consistently throughout the notice. Preserve Korean phone numbers, URLs, room numbers, and account numbers exactly with those digits; do not switch to Eastern Arabic numerals.
+- Dates use Gregorian format only, for example "1 يونيو 2026 (الاثنين)". Do not add Hijri dates unless the source explicitly contains them.
+- Keep the tone administrative and secular. Do not insert religious phrases such as "إن شاء الله", "بسم الله", or "الحمد لله" unless they appear in the source.
+- Use Arabic punctuation where natural: "،" "؛" "؟" "…". Do not leave Korean punctuation such as "·", "~", or 「」 in the final text.
+- Prefer notice-style headings such as `إشعار بشأن ...` or `تنبيه بشأن ...` over manual/booklet labels like `دليل` unless the source is truly a handbook.
+- Avoid literal calques for common mobility and safety wording. Use widely understood pan-Arab MSA terms instead of component-by-component translations. Example: avoid `لوح الركل الكهربائي` for `전동 킥보드`; use a broadly understood MSA term such as `سكوتر كهربائي`.
+- Avoid noun-heavy calques like `حوادث سلامة الطلاب` when plain school-notice safety wording is more natural.
+- For safety actions, make the physical action explicit when Korean implies a sequence. For example, in biking/scooter contexts, express `내려서 이동` as dismounting first and then proceeding on foot, not as a vague motion phrase.
+- Pork, alcohol-derived ingredients, gelatin, and allergen-sensitive meal items must be resolved only through the approved dictionary. Never guess or transliterate an uncertain ingredient.
+- Do not add facts, and do not move a fact to a line where it did not appear in the source.
 """
 
 
@@ -707,6 +769,12 @@ LANGUAGE_PROFILES: dict[str, LanguageProfile] = {
 def _target_language_specific_rules(target_language: str) -> str:
     profile = LANGUAGE_PROFILES.get(target_language)
     return profile.target_rules if profile is not None else ""
+
+
+def _readability_rules_for_target(target_language: str) -> str:
+    if target_language == "ar":
+        return ARABIC_READABILITY_RULES
+    return READABILITY_RULES
 
 
 def _language_name(code: str) -> str:

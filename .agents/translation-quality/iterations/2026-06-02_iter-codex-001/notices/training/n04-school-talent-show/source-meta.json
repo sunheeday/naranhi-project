@@ -1,0 +1,7 @@
+{
+  "origin": "mock-seed-v1",
+  "kind": "event-notice",
+  "issuer": "나란히초등학교 5학년부",
+  "notes": "Tests cultural concept rendering such as 학예회 and 알림장 without inventing facts.",
+  "seed_set": "seed-set-v1"
+}

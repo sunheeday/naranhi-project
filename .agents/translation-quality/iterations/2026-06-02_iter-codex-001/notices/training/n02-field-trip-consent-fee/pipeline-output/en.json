@@ -1,0 +1,438 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "en",
+  "source_text": "# 2학년 현장체험학습 참가 동의서 안내\n\n학부모님께,\n\n2026학년도 2학년 현장체험학습을 아래와 같이 실시하고자 합니다. 참가를 희망하는 경우 동의서를 작성하여 제출해 주시기 바랍니다.\n\n- 일시: 2026년 10월 19일(월) 08:20 ~ 2026년 10월 21일(수) 16:30\n- 장소: 국립해양생태수련원\n- 대상: 2학년 전체 학생\n- 참가비: 71,600원\n- 납부 기한: 2026년 9월 18일(금) 17:00까지\n- 납부 방법: 학교 CMS 자동이체\n- 준비물: 세면도구, 운동화, 여벌 옷, 개인 상비약\n- 제출물: 참가 동의서 1부\n- 동의서 제출 마감: 2026년 9월 11일(금)\n\n불참을 희망하는 경우에도 사유를 적어 반드시 회신해 주시기 바랍니다.\n\n문의: 2학년부 031-880-2214\n",
+  "final_translation": "Notice Regarding Consent Form for 2nd Grade Experiential Learning\n\nDear Parents,\n\nWe plan to conduct the 2nd Grade Experiential Learning for the 2026 academic year as detailed below. If you wish for your child to participate, please complete and submit the consent form.\n\n- Date and Time: October 19, 2026 (Mon) 08:20 ~ October 21, 2026 (Wed) 16:30\n- Location: National Marine Ecological Training Institute\n- Target Audience: All 2nd-grade students\n- Participation Fee: 71,600 KRW\n- Payment Deadline: By 17:00 on September 18, 2026 (Fri)\n- Please ensure payment is made via School CMS automatic transfer.\n- Required Items: Toiletries, athletic shoes, change of clothes, personal emergency medication\n- Submission: 1 copy of the participation consent form\n- Consent Form Submission Deadline: September 11, 2026 (Fri)\n\nEven if you do not wish for your child to participate, please state the reason and be sure to reply.\n\nInquiries: 2nd Grade Department 031-880-2214",
+  "source_hard_facts": {
+    "document_type": "experiential_learning_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "2학년부"
+    },
+    "audience": {
+      "grade": "2학년",
+      "class": null,
+      "students": "2학년 전체 학생",
+      "parents": "학부모님",
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년 10월 19일(월)",
+          "normalized": "2026-10-19",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 10월 21일(수)",
+          "normalized": "2026-10-21",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 9월 18일(금)",
+          "normalized": "2026-09-18",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 9월 11일(금)",
+          "normalized": "2026-09-11",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "08:20",
+          "normalized": "08:20",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "16:30",
+          "normalized": "16:30",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "17:00",
+          "normalized": "17:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "국립해양생태수련원",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "세면도구",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "운동화",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "여벌 옷",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "개인 상비약",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "참가 동의서 1부",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026년 9월 18일(금) 17:00까지",
+          "normalized": "2026-09-18",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 9월 11일(금)",
+          "normalized": "2026-09-11",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [
+        {
+          "raw_text": "71,600원",
+          "normalized": "71600",
+          "confidence": 1.0
+        }
+      ],
+      "contacts": [
+        {
+          "raw_text": "2학년부 031-880-2214",
+          "normalized": "031-880-2214",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "2학년 전체 학생",
+          "normalized": "2",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "동의서를 작성하여 제출해 주시기 바랍니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "사유를 적어 반드시 회신해 주시기 바랍니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "학교 CMS 자동이체",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "Notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "2nd Grade Department"
+    },
+    "audience": {
+      "grade": "2nd-grade",
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "October 19, 2026 (Mon)",
+          "normalized": "2026-10-19",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "October 21, 2026 (Wed)",
+          "normalized": "2026-10-21",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "September 18, 2026 (Fri)",
+          "normalized": "2026-09-18",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "September 11, 2026 (Fri)",
+          "normalized": "2026-09-11",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "08:20",
+          "normalized": "08:20",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "16:30",
+          "normalized": "16:30",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "17:00",
+          "normalized": "17:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "National Marine Ecological Training Institute",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "Toiletries",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "athletic shoes",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "change of clothes",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "personal emergency medication",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "1 copy of the participation consent form",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "By 17:00 on September 18, 2026 (Fri)",
+          "normalized": "2026-09-18 17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "September 11, 2026 (Fri)",
+          "normalized": "2026-09-11",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [
+        {
+          "raw_text": "71,600 KRW",
+          "normalized": "71600 KRW",
+          "confidence": 1.0
+        }
+      ],
+      "contacts": [
+        {
+          "raw_text": "2nd Grade Department",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "031-880-2214",
+          "normalized": "031-880-2214",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "All 2nd-grade students",
+          "normalized": "2nd grade",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "complete and submit the consent form",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "ensure payment is made via School CMS automatic transfer",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "state the reason and be sure to reply",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 1,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "2학년 현장체험학습 참가 동의서 안내",
+    "summary_ko": "2026학년도 2학년 현장체험학습 참가 동의서 안내입니다.\n\n- 일시: 2026년 10월 19일(월) 08:20 ~ 2026년 10월 21일(수) 16:30\n- 장소: 국립해양생태수련원\n- 대상: 2학년 전체 학생\n- 참가비: 71,600원\n- 납부 기한: 2026년 9월 18일(금) 17:00까지\n- 납부 방법: 학교 CMS 자동이체\n- 준비물: 세면도구, 운동화, 여벌 옷, 개인 상비약\n- 제출물: 참가 동의서 1부\n- 동의서 제출 마감: 2026년 9월 11일(금)\n\n참가를 희망하는 경우 동의서를 작성하여 제출해 주십시오.\n불참 시에도 사유를 적어 회신 바랍니다.\n문의: 2학년부 031-880-2214",
+    "summary_target_language": "This is a notice regarding the consent form for the 2nd Grade Experiential Learning for the 2026 academic year.\n\n- Date and Time: October 19, 2026 (Mon) 08:20 ~ October 21, 2026 (Wed) 16:30\n- Location: National Marine Ecological Training Institute\n- Target Audience: All 2nd-grade students\n- Participation Fee: 71,600 KRW\n- Payment Deadline: By 17:00 on September 18, 2026 (Fri)\n- Payment Method: School CMS automatic transfer\n- Required Items: Toiletries, athletic shoes, change of clothes, personal emergency medication\n- Submission: 1 copy of the participation consent form\n- Consent Form Submission Deadline: September 11, 2026 (Fri)\n\nIf you wish for your child to participate, please complete and submit the consent form.\nEven if you do not wish to participate, please state the reason and reply.\nInquiries: 2nd Grade Department 031-880-2214",
+    "document_type": "experiential_learning_notice",
+    "target_language": "en",
+    "audience": "Parents of 2nd-grade students",
+    "important_dates": [
+      "2026-10-19",
+      "2026-10-21",
+      "2026-09-18",
+      "2026-09-11"
+    ],
+    "deadlines": [
+      "2026-09-18",
+      "2026-09-11"
+    ],
+    "actions_required": [
+      "동의서를 작성하여 제출해 주시기 바랍니다.",
+      "사유를 적어 반드시 회신해 주시기 바랍니다.",
+      "학교 CMS 자동이체"
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 1
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [
+      "2학년 현장체험학습 2026",
+      "2nd grade experiential learning 2026"
+    ],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Notice Regarding Consent Form for 2nd Grade Experiential Learning\n\nDear Parents,\n\nWe plan to conduct the 2nd Grade Experiential Learning for the 2026 academic year as detailed below. If you wish for your child to participate, please complete and submit the consent form.\n\n- Date and Time: October 19, 2026 (Mon) 08:20 ~ October 21, 2026 (Wed) 16:30\n- Location: National Marine Ecological Training Institute\n- Target Audience: All 2nd-grade students\n- Participation Fee: 71,600 KRW\n- Payment Deadline: By 17:00 on September 18, 2026 (Fri)\n- Payment Method: School CMS automatic transfer\n- Required Items: Toiletries, athletic shoes, change of clothes, personal emergency medication\n- Submission: 1 copy of the participation consent form\n- Consent Form Submission Deadline: September 11, 2026 (Fri)\n\nEven if you do not wish for your child to participate, please state the reason and be sure to reply.\n\nInquiries: 2nd Grade Department 031-880-2214",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "Notice Regarding Consent Form for 2nd Grade Experiential Learning\n\nDear Parents,\n\nWe plan to conduct the 2nd Grade Experiential Learning for the 2026 academic year as detailed below. If you wish for your child to participate, please complete and submit the consent form.\n\n- Date and Time: October 19, 2026 (Mon) 08:20 ~ October 21, 2026 (Wed) 16:30\n- Location: National Marine Ecological Training Institute\n- Target Audience: All 2nd-grade students\n- Participation Fee: 71,600 KRW\n- Payment Deadline: By 17:00 on September 18, 2026 (Fri)\n- Payment Method: School CMS automatic transfer\n- Required Items: Toiletries, athletic shoes, change of clothes, personal emergency medication\n- Submission: 1 copy of the participation consent form\n- Consent Form Submission Deadline: September 11, 2026 (Fri)\n\nEven if you do not wish for your child to participate, please state the reason and be sure to reply.\n\nInquiries: 2nd Grade Department 031-880-2214",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "2학년 체험 학습 동의서 관련 안내\n\n학부모님께,\n\n저희는 2026학년도 2학년 체험 학습을 아래와 같이 실시할 계획입니다. 자녀의 참여를 원하시면, 동의서를 작성하여 제출해 주십시오.\n\n- 일시: 2026년 10월 19일 (월) 08:20 ~ 2026년 10월 21일 (수) 16:30\n- 장소: 국립해양생태교육원\n- 대상: 2학년 전체 학생\n- 참가비: 71,600원\n- 납부 마감일: 2026년 9월 18일 (금) 17:00까지\n- 스쿨 CMS 자동 이체를 통해 납부해 주십시오.\n- 준비물: 세면도구, 운동화, 여벌 옷, 개인 비상약\n- 제출: 참가 동의서 1부\n- 동의서 제출 마감일: 2026년 9월 11일 (금)\n\n자녀의 참여를 원하지 않으시더라도, 사유를 명시하시고 반드시 회신해 주십시오.\n\n문의: 2학년부 031-880-2214",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The translation is excellent. All factual information, including dates, times, locations, fees, deadlines, and contact details, has been accurately preserved. The tone is appropriately official and polite, matching the original Korean school notice. Instructions for parents are clear and actionable. The addition of 'KRW' for the currency and 'for your child' enhances clarity for the target audience without altering the original meaning or adding unsupported facts. No critical information is omitted, and no risks are identified."
+    }
+  }
+}

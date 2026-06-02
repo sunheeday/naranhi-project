@@ -1,0 +1,232 @@
+{
+  "status": "admin_review_required",
+  "source_language": "ko",
+  "target_language": "ar",
+  "source_text": "# 건강생활 실천교실 참가자 모집\n\n학부모님께,\n\n초등학생 대상 건강생활 실천교실 참가자를 모집합니다.\n\n| 반 | 대상 | 운영 기간 | 운영 시간 | 인원 |\n| --- | --- | --- | --- | --- |\n| A반 | 1, 2학년 | 2026년 8월 3일(월) ~ 2026년 8월 7일(금) | 09:00 ~ 09:40 | 20명 |\n| B반 | 3, 4학년 | 2026년 8월 3일(월) ~ 2026년 8월 7일(금) | 10:00 ~ 10:40 | 20명 |\n| C반 | 5, 6학년 | 2026년 8월 10일(월) ~ 2026년 8월 14일(금) | 09:00 ~ 09:40 | 20명 |\n| D반 | 5, 6학년 | 2026년 8월 10일(월) ~ 2026년 8월 14일(금) | 10:00 ~ 10:40 | 20명 |\n\n- 참가비: 무료\n- 신청 마감: 2026년 7월 24일(금) 18:00까지\n- 신청 방법: QR코드 또는 온라인 신청서 제출\n- 문의: 건강교육팀 032-777-2300\n",
+  "final_translation": "برنامج ممارسة الحياة الصحية\n\nحضرات أولياء الأمور الكرام،\n\nنعلن عن فتح باب التسجيل في برنامج ممارسة الحياة الصحية، والذي يستهدف طلاب المدارس الابتدائية.\n\nتفاصيل البرنامج:\n\nالفئة أ\nالفئة المستهدفة: الصفان الأول والثاني\nفترة التشغيل: من 3 أغسطس 2026 (الاثنين) إلى 7 أغسطس 2026 (الجمعة)\nوقت التشغيل: 09:00 ~ 09:40\nعدد المشاركين: 20\n\nالفئة ب\nالفئة المستهدفة: الصفان الثالث والرابع\nفترة التشغيل: من 3 أغسطس 2026 (الاثنين) إلى 7 أغسطس 2026 (الجمعة)\nوقت التشغيل: 10:00 ~ 10:40\nعدد المشاركين: 20\n\nالفئة ج\nالفئة المستهدفة: الصفان الخامس والسادس\nفترة التشغيل: من 10 أغسطس 2026 (الاثنين) إلى 14 أغسطس 2026 (الجمعة)\nوقت التشغيل: 09:00 ~ 09:40\nعدد المشاركين: 20\n\nالفئة د\nالفئة المستهدفة: الصفان الخامس والسادس\nفترة التشغيل: من 10 أغسطس 2026 (الاثنين) إلى 14 أغسطس 2026 (الجمعة)\nوقت التشغيل: 10:00 ~ 10:40\nعدد المشاركين: 20\n\nرسوم المشاركة: مجانية\nالموعد النهائي للتقديم: 24 يوليو 2026 (الجمعة) بحلول الساعة 18:00\nطريقة التقديم: التقديم عبر رمز الاستجابة السريعة (QR code) أو نموذج الطلب عبر الإنترنت\nللاستفسارات: فريق التثقيف الصحي 032-777-2300",
+  "source_hard_facts": {
+    "document_type": "Program Announcement",
+    "sender": {
+      "school": null,
+      "organization": "건강교육팀",
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": "초등학생"
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년 8월 3일(월)",
+          "normalized": "2026-08-03",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 8월 7일(금)",
+          "normalized": "2026-08-07",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 8월 10일(월)",
+          "normalized": "2026-08-10",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 8월 14일(금)",
+          "normalized": "2026-08-14",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "09:00",
+          "normalized": "09:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "09:40",
+          "normalized": "09:40",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "10:00",
+          "normalized": "10:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "10:40",
+          "normalized": "10:40",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [],
+      "materials": [],
+      "submissions": [
+        {
+          "raw_text": "QR코드 또는 온라인 신청서",
+          "normalized": "QR code or online application form",
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026년 7월 24일(금) 18:00까지",
+          "normalized": "2026-07-24 18:00",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [
+        {
+          "raw_text": "무료",
+          "normalized": "0",
+          "confidence": 1.0
+        }
+      ],
+      "contacts": [
+        {
+          "raw_text": "건강교육팀 032-777-2300",
+          "normalized": "032-777-2300",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "1, 2학년",
+          "normalized": "Grade 1, Grade 2",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "3, 4학년",
+          "normalized": "Grade 3, Grade 4",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "5, 6학년",
+          "normalized": "Grade 5, Grade 6",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "초등학생",
+          "normalized": "Elementary school students",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "QR코드 또는 온라인 신청서 제출",
+          "normalized": "Submit QR code or online application form",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {},
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "times",
+          "source_value": "09:00, 09:40, 10:00, 10:40",
+          "translated_value": "18:00",
+          "issue": "translated facts contain a new critical value",
+          "recommended_fix": "remove unsupported critical value unless it exists in source"
+        },
+        {
+          "field": "grade_class_targets",
+          "source_value": "grade:1, grade:2, grade:3, grade:4, grade:5, grade:6",
+          "translated_value": "",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": true,
+    "reason": "hard_fact_validation_failed",
+    "priority": "high"
+  },
+  "metadata": {
+    "validation_status": "human_review_required",
+    "admin_review_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "times",
+          "source_value": "09:00, 09:40, 10:00, 10:40",
+          "translated_value": "18:00",
+          "issue": "translated facts contain a new critical value",
+          "recommended_fix": "remove unsupported critical value unless it exists in source"
+        },
+        {
+          "field": "grade_class_targets",
+          "source_value": "grade:1, grade:2, grade:3, grade:4, grade:5, grade:6",
+          "translated_value": "",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "status": "admin_review_required",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "# 2학년 현장체험학습 참가 동의서 안내\n\n학부모님께,\n\n2026학년도 2학년 현장체험학습을 아래와 같이 실시하고자 합니다. 참가를 희망하는 경우 동의서를 작성하여 제출해 주시기 바랍니다.\n\n- 일시: 2026년 10월 19일(월) 08:20 ~ 2026년 10월 21일(수) 16:30\n- 장소: 국립해양생태수련원\n- 대상: 2학년 전체 학생\n- 참가비: 71,600원\n- 납부 기한: 2026년 9월 18일(금) 17:00까지\n- 납부 방법: 학교 CMS 자동이체\n- 준비물: 세면도구, 운동화, 여벌 옷, 개인 상비약\n- 제출물: 참가 동의서 1부\n- 동의서 제출 마감: 2026년 9월 11일(금)\n\n불참을 희망하는 경우에도 사유를 적어 반드시 회신해 주시기 바랍니다.\n\n문의: 2학년부 031-880-2214\n",
+  "final_translation": "Уведомление относительно формы согласия на практическое обучение для 2-го класса\n\nУважаемые родители!\n\nМы планируем провести практическое обучение для 2-го класса в 2026 учебном году, как указано ниже. Если Вы желаете, чтобы Ваш ребенок принял участие, просим Вас заполнить и подать форму согласия.\n\n- Дата и время: 19 октября 2026 г. (понедельник) 08:20 ~ 21 октября 2026 г. (среда) 16:30\n- Место проведения: Национальный морской экологический учебный институт\n- Целевая аудитория: Все учащиеся 2-го класса\n- Плата за участие: 71 600 южнокорейских вон (KRW)\n- Срок оплаты: До 18 сентября 2026 г. (пятница) 17:00\n- Способ оплаты: Автоматический перевод через школьную систему CMS\n- Необходимые принадлежности: Туалетные принадлежности, спортивная обувь, сменная одежда, личные экстренные медикаменты\n- Подача: 1 экземпляр формы согласия на участие\n- Крайний срок подачи формы согласия: 11 сентября 2026 г. (пятница)\n\nДаже если Вы не желаете, чтобы Ваш ребенок принял участие, просим Вас указать причину и обязательно ответить.\n\nСправки: Отдел 2-го класса 031-880-2214",
+  "source_hard_facts": {
+    "document_type": "experiential_learning_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "2학년부"
+    },
+    "audience": {
+      "grade": "2학년",
+      "class": null,
+      "students": "2학년 전체 학생",
+      "parents": "학부모님",
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년 10월 19일(월)",
+          "normalized": "2026-10-19",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 10월 21일(수)",
+          "normalized": "2026-10-21",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 9월 18일(금)",
+          "normalized": "2026-09-18",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 9월 11일(금)",
+          "normalized": "2026-09-11",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "08:20",
+          "normalized": "08:20",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "16:30",
+          "normalized": "16:30",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "17:00",
+          "normalized": "17:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "국립해양생태수련원",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "세면도구",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "운동화",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "여벌 옷",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "개인 상비약",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "참가 동의서 1부",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026년 9월 18일(금) 17:00까지",
+          "normalized": "2026-09-18",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 9월 11일(금)",
+          "normalized": "2026-09-11",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [
+        {
+          "raw_text": "71,600원",
+          "normalized": "71600",
+          "confidence": 1.0
+        }
+      ],
+      "contacts": [
+        {
+          "raw_text": "2학년부 031-880-2214",
+          "normalized": "031-880-2214",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "2학년 전체 학생",
+          "normalized": "2",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "동의서를 작성하여 제출해 주시기 바랍니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "사유를 적어 반드시 회신해 주시기 바랍니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "학교 CMS 자동이체",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {},
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "dates",
+          "source_value": "2026-09-18",
+          "translated_value": "2026-09-11, 2026-10-19, 2026-10-21",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": true,
+    "reason": "hard_fact_validation_failed",
+    "priority": "high"
+  },
+  "metadata": {
+    "validation_status": "human_review_required",
+    "admin_review_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "dates",
+          "source_value": "2026-09-18",
+          "translated_value": "2026-09-11, 2026-10-19, 2026-10-21",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

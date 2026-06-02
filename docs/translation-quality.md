@@ -198,10 +198,32 @@ LANGUAGE_PROFILES[lang]       ← 언어별 프로파일 (한 곳에 통합)
 - 단계별 프롬프트는 "언어"가 아니라 "파이프라인 공정"으로 나뉜다(같은 함수가 `target_language`만 바꿔 재사용).
 - **언어 전용 규칙은 `translate_en_to_target` 단계에 주입**되며, 추가/확장은 `LANGUAGE_PROFILES` 한 곳에서 끝난다.
 - 이 규칙들은 평가 페르소나(`.agents/translation-quality/language-criteria/<lang>.md`)와 **정렬**되어 있다(단일 출처).
+- 단, "요일을 항상 별도 구조 필드로 추출한다"까지는 아직 아니다. 현재 hard fact 스키마는 날짜를 `YYYY-MM-DD` 중심으로 보존하고, 요일은 번역 표현 품질 가이드로 다룬다.
 
 ---
 
 ## 5. 재현 방법
+
+### Codex용 목업 이터레이션 부트스트랩
+
+Claude 팀의 실제 개선 이력을 Codex에서도 독립 검증하고 싶다면, 먼저 목업 통신문 세트로 새 이터레이션을 만든다.
+
+```bash
+# 목업 6건(training 4 / held-out 2)으로 이터레이션 생성
+python scripts/scaffold_translation_quality_iteration.py \
+  --iter-dir .agents/translation-quality/iterations/2026-06-02_iter-codex-001
+
+# 구조 검증
+python scripts/validate_translation_iteration.py \
+  --iter-dir .agents/translation-quality/iterations/2026-06-02_iter-codex-001
+```
+
+- seed 데이터: `.agents/translation-quality/mock-notices/seed-set-v1.json`
+- Codex 역할 분담 가이드: `.agents/translation-quality/codex-team.md`
+- seed-set-v1 포함 실패 모드:
+  - en: 직역형 안전 수칙, action phrasing
+  - ru: 존칭/24시간제/학년 표기/표 구조
+  - ar: MSA, Western digits, 종교 민감 식재료, line structure
 
 ```bash
 # 사전: backend/.env 에 Vertex 설정 (VERTEX_AI_PROJECT_ID, VERTEX_AI_LOCATION) + ADC 로그인

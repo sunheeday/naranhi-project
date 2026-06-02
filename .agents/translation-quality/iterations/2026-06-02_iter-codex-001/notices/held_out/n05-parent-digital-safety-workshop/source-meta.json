@@ -1,0 +1,7 @@
+{
+  "origin": "mock-seed-v1",
+  "kind": "parent-workshop",
+  "issuer": "인천학부모지원센터",
+  "notes": "Tests line-structure preservation, email vs inquiry separation, and parent clarity.",
+  "seed_set": "seed-set-v1"
+}

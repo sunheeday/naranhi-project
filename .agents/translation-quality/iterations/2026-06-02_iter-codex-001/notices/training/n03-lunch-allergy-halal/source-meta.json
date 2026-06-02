@@ -1,0 +1,7 @@
+{
+  "origin": "mock-seed-v1",
+  "kind": "meal-menu",
+  "issuer": "나란히초등학교",
+  "notes": "Tests Arabic religious sensitivity, ingredient gating, and dictionary-only discipline.",
+  "seed_set": "seed-set-v1"
+}

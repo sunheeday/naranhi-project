@@ -1,0 +1,106 @@
+{
+  "iteration": "2026-06-02_iter-codex-001",
+  "date": "2026-06-02",
+  "seed_set": "seed-set-v1",
+  "target_languages": [
+    "en",
+    "ru",
+    "ar"
+  ],
+  "split": {
+    "training": 4,
+    "held_out": 2
+  },
+  "notices": [
+    {
+      "id": "n01-bike-safety-checklist",
+      "role": "training",
+      "kind": "safety-notice",
+      "length": "medium",
+      "fact_density": "action-heavy",
+      "tone": "routine",
+      "audience": "school-wide",
+      "time_reference": "no-deadline",
+      "cultural_sensitivity": "neutral",
+      "issuer": "인천늘봄초등학교",
+      "origin": "mock-seed-v1",
+      "notes": "Tests English anti-literal action rendering and general safety tone.",
+      "source_path": "notices/training/n01-bike-safety-checklist/source.ko.md"
+    },
+    {
+      "id": "n02-field-trip-consent-fee",
+      "role": "training",
+      "kind": "event-consent-form",
+      "length": "long",
+      "fact_density": "date-and-fee-heavy",
+      "tone": "routine",
+      "audience": "grade-2",
+      "time_reference": "absolute-dates",
+      "cultural_sensitivity": "neutral",
+      "issuer": "나란히중학교",
+      "origin": "mock-seed-v1",
+      "notes": "Tests dates, fee preservation, signed-form return, and formal tone.",
+      "source_path": "notices/training/n02-field-trip-consent-fee/source.ko.md"
+    },
+    {
+      "id": "n03-lunch-allergy-halal",
+      "role": "training",
+      "kind": "meal-menu",
+      "length": "medium",
+      "fact_density": "meal-heavy",
+      "tone": "routine",
+      "audience": "school-wide",
+      "time_reference": "weekly-range",
+      "cultural_sensitivity": "critical-allergen-and-halal",
+      "issuer": "나란히초등학교",
+      "origin": "mock-seed-v1",
+      "notes": "Tests Arabic religious sensitivity, ingredient gating, and dictionary-only discipline.",
+      "source_path": "notices/training/n03-lunch-allergy-halal/source.ko.md"
+    },
+    {
+      "id": "n04-school-talent-show",
+      "role": "training",
+      "kind": "event-notice",
+      "length": "medium",
+      "fact_density": "schedule-heavy",
+      "tone": "routine",
+      "audience": "grade-5",
+      "time_reference": "absolute-dates",
+      "cultural_sensitivity": "korean-school-concept",
+      "issuer": "나란히초등학교 5학년부",
+      "origin": "mock-seed-v1",
+      "notes": "Tests cultural concept rendering such as 학예회 and 알림장 without inventing facts.",
+      "source_path": "notices/training/n04-school-talent-show/source.ko.md"
+    },
+    {
+      "id": "n05-parent-digital-safety-workshop",
+      "role": "held_out",
+      "kind": "parent-workshop",
+      "length": "medium",
+      "fact_density": "contact-and-deadline-heavy",
+      "tone": "routine",
+      "audience": "parents",
+      "time_reference": "absolute-dates",
+      "cultural_sensitivity": "multicultural-mention",
+      "issuer": "인천학부모지원센터",
+      "origin": "mock-seed-v1",
+      "notes": "Tests line-structure preservation, email vs inquiry separation, and parent clarity.",
+      "source_path": "notices/held_out/n05-parent-digital-safety-workshop/source.ko.md"
+    },
+    {
+      "id": "n06-health-class-table",
+      "role": "held_out",
+      "kind": "recruitment-education",
+      "length": "long",
+      "fact_density": "schedule-and-table-heavy",
+      "tone": "routine",
+      "audience": "elementary-students",
+      "time_reference": "absolute-dates",
+      "cultural_sensitivity": "table-structure",
+      "issuer": "인천광역시교육청",
+      "origin": "mock-seed-v1",
+      "notes": "Tests table preservation, grade/class targets, and Russian date/time formatting.",
+      "source_path": "notices/held_out/n06-health-class-table/source.ko.md"
+    }
+  ]
+}

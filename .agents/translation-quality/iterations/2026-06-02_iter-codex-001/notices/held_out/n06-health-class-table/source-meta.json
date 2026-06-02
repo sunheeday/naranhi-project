@@ -1,0 +1,7 @@
+{
+  "origin": "mock-seed-v1",
+  "kind": "recruitment-education",
+  "issuer": "인천광역시교육청",
+  "notes": "Tests table preservation, grade/class targets, and Russian date/time formatting.",
+  "seed_set": "seed-set-v1"
+}
