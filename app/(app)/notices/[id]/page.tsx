@@ -126,14 +126,31 @@ export default async function NoticePage({ params }: Props) {
   const cardRows = detail.cards
 
   const dataCards = mapCards(cardRows, locale)
-  const intro: NoticeCard = {
-    type: 'intro',
-    emoji: messages.notice_detail.intro_emoji,
-    title: messages.notice_detail.intro_title,
-    summary: summary ?? '',
-    hint: dataCards.length > 0 ? messages.notice_detail.swipe_hint : undefined,
+  const swipeHint = dataCards.length > 0 ? messages.notice_detail.swipe_hint : undefined
+
+  let cards: NoticeCard[]
+  if (detail.needsFile) {
+    // 정제 품질이 낮아(평탄화/할루시네이션 위험) 본문 대신 원본 파일을 안내한다. 요약 카드는 유지.
+    const fileCard: NoticeCard = {
+      type: 'file',
+      emoji: messages.notice_detail.file_emoji,
+      title: messages.notice_detail.file_title,
+      summary: messages.notice_detail.file_desc,
+      links: detail.fileLinks,
+      hint: swipeHint,
+    }
+    cards = [fileCard, ...dataCards]
+  } else if (dataCards.length > 0) {
+    cards = dataCards
+  } else {
+    cards = [{
+      type: 'intro',
+      emoji: messages.notice_detail.intro_emoji,
+      title: messages.notice_detail.intro_title,
+      summary: summary ?? '',
+      hint: swipeHint,
+    }]
   }
-  const cards: NoticeCard[] = dataCards.length > 0 ? dataCards : [intro]
 
   return (
     <main className="flex flex-col min-h-screen">

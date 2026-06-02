@@ -124,12 +124,14 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
     def test_save_success_payload_uses_refined_text(self) -> None:
         client = MagicMock()
+        gate = {"needs_file": False, "reasons": [], "signals": {"tag": "ok"}}
 
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
             _save_success(
                 {"id": "notice-1", "summary_translations": {"en": "old"}},
                 FakeResult(),
                 "# 정제된 본문입니다",
+                gate,
             )
 
         payload = client.table.return_value.update.call_args.args[0]
@@ -138,6 +140,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertEqual(payload["original_text"], "# 정제된 본문입니다")
         self.assertNotEqual(payload["original_text"], FakeResult().raw_text)
         self.assertIn("extracted_content", payload)
+        self.assertFalse(payload["extracted_content"]["needs_file"])
         for removed in (
             "summary_oneliner",
             "summary_translations",
@@ -148,6 +151,17 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         ):
             self.assertNotIn(removed, payload)
 
+    def test_save_success_records_needs_file_flag(self) -> None:
+        client = MagicMock()
+        gate = {"needs_file": True, "reasons": ["폴백(LLM 정제 실패)"], "signals": {"tag": "FALLBACK"}}
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            _save_success({"id": "notice-1"}, FakeResult(), "깨진 본문", gate)
+
+        extracted_content = client.table.return_value.update.call_args.args[0]["extracted_content"]
+        self.assertTrue(extracted_content["needs_file"])
+        self.assertEqual(extracted_content["needs_file_reason"], ["폴백(LLM 정제 실패)"])
+
     def test_refine_original_text_falls_back_to_raw_on_failure(self) -> None:
         class BoomGemini:
             async def generate_text(self, prompt, *, model=None):
@@ -155,7 +169,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         import asyncio
 
-        refined, calls = asyncio.run(
+        refined, calls, gate = asyncio.run(
             _refine_original_text(
                 FakeResult(raw_text="원문 그대로 보존"),
                 gemini_client=BoomGemini(),
@@ -165,6 +179,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         # 정제 실패 시에도 공지를 잃지 않도록 원문을 그대로 쓰고 호출수는 0.
         self.assertEqual(refined, "원문 그대로 보존")
         self.assertEqual(calls, 0)
+        self.assertIn("needs_file", gate)  # 실패해도 게이트 결과는 함께 반환
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})

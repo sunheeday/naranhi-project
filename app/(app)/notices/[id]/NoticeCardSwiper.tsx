@@ -9,14 +9,20 @@ export interface NoticeCardItem {
   hint?: string
 }
 
+export interface NoticeFileLink {
+  filename: string
+  url: string
+}
+
 export interface NoticeCard {
-  type: 'intro' | CardType
+  type: 'intro' | 'file' | CardType
   emoji?: string
   title?: string
   dateRange?: string
   summary?: string
   hint?: string
   items?: NoticeCardItem[]
+  links?: NoticeFileLink[]
 }
 
 export interface CardLabels {
@@ -125,6 +131,51 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
     )
   }
 
+  if (card.type === 'file') {
+    const links = card.links ?? []
+
+    return (
+      <div className="bg-canvas rounded-card shadow-soft p-6 flex flex-col gap-5 min-h-[360px] border border-hairline-soft">
+        <div className="flex items-center gap-2">
+          <span className="text-xl" aria-hidden="true">{card.emoji ?? '📎'}</span>
+          <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+            {card.title ?? '원본 파일'}
+          </span>
+        </div>
+
+        {card.summary && (
+          <p className="text-[16px] leading-[1.7] text-body">{card.summary}</p>
+        )}
+
+        {links.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {links.map((link, i) => (
+              <li key={i}>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-3 rounded-card border border-hairline-soft bg-surface text-ink font-semibold hover:bg-canvas transition-colors"
+                >
+                  <span aria-hidden="true">📄</span>
+                  <span className="truncate">{link.filename}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-soft">{card.summary ? '' : '첨부된 원본 파일이 없어요.'}</p>
+        )}
+
+        {card.hint && (
+          <p className="mt-auto pt-4 text-xs text-muted-soft text-center border-t border-hairline-soft">
+            {card.hint}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   const style = CARD_STYLE[card.type]
   const items = card.items ?? []
 
@@ -155,9 +206,10 @@ function labelFor(type: CardType, labels: CardLabels): string {
   return labels[type]
 }
 
-function cardSortIndex(type: 'intro' | CardType): number {
+function cardSortIndex(type: 'intro' | 'file' | CardType): number {
+  if (type === 'file') return -2
   if (type === 'intro') return -1
-  const index = CARD_ORDER.indexOf(type)
+  const index = CARD_ORDER.indexOf(type as CardType)
   return index >= 0 ? index : CARD_ORDER.length
 }
 

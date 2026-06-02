@@ -7,6 +7,12 @@ import type { CardType, Json, NoticeStatus } from '@/types/database'
 /**
  * 공지 상세 조회용 DTO — 프론트(`/notices/[id]/page.tsx`)가 바로 소비할 수 있는 형태.
  */
+/** 원본 첨부 파일 링크 (needs_file 일 때 "원본 파일 직접 확인"에서 사용) */
+export interface NoticeFileLink {
+  filename: string
+  url: string
+}
+
 export interface NoticeDetailDto {
   id: string
   status: NoticeStatus
@@ -17,6 +23,10 @@ export interface NoticeDetailDto {
   hasLocaleTranslation: boolean
   summaryTranslations: Translations
   cards: NoticeCardDto[]
+  /** 정제 품질이 낮아(평탄화/할루시네이션 위험) 본문 대신 원본 파일을 안내해야 하는지 */
+  needsFile: boolean
+  /** 사용자가 직접 확인할 원본 첨부 파일들 */
+  fileLinks: NoticeFileLink[]
 }
 
 export interface NoticeCardDto {
@@ -39,7 +49,7 @@ export async function getNoticeDetail(
   const { data: notice, error } = await supabase
     .from('notices')
     .select(
-      'id, status, error_message, created_at, title, original_text'
+      'id, status, error_message, created_at, title, original_text, extracted_content'
     )
     .eq('id', noticeId)
     .single()
@@ -77,6 +87,10 @@ export async function getNoticeDetail(
   }
   const summary = pickTranslation(translations, locale) ?? notice.title ?? null
 
+  const extracted = asJsonObject(notice.extracted_content)
+  const needsFile = extracted?.needs_file === true
+  const fileLinks = extractFileLinks(extracted)
+
   return {
     id: notice.id,
     status: notice.status,
@@ -86,5 +100,31 @@ export async function getNoticeDetail(
     hasLocaleTranslation: locale === 'ko' ? Boolean(notice.original_text || notice.title) : !!translations[locale],
     summaryTranslations: translations,
     cards,
+    needsFile,
+    fileLinks,
   }
+}
+
+function asJsonObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+/** extracted_content.sources[] 에서 사용자가 열어볼 원본 첨부 파일(파일명+URL)을 추린다. */
+function extractFileLinks(extracted: Record<string, unknown> | null): NoticeFileLink[] {
+  if (!extracted) return []
+  const sources = Array.isArray(extracted.sources) ? extracted.sources : []
+  const links: NoticeFileLink[] = []
+  const seen = new Set<string>()
+  for (const source of sources) {
+    const obj = asJsonObject(source)
+    if (!obj) continue
+    const url = typeof obj.origin_url === 'string' ? obj.origin_url.trim() : ''
+    const filename = typeof obj.filename === 'string' ? obj.filename.trim() : ''
+    if (!url || !filename || seen.has(url)) continue
+    seen.add(url)
+    links.push({ filename, url })
+  }
+  return links
 }
