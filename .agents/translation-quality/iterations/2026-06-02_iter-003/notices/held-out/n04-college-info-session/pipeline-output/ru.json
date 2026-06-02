@@ -1,0 +1,207 @@
+{
+  "status": "admin_review_required",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "2026학년도 학생·학부모 대상 진로진학 설명회 개최 및 신청 안내\n\n학부모님 안녕하십니까? 초여름의 푸르름이 더욱 짙어지는 5월, 가정에 건강과 평안이 함께하시길 기원합니다.\n본교에서는 학생들의 진로 선택과 진학 준비에 도움이 되고자 항상 노력하고 있습니다.\n학생과 학부모님께 최신 진로·진학 정보를 제공하고, 진학 준비에 실질적인 도움을 드리고자\n「2026학년도 학생·학부모 진로진학 설명회」를 아래와 같이 개최하고자 하오니 학생·학부모님들의\n많은 관심과 참여를 부탁드립니다.\n\n1. 2026학년도 학생·학부모 진로진학 설명회 안내\n  가. 일시 : 2026. 6. 9.(화) 15:00~17:00\n  나. 대상 : 본교 1, 2, 3학년 학생 및 학부모(보호자)님\n  다. 장소 : 본교 신관 2층 다목적 회의실 (신청 인원에 따라 변경될 수 있음)\n  라. 설명회 내용 및 강사\n\n| 연번 | 설명회 내용 | 강사 |\n|---|---|---|\n| 1 | 특성화고 진학 안내 (15:00~15:30) | 김하운 (인천생활과학고등학교 교사) |\n| 2 | 고교 학점제 도입에 따른 고교 선택과 2028 대입 준비 전략 (15:30~17:00) | 최정범 (부개고등학교 교사) |\n\n  마. 신청 기간 : 2026. 5. 26.(화) ~ 6. 3.(수) 20시\n  바. 신청 방법 : 온라인 설문조사를 통한 신청\n    신청 링크: https://m.site.naver.com/28Aoi\n\n※ 꼭 참석하실 분들만 신청해 주세요.\n\n2026. 5. 26.\n연 수 중 학 교 장\n",
+  "final_translation": "Объявление об информационном собрании по вопросам карьеры и поступления в колледжи для учащихся и родителей на 2026 учебный год, включая детали подачи заявок\n\nУважаемые родители. В мае, когда зелень раннего лета становится все гуще, мы желаем здоровья и мира вашим семьям.\nНаша школа постоянно стремится поддерживать учащихся в выборе карьеры и подготовке к поступлению в колледжи. Чтобы предоставить учащимся и родителям самую актуальную информацию о карьере и поступлении в колледжи, а также предложить практическую помощь в подготовке к поступлению, мы планируем провести «Информационное собрание по вопросам карьеры и поступления в колледжи для учащихся и родителей на 2026 учебный год», как указано ниже. Мы убедительно просим учащихся и родителей принять участие.\n\n1. Руководство по информационному собранию по вопросам карьеры и поступления в колледжи для учащихся и родителей на 2026 учебный год\n  а. Дата и время: 9 июня 2026 г. (вторник), 15:00-17:00\n  б. Целевая аудитория: Учащиеся 1, 2 и 3 классов нашей школы, а также их родители (опекуны).\n  в. Место проведения: Многофункциональный конференц-зал на 2-м этаже нового здания школы (может быть изменено в зависимости от количества заявителей).\n  г. Содержание сессий и докладчики\n\n| № | Содержание сессии | Докладчик |\n|---|---|---|\n| 1 | Руководство по поступлению в специализированные старшие школы (15:00-15:30) | Ким Ха-ун (учитель Высшей школы наук о жизни Инчхона) |\n| 2 | Выбор старшей школы и стратегия подготовки к поступлению в колледжи в 2028 году после введения системы кредитов в старшей школе (15:30-17:00) | Чхве Чон-бом (учитель Высшей школы Бугэ) |\n\n  д. Период подачи заявок: С 26 мая 2026 г. (вторник) по 3 июня 2026 г. (среда) до 20:00.\n  е. Способ подачи заявки: Подача заявки через онлайн-опрос\n    Ссылка для подачи заявки: https://m.site.naver.com/28Aoi\n\n※ Пожалуйста, подавайте заявку только в том случае, если вы уверены в своем участии.\n\n26 мая 2026 г.\nДиректор средней школы Ёнсу",
+  "source_hard_facts": {
+    "document_type": "Information Session Announcement",
+    "sender": {
+      "school": "연 수 중 학 교",
+      "organization": null,
+      "person_or_role": "장"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": "본교 1, 2, 3학년 학생",
+      "parents": "학부모(보호자)님",
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026. 6. 9.(화)",
+          "normalized": "2026-06-09",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 5. 26.(화)",
+          "normalized": "2026-05-26",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6. 3.(수)",
+          "normalized": "2026-06-03",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 5. 26.",
+          "normalized": "2026-05-26",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "15:00~17:00",
+          "normalized": "15:00-17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15:00~15:30",
+          "normalized": "15:00-15:30",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15:30~17:00",
+          "normalized": "15:30-17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "20시",
+          "normalized": "20:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "본교 신관 2층 다목적 회의실",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [],
+      "submissions": [
+        {
+          "raw_text": "온라인 설문조사를 통한 신청",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026. 6. 3.(수) 20시",
+          "normalized": "2026-06-03 20:00",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [],
+      "urls": [
+        {
+          "raw_text": "https://m.site.naver.com/28Aoi",
+          "normalized": "https://m.site.naver.com/28Aoi",
+          "confidence": 1.0
+        }
+      ],
+      "grade_class_targets": [
+        {
+          "raw_text": "본교 1, 2, 3학년 학생",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "신청",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "참여",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "꼭 참석하실 분들만 신청해 주세요.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {},
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "grade_class_targets",
+          "source_value": "grade:1, grade:2, grade:3",
+          "translated_value": "",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": true,
+    "reason": "hard_fact_validation_failed",
+    "priority": "high"
+  },
+  "metadata": {
+    "validation_status": "human_review_required",
+    "admin_review_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "grade_class_targets",
+          "source_value": "grade:1, grade:2, grade:3",
+          "translated_value": "",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

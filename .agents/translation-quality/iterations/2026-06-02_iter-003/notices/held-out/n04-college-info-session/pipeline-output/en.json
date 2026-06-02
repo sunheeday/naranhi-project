@@ -1,0 +1,400 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "en",
+  "source_text": "2026학년도 학생·학부모 대상 진로진학 설명회 개최 및 신청 안내\n\n학부모님 안녕하십니까? 초여름의 푸르름이 더욱 짙어지는 5월, 가정에 건강과 평안이 함께하시길 기원합니다.\n본교에서는 학생들의 진로 선택과 진학 준비에 도움이 되고자 항상 노력하고 있습니다.\n학생과 학부모님께 최신 진로·진학 정보를 제공하고, 진학 준비에 실질적인 도움을 드리고자\n「2026학년도 학생·학부모 진로진학 설명회」를 아래와 같이 개최하고자 하오니 학생·학부모님들의\n많은 관심과 참여를 부탁드립니다.\n\n1. 2026학년도 학생·학부모 진로진학 설명회 안내\n  가. 일시 : 2026. 6. 9.(화) 15:00~17:00\n  나. 대상 : 본교 1, 2, 3학년 학생 및 학부모(보호자)님\n  다. 장소 : 본교 신관 2층 다목적 회의실 (신청 인원에 따라 변경될 수 있음)\n  라. 설명회 내용 및 강사\n\n| 연번 | 설명회 내용 | 강사 |\n|---|---|---|\n| 1 | 특성화고 진학 안내 (15:00~15:30) | 김하운 (인천생활과학고등학교 교사) |\n| 2 | 고교 학점제 도입에 따른 고교 선택과 2028 대입 준비 전략 (15:30~17:00) | 최정범 (부개고등학교 교사) |\n\n  마. 신청 기간 : 2026. 5. 26.(화) ~ 6. 3.(수) 20시\n  바. 신청 방법 : 온라인 설문조사를 통한 신청\n    신청 링크: https://m.site.naver.com/28Aoi\n\n※ 꼭 참석하실 분들만 신청해 주세요.\n\n2026. 5. 26.\n연 수 중 학 교 장\n",
+  "final_translation": "2026 Academic Year Career and College Admissions Information Session for Students and Parents: Event Details and Application Guide\n\nDear Parents, Greetings. In May, as the greenery of early summer deepens, we wish health and peace upon your families.\nOur school consistently endeavors to assist students with their career choices and college admissions preparation. To provide students and parents with the latest career and college admissions information and to offer practical assistance for admissions preparation, we plan to hold the '2026 Academic Year Career and College Admissions Information Session for Students and Parents' as outlined below. We kindly request the active interest of students and parents, and their participation.\n\n1. 2026 Academic Year Career and College Admissions Information Session for Students and Parents: Details\n  a. Date and Time: Tuesday, June 9, 2026, 15:00-17:00\n  b. Target Audience: Students in grades 1, 2, and 3 of our school, and their parents (guardians)\n  c. Location: Multipurpose Meeting Room, 2nd Floor, New Building of our school (May be subject to change depending on the number of applicants)\n  d. Session Content and Speakers\n\n| No. | Session Content | Speaker |\n|---|---|---|\n| 1 | Guide to Vocational High School Admissions (15:00-15:30) | Kim Ha-woon (Teacher, Incheon Life Science High School) |\n| 2 | High School Selection and 2028 College Admissions Preparation Strategy following the Introduction of the High School Credit System (15:30-17:00) | Choi Jeong-beom (Teacher, Bugae High School) |\n\n  e. Application Period: From Tuesday, May 26, 2026, to Wednesday, June 3, 2026, 20:00\n  f. Application Method: Application via online survey\n    Application Link: https://m.site.naver.com/28Aoi\n\n※ Please apply only if you are certain to attend.\n\nMay 26, 2026\nYeonsu Middle School Principal",
+  "source_hard_facts": {
+    "document_type": "Information Session Announcement",
+    "sender": {
+      "school": "연 수 중 학 교",
+      "organization": null,
+      "person_or_role": "장"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": "본교 1, 2, 3학년 학생",
+      "parents": "학부모(보호자)님",
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026. 6. 9.(화)",
+          "normalized": "2026-06-09",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 5. 26.(화)",
+          "normalized": "2026-05-26",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6. 3.(수)",
+          "normalized": "2026-06-03",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 5. 26.",
+          "normalized": "2026-05-26",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "15:00~17:00",
+          "normalized": "15:00-17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15:00~15:30",
+          "normalized": "15:00-15:30",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15:30~17:00",
+          "normalized": "15:30-17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "20시",
+          "normalized": "20:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "본교 신관 2층 다목적 회의실",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [],
+      "submissions": [
+        {
+          "raw_text": "온라인 설문조사를 통한 신청",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026. 6. 3.(수) 20시",
+          "normalized": "2026-06-03 20:00",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [],
+      "urls": [
+        {
+          "raw_text": "https://m.site.naver.com/28Aoi",
+          "normalized": "https://m.site.naver.com/28Aoi",
+          "confidence": 1.0
+        }
+      ],
+      "grade_class_targets": [
+        {
+          "raw_text": "본교 1, 2, 3학년 학생",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "신청",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "참여",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "꼭 참석하실 분들만 신청해 주세요.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "information_session_notice",
+    "sender": {
+      "school": "Yeonsu Middle School",
+      "organization": null,
+      "person_or_role": "Principal"
+    },
+    "audience": {
+      "grade": "1, 2, 3",
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "Tuesday, June 9, 2026",
+          "normalized": "2026-06-09",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "May 26, 2026",
+          "normalized": "2026-05-26",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "From Tuesday, May 26, 2026",
+          "normalized": "2026-05-26",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Wednesday, June 3, 2026",
+          "normalized": "2026-06-03",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "15:00-17:00",
+          "normalized": "15:00-17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15:00-15:30",
+          "normalized": "15:00-15:30",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15:30-17:00",
+          "normalized": "15:30-17:00",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "20:00",
+          "normalized": "20:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "Multipurpose Meeting Room, 2nd Floor, New Building of our school",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [],
+      "submissions": [
+        {
+          "raw_text": "Application via online survey",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "Wednesday, June 3, 2026, 20:00",
+          "normalized": "2026-06-03 20:00",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [],
+      "urls": [
+        {
+          "raw_text": "https://m.site.naver.com/28Aoi",
+          "normalized": "https://m.site.naver.com/28Aoi",
+          "confidence": 1.0
+        }
+      ],
+      "grade_class_targets": [
+        {
+          "raw_text": "Students in grades 1, 2, and 3 of our school",
+          "normalized": "grades 1, 2, 3",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "We kindly request the active interest of students and parents, and their participation.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Application via online survey",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Please apply only if you are certain to attend.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "May be subject to change depending on the number of applicants",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Please apply only if you are certain to attend.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 1,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "2026학년도 학생·학부모 대상 진로진학 설명회 개최 및 신청 안내",
+    "summary_ko": "2026학년도 학생·학부모 진로진학 설명회가 2026년 6월 9일(화) 15:00~17:00에 본교 신관 2층 다목적 회의실에서 개최됩니다. 본 설명회는 본교 1, 2, 3학년 학생 및 학부모를 대상으로 하며, 특성화고 진학 안내 및 고교 학점제 도입에 따른 고교 선택과 2028 대입 준비 전략에 대한 내용을 다룹니다. 신청 기간은 2026년 5월 26일(화)부터 6월 3일(수) 20시까지이며, 온라인 설문조사를 통해 신청할 수 있습니다. 참석하실 분들만 신청 바랍니다.",
+    "summary_target_language": "The 2026 Academic Year Career and College Admissions Information Session for Students and Parents will be held on Tuesday, June 9, 2026, from 15:00 to 17:00, in the Multipurpose Meeting Room on the 2nd Floor of the school's New Building. This session is for students in grades 1, 2, and 3 and their parents, covering vocational high school admissions and strategies for high school selection and 2028 college admissions preparation following the introduction of the high school credit system. The application period is from Tuesday, May 26, 2026, to Wednesday, June 3, 2026, at 20:00, via an online survey. Please apply only if you are certain to attend.",
+    "document_type": "Information Session Announcement",
+    "target_language": "en",
+    "audience": "본교 1, 2, 3학년 학생, 학부모(보호자)님",
+    "important_dates": [
+      "2026-06-09",
+      "2026-05-26",
+      "2026-06-03"
+    ],
+    "deadlines": [
+      {
+        "raw_text": "2026. 6. 3.(수) 20시",
+        "normalized": "2026-06-03 20:00",
+        "confidence": 1.0
+      }
+    ],
+    "actions_required": [
+      {
+        "raw_text": "신청",
+        "normalized": null,
+        "confidence": 1.0
+      },
+      {
+        "raw_text": "참여",
+        "normalized": null,
+        "confidence": 1.0
+      }
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 1
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [
+      "2026학년도 학생·학부모 대상 진로진학 설명회 개최 및 신청 안내",
+      "Information Session Announcement"
+    ],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "2026 Academic Year Career and College Admissions Information Session for Students and Parents: Event Details and Application Guide\n\nDear Parents, Greetings. In May, as the greenery of early summer deepens, we wish health and peace upon your families.\nOur school consistently endeavors to assist students with their career choices and college admissions preparation. To provide students and parents with the latest career and college admissions information and to offer practical assistance for admissions preparation, we plan to hold the '2026 Academic Year Career and College Admissions Information Session for Students and Parents' as outlined below. We kindly request the active interest and participation of students and parents.\n\n1. 2026 Academic Year Career and College Admissions Information Session for Students and Parents: Details\n  a. Date and Time: Tuesday, June 9, 2026, 15:00-17:00\n  b. Target Audience: Students in grades 1, 2, and 3 of our school, and their parents (guardians)\n  c. Location: Multipurpose Meeting Room, 2nd Floor, New Building of our school (May be subject to change depending on the number of applicants)\n  d. Session Content and Speakers\n\n| No. | Session Content | Speaker |\n|---|---|---|\n| 1 | Guide to Vocational High School Admissions (15:00-15:30) | Kim Ha-woon (Teacher, Incheon Life Science High School) |\n| 2 | High School Selection and 2028 College Admissions Preparation Strategy following the Introduction of the High School Credit System (15:30-17:00) | Choi Jeong-beom (Teacher, Bugae High School) |\n\n  e. Application Period: From Tuesday, May 26, 2026, to Wednesday, June 3, 2026, 20:00\n  f. Application Method: Application via online survey\n    Application Link: https://m.site.naver.com/28Aoi\n\n※ Please apply only if you are certain to attend.\n\nMay 26, 2026\nYeonsu Middle School Principal",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "2026 Academic Year Career and College Admissions Information Session for Students and Parents: Event Details and Application Guide\n\nDear Parents, Greetings. In May, as the greenery of early summer deepens, we wish health and peace upon your families.\nOur school consistently endeavors to assist students with their career choices and college admissions preparation. To provide students and parents with the latest career and college admissions information and to offer practical assistance for admissions preparation, we plan to hold the '2026 Academic Year Career and College Admissions Information Session for Students and Parents' as outlined below. We kindly request the active interest and participation of students and parents.\n\n1. 2026 Academic Year Career and College Admissions Information Session for Students and Parents: Details\n  a. Date and Time: Tuesday, June 9, 2026, 15:00-17:00\n  b. Target Audience: Students in grades 1, 2, and 3 of our school, and their parents (guardians)\n  c. Location: Multipurpose Meeting Room, 2nd Floor, New Building of our school (May be subject to change depending on the number of applicants)\n  d. Session Content and Speakers\n\n| No. | Session Content | Speaker |\n|---|---|---|\n| 1 | Guide to Vocational High School Admissions (15:00-15:30) | Kim Ha-woon (Teacher, Incheon Life Science High School) |\n| 2 | High School Selection and 2028 College Admissions Preparation Strategy following the Introduction of the High School Credit System (15:30-17:00) | Choi Jeong-beom (Teacher, Bugae High School) |\n\n  e. Application Period: From Tuesday, May 26, 2026, to Wednesday, June 3, 2026, 20:00\n  f. Application Method: Application via online survey\n    Application Link: https://m.site.naver.com/28Aoi\n\n※ Please apply only if you are certain to attend.\n\nMay 26, 2026\nYeonsu Middle School Principal",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "2026학년도 학생 및 학부모 진로·대입 설명회: 행사 세부 사항 및 신청 안내\n\n학부모님께, 안녕하십니까. 5월, 초여름의 푸르름이 깊어가는 때에, 귀 가정에 건강과 평안이 있기를 바랍니다.\n저희 학교는 학생들의 진로 선택과 대입 준비를 돕기 위해 꾸준히 노력하고 있습니다. 학생과 학부모님께 최신 진로 및 대입 정보를 제공하고 대입 준비에 실질적인 도움을 드리고자, 아래와 같이 '2026학년도 학생 및 학부모 진로·대입 설명회'를 개최할 예정입니다. 학생과 학부모님의 적극적인 관심과 참여를 정중히 요청드립니다.\n\n1. 2026학년도 학생 및 학부모 진로·대입 설명회: 세부 사항\n  a. 일시: 2026년 6월 9일 화요일, 15:00-17:00\n  b. 대상: 본교 1, 2, 3학년 학생 및 학부모(보호자)\n  c. 장소: 본교 신관 2층 다목적 회의실 (신청 인원에 따라 변경될 수 있음)\n  d. 설명회 내용 및 강사\n\n| 번호 | 설명회 내용 | 강사 |\n|---|---|---|\n| 1 | 특성화고 입학 안내 (15:00-15:30) | 김하운 (인천생활과학고등학교 교사) |\n| 2 | 고교학점제 도입에 따른 고교 선택 및 2028 대입 준비 전략 (15:30-17:00) | 최정범 (부개고등학교 교사) |\n\n  e. 신청 기간: 2026년 5월 26일 화요일부터 2026년 6월 3일 수요일 20:00까지\n  f. 신청 방법: 온라인 설문지를 통한 신청\n    신청 링크: https://m.site.naver.com/28Aoi\n\n※ 참석이 확실한 경우에만 신청해 주시기 바랍니다.\n\n2026년 5월 26일\n연수중학교장",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves the context, tone, and all factual information from the original Korean school notice. The administrative meaning and clarity for parents are excellent. No omissions, additions, or misinterpretations were found. The translation adheres to all non-negotiable rules."
+    }
+  }
+}

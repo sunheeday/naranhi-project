@@ -1,0 +1,26 @@
+{
+  "elapsed_seconds": 122.0,
+  "notices": [
+    {
+      "id": "n02-field-trip-consent",
+      "role": "training",
+      "languages": {
+        "ru": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

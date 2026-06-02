@@ -256,6 +256,12 @@ class NoticeService:
         if metadata.get("title"):
             notice_patch["title"] = metadata["title"]
 
+        # 추출된 마감일 중 가장 이른 날짜를 notices.due_date에 저장 (홈 D-day용).
+        # 마감일을 못 찾으면 기존 값을 덮어쓰지 않는다.
+        due_date = _due_date_from_pipeline(pipeline_result)
+        if due_date:
+            notice_patch["due_date"] = due_date
+
         if notice_patch:
             supabase.table("notices").update(notice_patch).eq("id", notice_id).execute()
 
@@ -570,7 +576,7 @@ def _best_effort_translation_prompt(
 - JSON object만 반환해라.
 - 사실을 추가하거나 추측하지 마라.
 - 날짜, 시간, 준비물, 제출물, 금액, 장소, 대상 학년은 가능한 한 원문 그대로 보존해라.
-- 문단 구조를 유지해라.
+- 읽기 쉬운 줄바꿈을 사용해라: 짧은 문단을 빈 줄 하나로 구분하고, 날짜·마감·해야 할 일·금액·준비물·장소는 각각 "- "로 시작하는 한 줄에 둔다. 문장 중간에서 줄을 끊지 마라.
 - 번역 품질이 완벽하지 않아도 좋으니 반드시 전체 공지를 끝까지 번역해라.
 
 반환 스키마:
@@ -610,6 +616,24 @@ def _merge_card_content(existing: object, incoming: object) -> dict[str, Any]:
     if isinstance(incoming, dict):
         merged.update(incoming)
     return merged
+
+
+def _due_date_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
+    """추출된 deadlines(정규화 YYYY-MM-DD) 중 가장 이른 날짜를 반환한다.
+
+    deadlines는 '제출/행동 마감일'이므로 schedules.event_date(행사일 포함)와 달리
+    홈 D-day에 바로 쓸 수 있다. 정규화된 ISO가 없으면 None.
+    """
+    source_facts = _hard_facts(pipeline_result.get("source_hard_facts"))
+    target_facts = _hard_facts(pipeline_result.get("target_hard_facts"))
+    deadlines: list[str] = []
+    for container in (source_facts, target_facts):
+        deadlines.extend(_normalized_iso_dates(container.get("deadlines")))
+    deadlines = _dedupe(deadlines)
+    if not deadlines:
+        return None
+    # YYYY-MM-DD는 사전식 정렬이 곧 날짜 정렬이므로 min이 가장 이른 마감일.
+    return min(deadlines)
 
 
 def _schedule_dates_from_pipeline(pipeline_result: dict[str, Any]) -> list[str]:

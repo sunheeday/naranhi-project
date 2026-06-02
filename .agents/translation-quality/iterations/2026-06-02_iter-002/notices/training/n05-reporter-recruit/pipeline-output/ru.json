@@ -1,0 +1,242 @@
+{
+  "status": "admin_review_required",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "2026년 인천광역시교육청 「학생·시민기자단 모집」 재안내\n\n학부모님 안녕하십니까?\n\n학생과 시민의 자발적인 참여를 통해 교육 현장의 생생한 목소리를 듣고, 교육 공동체의 시각에서 인천교육을 알리고자 합니다. 이에 「2026년 학생·시민기자단」을 모집하오니, 학부모님과 학생 여러분의 많은 관심과 참여를 부탁드립니다.\n\n○ 모집 인원: 학생기자단 60명, 시민기자단 30명\n\n○ 모집 대상\n  - 학생: 인천 관내 거주 만 13세 ~ 19세 미만 청소년\n  - 시민: 인천시민 중 현직 언론인을 제외한 성인 누구나\n    ※ 인천시교육청 소속 교직원 제외\n\n○ 모집 기간: 2026. 5. 29.(금) 17:30까지\n  ※ 결과발표: 2026. 6. 12.(금) 개별 통보\n\n○ 제출 서식: 자기소개서, 개인정보 수집이용 동의서 각 1부\n\n○ 접수 방법: 이메일 접수 (um12um@ice.go.kr)\n\n○ 주요 활동\n  - 활동 기간: 2026. 6. 위촉 후 ~ 2027년 위촉 전\n  - 활동 사항: 인천교육 관련 취재 및 기사 작성\n\n○ 학생·시민기자단 활동 혜택\n  - 위촉장 수여 및 기자증 발급\n  - 현직 기자를 통한 기사 작성 실무 연수 (연 4회)\n  - 우수 기사 선정 후 시교육청 SNS 게시 및 소정의 원고료 지급\n  - 우수활동 기자 교육감 표창 수여\n\n○ 문의: 소통협력담당관 ☎ 032-420-8137\n",
+  "final_translation": "Повторное объявление: Набор студенческих и гражданских репортеров Управления образования города-метрополии Инчхон на 2026 год\n\nУважаемые родители,\n\nБлагодаря добровольному участию студентов и граждан, мы стремимся услышать живые голоса из сферы образования и продвигать образование Инчхона с точки зрения образовательного сообщества. В связи с этим мы объявляем набор в «Группу студенческих и гражданских репортеров 2026 года». Мы убедительно просим родителей и студентов проявить большой интерес и принять участие.\n\n○ Квота на набор: 60 студенческих репортеров, 30 гражданских репортеров\n\n○ Требования к кандидатам\n  - Студенты: Молодежь, проживающая в Инчхоне, в возрасте от 13 до 19 лет (не включительно).\n  - Граждане: Любой взрослый житель Инчхона, за исключением действующих журналистов.\n    ※ Исключая сотрудников и преподавателей, принадлежащих Управлению образования города-метрополии Инчхон.\n\n○ Период подачи заявок: До 17:30 в пятницу, 29 мая 2026 года\n  ※ Объявление результатов: Индивидуальное уведомление в пятницу, 12 июня 2026 года\n\n○ Необходимые документы: По одной копии автобиографии и формы согласия на сбор и использование персональных данных.\n\n○ Способ подачи заявки: Отправка по электронной почте (um12um@ice.go.kr)\n\n○ Основные виды деятельности\n  - Период деятельности: С момента назначения в июне 2026 года до следующего назначения в 2027 году.\n  - Детали деятельности: Репортажи и написание статей, связанных с образованием в Инчхоне.\n\n○ Преимущества деятельности студенческих и гражданских репортеров\n  - Выдача свидетельства о назначении и удостоверения репортера.\n  - Практические занятия по написанию статей от действующих журналистов (4 раза в год).\n  - Публикация отобранных отличных статей в социальных сетях Управления образования города и выплата небольшого гонорара.\n  - Награждение похвальной грамотой от Начальника Управления образования выдающихся репортеров.\n\n○ Запросы: Сотрудник по коммуникациям и сотрудничеству ☎ 032-420-8137",
+  "source_hard_facts": {
+    "document_type": "Recruitment Notice",
+    "sender": {
+      "school": null,
+      "organization": "인천광역시교육청",
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": true,
+      "parents": true,
+      "other": "청소년, 성인"
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년",
+          "normalized": "2026",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 5. 29.(금)",
+          "normalized": "2026-05-29",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 6. 12.(금)",
+          "normalized": "2026-06-12",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026. 6.",
+          "normalized": "2026-06",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2027년",
+          "normalized": "2027",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "17:30",
+          "normalized": "17:30",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [],
+      "materials": [
+        {
+          "raw_text": "자기소개서",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "개인정보 수집이용 동의서",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "이메일 접수",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026. 5. 29.(금) 17:30까지",
+          "normalized": "2026-05-29 17:30",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "032-420-8137",
+          "normalized": "032-420-8137",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "um12um@ice.go.kr",
+          "normalized": "um12um@ice.go.kr",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "학생기자단 60명",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "시민기자단 30명",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천 관내 거주 만 13세 ~ 19세 미만 청소년",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천시민 중 현직 언론인을 제외한 성인 누구나",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천시교육청 소속 교직원 제외",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "이메일 접수",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "현직 언론인을 제외한",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "인천시교육청 소속 교직원 제외",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {},
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "dates",
+          "source_value": "2026",
+          "translated_value": "2026-05-29, 2026-06, 2026-06-12, 2027",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        },
+        {
+          "field": "grade_class_targets",
+          "source_value": "시민기자단 30명, 인천 관내 거주 만 13세 ~ 19세 미만 청소년, 인천시교육청 소속 교직원 제외, 인천시민 중 현직 언론인을 제외한 성인 누구나, 학생기자단 60명",
+          "translated_value": "adult residents, age 13-18",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": true,
+    "reason": "hard_fact_validation_failed",
+    "priority": "high"
+  },
+  "metadata": {
+    "validation_status": "human_review_required",
+    "admin_review_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "dates",
+          "source_value": "2026",
+          "translated_value": "2026-05-29, 2026-06, 2026-06-12, 2027",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        },
+        {
+          "field": "grade_class_targets",
+          "source_value": "시민기자단 30명, 인천 관내 거주 만 13세 ~ 19세 미만 청소년, 인천시교육청 소속 교직원 제외, 인천시민 중 현직 언론인을 제외한 성인 누구나, 학생기자단 60명",
+          "translated_value": "adult residents, age 13-18",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

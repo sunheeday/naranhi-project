@@ -1,0 +1,339 @@
+{
+  "iteration": 1,
+  "date": "2026-06-01",
+  "note": "weighted_avg computed with meal axis treated as N/A (no meal/menu notices in this set); meal weight (0.7) excluded from denominator. meal=0 in matrix = N/A, not a zero score.",
+  "languages": [
+    "en",
+    "ru",
+    "ar"
+  ],
+  "training_notices": [
+    "n01-bike-safety",
+    "n02-field-trip-consent",
+    "n05-reporter-recruit",
+    "n06-health-class"
+  ],
+  "held_out_notices": [
+    "n03-parent-edu-program",
+    "n04-college-info-session"
+  ],
+  "scores": {
+    "n01-bike-safety": {
+      "en": {
+        "fact": 4,
+        "action": 5,
+        "tone": 4,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.975,
+        "critical_count": 0
+      },
+      "ru": {
+        "fact": 4,
+        "action": 5,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 5,
+        "culture": 5,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.259,
+        "critical_count": 0
+      },
+      "ar": {
+        "fact": 4,
+        "action": 5,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.074,
+        "critical_count": 0
+      }
+    },
+    "n02-field-trip-consent": {
+      "en": {
+        "fact": 4,
+        "action": 4,
+        "tone": 4,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.852,
+        "critical_count": 0
+      },
+      "ru": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 5,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.037,
+        "critical_count": 0
+      },
+      "ar": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.951,
+        "critical_count": 0
+      }
+    },
+    "n05-reporter-recruit": {
+      "en": {
+        "fact": 4,
+        "action": 4,
+        "tone": 4,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.852,
+        "critical_count": 0
+      },
+      "ru": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 5,
+        "culture": 5,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.136,
+        "critical_count": 0
+      },
+      "ar": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.951,
+        "critical_count": 0
+      }
+    },
+    "n06-health-class": {
+      "en": {
+        "fact": 4,
+        "action": 4,
+        "tone": 4,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 3,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.753,
+        "critical_count": 0
+      },
+      "ru": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.951,
+        "critical_count": 0
+      },
+      "ar": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.951,
+        "critical_count": 0
+      }
+    },
+    "n03-parent-edu-program": {
+      "en": {
+        "fact": 4,
+        "action": 4,
+        "tone": 4,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.852,
+        "critical_count": 0
+      },
+      "ru": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 5,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.037,
+        "critical_count": 0
+      },
+      "ar": {
+        "fact": 4,
+        "action": 4,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 3.951,
+        "critical_count": 0
+      }
+    },
+    "n04-college-info-session": {
+      "en": {
+        "fact": 5,
+        "action": 5,
+        "tone": 4,
+        "completeness": 5,
+        "naturalness": 5,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.185,
+        "critical_count": 0
+      },
+      "ru": {
+        "fact": 5,
+        "action": 5,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 5,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.284,
+        "critical_count": 0
+      },
+      "ar": {
+        "fact": 5,
+        "action": 5,
+        "tone": 5,
+        "completeness": 5,
+        "naturalness": 4,
+        "culture": 4,
+        "meal": 0,
+        "safety": 5,
+        "weighted_avg": 4.198,
+        "critical_count": 0
+      }
+    }
+  },
+  "train_avg_by_axis": {
+    "en": {
+      "fact": 4.0,
+      "action": 4.25,
+      "tone": 4.0,
+      "completeness": 5.0,
+      "naturalness": 4.0,
+      "culture": 3.75,
+      "meal": 0.0,
+      "safety": 5.0
+    },
+    "ru": {
+      "fact": 4.0,
+      "action": 4.25,
+      "tone": 5.0,
+      "completeness": 5.0,
+      "naturalness": 4.75,
+      "culture": 4.5,
+      "meal": 0.0,
+      "safety": 5.0
+    },
+    "ar": {
+      "fact": 4.0,
+      "action": 4.25,
+      "tone": 5.0,
+      "completeness": 5.0,
+      "naturalness": 4.0,
+      "culture": 4.0,
+      "meal": 0.0,
+      "safety": 5.0
+    }
+  },
+  "held_out_avg_by_axis": {
+    "en": {
+      "fact": 4.5,
+      "action": 4.5,
+      "tone": 4.0,
+      "completeness": 5.0,
+      "naturalness": 4.5,
+      "culture": 4.0,
+      "meal": 0.0,
+      "safety": 5.0
+    },
+    "ru": {
+      "fact": 4.5,
+      "action": 4.5,
+      "tone": 5.0,
+      "completeness": 5.0,
+      "naturalness": 5.0,
+      "culture": 4.0,
+      "meal": 0.0,
+      "safety": 5.0
+    },
+    "ar": {
+      "fact": 4.5,
+      "action": 4.5,
+      "tone": 5.0,
+      "completeness": 5.0,
+      "naturalness": 4.0,
+      "culture": 4.0,
+      "meal": 0.0,
+      "safety": 5.0
+    }
+  },
+  "train_avg_by_lang": {
+    "en": 3.858,
+    "ru": 4.096,
+    "ar": 3.982
+  },
+  "held_out_avg_by_lang": {
+    "en": 4.018,
+    "ru": 4.16,
+    "ar": 4.075
+  },
+  "train_critical_by_lang": {
+    "en": 0,
+    "ru": 0,
+    "ar": 0
+  },
+  "held_out_critical_by_lang": {
+    "en": 0,
+    "ru": 0,
+    "ar": 0
+  },
+  "train_avg_overall": 3.979,
+  "held_out_avg_overall": 4.084,
+  "generalization_gap": -0.105,
+  "total_critical_count": 0,
+  "verdict": "needs_iteration"
+}
