@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
 import type { CardType } from '@/types/database'
 
 export interface NoticeCardItem {
@@ -93,10 +96,53 @@ export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
   )
 }
 
+const markdownComponents: Components = {
+  h1: ({ children }) => <h1 className="text-lg font-bold text-ink mt-1 mb-1">{children}</h1>,
+  h2: ({ children }) => <h2 className="text-base font-bold text-ink mt-4 mb-1">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-sm font-semibold text-ink mt-3 mb-1">{children}</h3>,
+  p: ({ children }) => <p className="text-[16px] leading-[1.7] text-body my-2">{children}</p>,
+  ul: ({ children }) => <ul className="list-disc pl-5 my-2 flex flex-col gap-1">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal pl-5 my-2 flex flex-col gap-1">{children}</ol>,
+  li: ({ children }) => <li className="text-[15px] leading-[1.6] text-body">{children}</li>,
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-cat-action underline break-all">
+      {children}
+    </a>
+  ),
+  strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  hr: () => <hr className="my-3 border-hairline-soft" />,
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-2 border-hairline-soft pl-3 text-muted my-2">{children}</blockquote>
+  ),
+  table: ({ children }) => (
+    <div className="my-3 overflow-x-auto">
+      <table className="w-full border-collapse text-[13px]">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-surface">{children}</thead>,
+  th: ({ children }) => (
+    <th className="border border-border px-2.5 py-1.5 text-left font-semibold text-ink align-top">{children}</th>
+  ),
+  td: ({ children }) => (
+    <td className="border border-border px-2.5 py-1.5 text-body align-top">{children}</td>
+  ),
+}
+
+/** 정제된 markdown 본문(#, |표|, - 목록)을 실제 제목·표·목록으로 렌더한다.
+ *  react-markdown 은 기본적으로 raw HTML 을 무시하므로 추출/LLM 내용이라도 XSS 안전. */
+function MarkdownBody({ source }: { source: string }) {
+  return (
+    <div className="break-words">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {source}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
 function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels }) {
   if (card.type === 'intro') {
-    const paragraphs = splitParagraphs(card.summary)
-
     return (
       <div className="bg-canvas rounded-card shadow-soft p-6 flex flex-col gap-5 min-h-[360px] border border-hairline-soft">
         <div className="flex items-center gap-2">
@@ -110,13 +156,9 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
           <p className="text-base text-ink font-semibold">{card.dateRange}</p>
         )}
 
-        <div className="flex flex-col gap-3">
-          {paragraphs.length > 0 ? (
-            paragraphs.map((p, i) => (
-              <p key={i} className="text-[16px] leading-[1.7] text-body">
-                {p}
-              </p>
-            ))
+        <div className="flex flex-col">
+          {card.summary?.trim() ? (
+            <MarkdownBody source={card.summary} />
           ) : (
             <p className="text-sm text-muted-soft">요약 정보가 없어요.</p>
           )}
@@ -213,9 +255,3 @@ function cardSortIndex(type: 'intro' | 'file' | CardType): number {
   return index >= 0 ? index : CARD_ORDER.length
 }
 
-function splitParagraphs(value: string | undefined): string[] {
-  return (value ?? '')
-    .split(/\n+/)
-    .map(s => s.trim())
-    .filter(Boolean)
-}
