@@ -20,6 +20,14 @@ _FLAT_DUMP = "\n".join(
     ["학교명", "공립", "유형별", "병설", "학급수", "12", "학생수", "240", "교원수", "18", "설립일", "1990"]
 )
 
+# 표 레이아웃 HWP 가 만든 중첩표 직선화 흔적(콘텐츠 행 안에 `| --- |` 가 끼어 있음)
+_NESTED_TABLE_SOUP = (
+    "| 전화 : 381-0050 | 가 정 통 신 문 | http://x.ms.kr |\n"
+    "| --- | --- | --- |\n"
+    "| 안녕하십니까 ◉ 질병결석 | | | | | --- | --- | --- | | 결석유형 | 제출서류 | 제출일 | "
+    "| 질병 | 진단서 | 5일 이내 | |\n"
+)
+
 
 class QualityGateTests(unittest.TestCase):
     def test_normal_structured_doc_is_not_flagged(self) -> None:
@@ -43,6 +51,18 @@ class QualityGateTests(unittest.TestCase):
         gate = assess("...", "ok")
         self.assertTrue(gate["needs_file"])
         self.assertIn("빈문서/저품질", gate["reasons"])
+
+    def test_nested_table_soup_is_flagged(self) -> None:
+        # 표 레이아웃 HWP 의 중첩표 직선화(파이프 떡칠)는 원본 파일로 우회시킨다.
+        gate = assess(_NESTED_TABLE_SOUP, "ok")
+        self.assertTrue(gate["needs_file"])
+        self.assertTrue(any("중첩" in reason for reason in gate["reasons"]))
+        self.assertTrue(gate["signals"]["nested_table"])
+
+    def test_clean_table_is_not_flagged_as_nested(self) -> None:
+        # 정상 표(구분선이 제 줄에만 있음)는 중첩 신호가 켜지지 않는다.
+        gate = assess(_NORMAL, "ok")
+        self.assertFalse(gate["signals"]["nested_table"])
 
 
 if __name__ == "__main__":

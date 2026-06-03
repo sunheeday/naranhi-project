@@ -117,9 +117,8 @@ def _hwp_to_markdown(path: Path, warnings: list[str]) -> str:
                 f"stderr={completed.stderr.decode('utf-8', 'replace').strip()[:200]}"
             )
             return ""
-        md = markdownify.markdownify(
-            xhtml.read_text(encoding="utf-8", errors="replace"), heading_style="ATX"
-        )
+        xhtml_text = _unwrap_nested_tables(xhtml.read_text(encoding="utf-8", errors="replace"))
+        md = markdownify.markdownify(xhtml_text, heading_style="ATX")
         md = re.sub(r"(?m)^\s*xml version=.*$", "", md)   # xhtml 선언 leak 제거
         md = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", md)       # 이미지 markdown junk 제거
         md = re.sub(r"[ \t]+\n", "\n", md)
@@ -128,6 +127,46 @@ def _hwp_to_markdown(path: Path, warnings: list[str]) -> str:
     except Exception as exc:  # noqa: BLE001
         warnings.append(f"hwp5html_failed: {type(exc).__name__}: {exc}")
         return ""
+
+
+def _unwrap_nested_tables(xhtml: str) -> str:
+    """레이아웃용 래퍼 표(셀 안에 또 다른 표가 든 바깥 표)를 펼쳐 안쪽 진짜 표를 최상위로 끌어올린다.
+
+    HWP 가정통신문은 문서 전체를 표 한 칸에 담는 '표 레이아웃'이 흔하다. 이때 markdown 은 표
+    중첩을 표현하지 못해 안쪽 데이터표가 한 셀 안에서 `| --- |` 로 직선화돼 깨진다(파이프 떡칠).
+    markdownify 전에 바깥 래퍼 표를 풀면 안쪽 표가 최상위 markdown 표로 깔끔히 변환된다.
+    bs4 미설치/파싱 실패 시 원본을 그대로 돌려 기존 동작을 유지한다(폴백 안전).
+    """
+    try:
+        from bs4 import BeautifulSoup  # markdownify 의 의존성이라 동일 환경에 존재
+    except Exception:  # noqa: BLE001 - bs4 없으면 펼치기만 건너뛴다.
+        return xhtml
+    try:
+        soup = BeautifulSoup(xhtml, "html.parser")
+    except Exception:  # noqa: BLE001
+        return xhtml
+
+    for _ in range(20):  # 다중 중첩 대비 안전 상한(무한루프 방지)
+        outer = next(
+            (table for table in soup.find_all("table") if table.find("table") is not None),
+            None,
+        )
+        if outer is None:
+            break
+        # 바깥 표의 '자기' 행·셀만 고른다(안쪽 표의 행·셀은 가장 가까운 table 조상이 달라 제외).
+        own_rows = [tr for tr in outer.find_all("tr") if tr.find_parent("table") is outer]
+        blocks = []
+        for row in own_rows:
+            for cell in [c for c in row.find_all(["td", "th"]) if c.find_parent("table") is outer]:
+                div = soup.new_tag("div")
+                for child in list(cell.children):
+                    div.append(child.extract())  # 안쪽 표째로 div 안으로 이동(한 단계 위로)
+                blocks.append(div)
+        if blocks:
+            outer.replace_with(*blocks)
+        else:
+            outer.decompose()
+    return str(soup)
 
 
 def _hwp5html_command() -> list[str] | None:

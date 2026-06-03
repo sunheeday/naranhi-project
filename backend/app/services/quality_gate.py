@@ -25,11 +25,27 @@ _SENT_END = (".", "!", "?", ":", ")", "）", "」", "』", "]")
 _BULLETS = ("#", "-", "|", "*", "※", "☎", "○", "•", "□", ">")
 # 같은 셀 텍스트가 4번 이상 연달아 반복되는 깨진 표(와이드 빈표/반복 헤더)
 _REPEAT_RE = re.compile(r"(\|[^|\n]*[가-힣A-Za-z0-9]{2,}[^|\n]*)\1{3,}")
+# 콘텐츠 행 안에 끼인 구분선(`| --- |`) = 중첩표가 markdown 한 셀로 직선화된 흔적(표 레이아웃 HWP)
+_INLINE_SEP_RE = re.compile(r"\|\s*:?-{3,}:?\s*\|")
 FRAG_RATIO_TH = 0.40  # 파편 줄 비율 임계 (평탄화 덤프 판정)
 
 
 def _is_sep(line: str) -> bool:
     return bool(_SEP_RE.match(line)) and "-" in line
+
+
+def _has_nested_table_soup(md: str) -> bool:
+    """표(`|`) 행인데 자체 구분선이 아닌 줄에 `| --- |` 가 끼어 있으면 중첩표 직선화(깨짐)로 본다.
+
+    표 레이아웃 HWP 는 바깥 표 안에 진짜 표가 중첩되는데, markdown 은 표 중첩을 못 그려
+    안쪽 표가 한 셀 안에서 `| --- |` 로 직선화된다. 그 깨진 흔적을 잡아 원본 파일로 우회시킨다.
+    (추출 단계의 _unwrap_nested_tables 가 대부분 막지만, 못 막은 잔여를 여기서 안전망으로 거른다.)
+    """
+    for line in md.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("|") and not _is_sep(line) and _INLINE_SEP_RE.search(stripped):
+            return True
+    return False
 
 
 def _table_cell_empty_ratio(md: str) -> float:
@@ -59,6 +75,7 @@ def assess(md: str, tag: str) -> dict[str, Any]:
     frag_ratio = round(frags / n, 3)
     empty_ratio = round(_table_cell_empty_ratio(md), 3)
     repeat_junk = bool(_REPEAT_RE.search(md))
+    nested_table = _has_nested_table_soup(md)
     low = bool(is_low_quality_text(md))
 
     reasons: list[str] = []
@@ -68,6 +85,8 @@ def assess(md: str, tag: str) -> dict[str, Any]:
         reasons.append(f"평탄화(제목0·표0·파편{int(frag_ratio * 100)}%)")
     if repeat_junk:
         reasons.append("표 동일셀 반복")
+    if nested_table:
+        reasons.append("표 중첩 깨짐")
     if low:
         reasons.append("빈문서/저품질")
 
@@ -82,6 +101,7 @@ def assess(md: str, tag: str) -> dict[str, Any]:
             "fragment_ratio": frag_ratio,
             "table_empty_ratio": empty_ratio,
             "repeat_junk": repeat_junk,
+            "nested_table": nested_table,
             "low_quality": low,
             "chars": len(md),
         },
