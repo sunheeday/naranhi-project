@@ -264,7 +264,15 @@ class GeminiDocumentExtractor:
         raise RuntimeError(f"Gemini(Vertex) request failed: {last_error}")
 
     async def _generate_text_vertex(self, *, models: list[str], prompt: str) -> str:
+        from google.genai import types
+
         client = self._get_vertex_client()
+        # 정제는 마스킹으로 사실(표/날짜/전화/금액)을 이미 잠가둔 '안전한 산문 정리'라 깊은 추론이
+        # 불필요하다. thinking 을 끄면 긴 문서에서 사고 토큰이 출력을 잡아먹어 빈 응답이 오던
+        # 불안정(→ FALLBACK)이 사라지고 더 빠르고 저렴해진다. (OCR/JSON 경로는 건드리지 않음.)
+        text_config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        )
         last_error: Exception | None = None
         for model in _dedupe(models):
             for attempt in range(3):
@@ -272,6 +280,7 @@ class GeminiDocumentExtractor:
                     response = await client.aio.models.generate_content(
                         model=model,
                         contents=[prompt],
+                        config=text_config,
                     )
                     text = (response.text or "").strip()
                     if text:
