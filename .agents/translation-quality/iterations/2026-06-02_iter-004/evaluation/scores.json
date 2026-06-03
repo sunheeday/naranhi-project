@@ -1,0 +1,130 @@
+{
+  "iteration": 4,
+  "date": "2026-06-02",
+  "note": "Phase-2 change scope: only RU_TARGET_RULES added (no ru-specific rules existed before); en/ar prompt outputs verified byte-identical in approach (en/ar bodies same quality as iter-003). weighted_avg computed with meal axis treated as N/A (no meal/menu notices); meal weight (0.7) excluded from denominator. meal=0 = N/A, not a zero score. Scoring strictness held IDENTICAL to iter-001/002/003 (same anchors, same persona frame). RU final_translation TEXT did change vs iter-003 (the new RU rules produced different output), but the change is maintain-to-marginal-improvement on the ru.md checklist (notably n02 opening 'Здравствуйте.' -> 'Уважаемые родители!', and slightly more consistent 'Просим Вас' request patterns). No ru.md feature regressed: capitalized Вы, thousand-separator spaces, «» quotes, 24h time, Russian month-name dates, numeral-noun agreement all preserved. None of these crossed an axis-score threshold (RU tone/culture already at/near ceiling in iter-003), so axis anchors hold identical. en/ar bodies verified equal quality to iter-003. hard_fact validator FAIL status is treated as a pipeline-gate signal, NOT a Fact-axis penalty (all 18 bodies verified accurate by eye).",
+  "languages": ["en", "ru", "ar"],
+  "training_notices": ["n01-bike-safety", "n02-field-trip-consent", "n05-reporter-recruit", "n06-health-class"],
+  "held_out_notices": ["n03-parent-edu-program", "n04-college-info-session"],
+  "status_distribution": {
+    "ready_to_save_count": 11,
+    "ready_to_save": [
+      "n01-bike-safety/en", "n01-bike-safety/ru", "n01-bike-safety/ar",
+      "n02-field-trip-consent/en", "n02-field-trip-consent/ru", "n02-field-trip-consent/ar",
+      "n05-reporter-recruit/en", "n05-reporter-recruit/ru", "n05-reporter-recruit/ar",
+      "n06-health-class/ar",
+      "n04-college-info-session/ar"
+    ],
+    "admin_review_required_count": 7,
+    "admin_review_required": [
+      "n06-health-class/en", "n06-health-class/ru",
+      "n03-parent-edu-program/en", "n03-parent-edu-program/ru", "n03-parent-edu-program/ar",
+      "n04-college-info-session/en", "n04-college-info-session/ru"
+    ],
+    "driver_error_count": 0,
+    "admin_review_dominant_cause": "Residual hard_fact validator false positives, same families as iter-003: (a) grade_class_targets table-vs-target extraction asymmetry / empty target extraction (n06 en, n06 ru, n04 en, n04 ru) — bodies list all grades correctly; (b) fees split-clause comparison where source '무료(단, 재료비는 학습자 부담)' is compared as 'free' on one side and 'material costs borne by learner' on the other (n03 en, n03 ru, n03 ar) — bodies translate the full clause correctly. All 7 bodies verified correct; NOT translation-quality drops. The run-to-run shift (5->7) reflects LLM hard-fact extraction variance, not a quality change.",
+    "iter003_to_iter004_status_delta": "ready_to_save 13 -> 11 (-2); admin_review 5 -> 7 (+2). Two cases moved ready->admin: (1) n03 ru fees split-clause false positive surfaced in ru this run (n03 en/ar already had it in iter-003; the same family now also hits ru). (2) n04 en grade_class_targets empty-extraction false positive surfaced in en this run (n04 ru already had it in iter-003; iter-003 n04 en had recovered to ready). Both are validator/LLM-extraction artifacts with verified-correct bodies, NOT quality regressions. n06 en/ru and n03 en/ar remained admin (same as iter-003)."
+  },
+  "scores": {
+    "n01-bike-safety": {
+      "en": {"fact": 4, "action": 5, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.746, "critical_count": 0, "status": "ready_to_save"},
+      "ru": {"fact": 4, "action": 5, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 5, "meal": 0, "safety": 5, "weighted_avg": 4.859, "critical_count": 0, "status": "ready_to_save"},
+      "ar": {"fact": 4, "action": 5, "tone": 5, "completeness": 5, "naturalness": 4, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.648, "critical_count": 0, "status": "ready_to_save"}
+    },
+    "n02-field-trip-consent": {
+      "en": {"fact": 4, "action": 4, "tone": 4, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.493, "critical_count": 0, "status": "ready_to_save"},
+      "ru": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.606, "critical_count": 0, "status": "ready_to_save"},
+      "ar": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 4, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.507, "critical_count": 0, "status": "ready_to_save"}
+    },
+    "n05-reporter-recruit": {
+      "en": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.606, "critical_count": 0, "status": "ready_to_save"},
+      "ru": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 5, "meal": 0, "safety": 5, "weighted_avg": 4.718, "critical_count": 0, "status": "ready_to_save"},
+      "ar": {"fact": 4, "action": 4, "tone": 5, "completeness": 4, "naturalness": 4, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.394, "critical_count": 0, "status": "ready_to_save"}
+    },
+    "n06-health-class": {
+      "en": {"fact": 4, "action": 4, "tone": 4, "completeness": 5, "naturalness": 5, "culture": 5, "meal": 0, "safety": 5, "weighted_avg": 4.606, "critical_count": 0, "status": "admin_review_required", "status_note": "hard_fact FAIL on grade_class_targets (table class-label vs grade-target extraction asymmetry); body lists grades 1-6 correctly across Classes A-D. Gate artifact (same as iter-003)."},
+      "ru": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 4, "culture": 5, "meal": 0, "safety": 5, "weighted_avg": 4.62, "critical_count": 0, "status": "admin_review_required", "status_note": "hard_fact FAIL on grade_class_targets (extraction misfire); body lists grades 1-6 correctly. Gate artifact (same as iter-003)."},
+      "ar": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 4, "culture": 5, "meal": 0, "safety": 5, "weighted_avg": 4.62, "critical_count": 0, "status": "ready_to_save"}
+    },
+    "n03-parent-edu-program": {
+      "en": {"fact": 4, "action": 4, "tone": 4, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.493, "critical_count": 0, "status": "admin_review_required", "status_note": "hard_fact FAIL on fees (free vs material-cost sub-clause); body preserves both correctly. Gate artifact (same as iter-003)."},
+      "ru": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.606, "critical_count": 0, "status": "admin_review_required", "status_note": "STATUS REGRESSION vs iter-003 (was ready_to_save). hard_fact FAIL on fees (free vs material-cost sub-clause). Body: 'Стоимость курса: Бесплатно. Расходы на материалы оплачиваются слушателем.' — full clause correct. Same split-clause family that hit n03 en/ar in iter-003; now also surfaces in ru. Gate/LLM-extraction artifact, NOT a quality drop."},
+      "ar": {"fact": 4, "action": 4, "tone": 5, "completeness": 5, "naturalness": 4, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.507, "critical_count": 0, "status": "admin_review_required", "status_note": "hard_fact FAIL on fees (free vs material-cost sub-clause); body 'مجانية. (ملاحظة: يتحمل المتعلم تكاليف المواد)' correct. Gate artifact (same as iter-003)."}
+    },
+    "n04-college-info-session": {
+      "en": {"fact": 5, "action": 5, "tone": 4, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.775, "critical_count": 0, "status": "admin_review_required", "status_note": "STATUS REGRESSION vs iter-003 (was ready_to_save). hard_fact FAIL on grade_class_targets (target extraction empty). Body: 'Students in grades 1, 2, and 3 of our school' correct. Same empty-extraction family that hit n04 ru in iter-003; now surfaces in en. Gate/LLM-extraction artifact, NOT a quality drop."},
+      "ru": {"fact": 5, "action": 5, "tone": 5, "completeness": 5, "naturalness": 5, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.887, "critical_count": 0, "status": "admin_review_required", "status_note": "hard_fact FAIL on grade_class_targets (target extraction empty); body 'Учащиеся 1-го, 2-го и 3-го классов' correct. Gate artifact (same as iter-003)."},
+      "ar": {"fact": 5, "action": 5, "tone": 5, "completeness": 5, "naturalness": 4, "culture": 4, "meal": 0, "safety": 5, "weighted_avg": 4.789, "critical_count": 0, "status": "ready_to_save"}
+    }
+  },
+  "train_avg_by_axis": {
+    "en": {"fact": 4.0, "action": 4.25, "tone": 4.5, "completeness": 5.0, "naturalness": 5.0, "culture": 4.25, "meal": 0.0, "safety": 5.0},
+    "ru": {"fact": 4.0, "action": 4.25, "tone": 5.0, "completeness": 5.0, "naturalness": 4.75, "culture": 4.75, "meal": 0.0, "safety": 5.0},
+    "ar": {"fact": 4.0, "action": 4.25, "tone": 5.0, "completeness": 4.75, "naturalness": 4.0, "culture": 4.25, "meal": 0.0, "safety": 5.0}
+  },
+  "held_out_avg_by_axis": {
+    "en": {"fact": 4.5, "action": 4.5, "tone": 4.0, "completeness": 5.0, "naturalness": 5.0, "culture": 4.0, "meal": 0.0, "safety": 5.0},
+    "ru": {"fact": 4.5, "action": 4.5, "tone": 5.0, "completeness": 5.0, "naturalness": 5.0, "culture": 4.0, "meal": 0.0, "safety": 5.0},
+    "ar": {"fact": 4.5, "action": 4.5, "tone": 5.0, "completeness": 5.0, "naturalness": 4.0, "culture": 4.0, "meal": 0.0, "safety": 5.0}
+  },
+  "train_avg_by_lang": {"en": 4.613, "ru": 4.701, "ar": 4.542},
+  "held_out_avg_by_lang": {"en": 4.634, "ru": 4.746, "ar": 4.648},
+  "train_critical_by_lang": {"en": 0, "ru": 0, "ar": 0},
+  "held_out_critical_by_lang": {"en": 0, "ru": 0, "ar": 0},
+  "train_avg_overall": 4.619,
+  "held_out_avg_overall": 4.676,
+  "generalization_gap": -0.057,
+  "total_critical_count": 0,
+  "ru_change_assessment": {
+    "verdict": "maintained_with_marginal_improvement",
+    "ru_body_changed_vs_iter003": true,
+    "evidence": [
+      "n02 opening: iter-003 'Здравствуйте.' (literal 안녕하세요) -> iter-004 'Уважаемые родители!' — now matches ru.md preferred opening (line 80 anti-pattern fixed).",
+      "Request pattern: iter-004 uses 'Просим Вас + ...' more consistently across notices (ru.md Register checklist); iter-003 sometimes used 'Мы убедительно просим' / bare 'просим'.",
+      "All ru.md must-pass features preserved with no regression: capitalized Вы (verified, no lowercase вы leaks), thousand-separator SPACE (250 000 / 71 600 / 1 600), «» quotes, 24h time (15:00-17:00, 19:30-20:10), Russian month-name dates '19 октября (понедельник)', numeral-noun agreement (1, 2 и 3 классов / 20 родителей / 40 минут), Korean school-concept handling (수련회 -> 'внеклассное мероприятие для молодежи (школьный лагерь)')."
+    ],
+    "axis_impact": "None of the marginal improvements cross an axis-score threshold: RU tone and culture were already at/near ceiling in iter-003 (tone 5.0 train, culture 4.75 train). The greeting/request refinements reinforce an already-5.0 tone rather than lifting a sub-threshold score. RU axis anchors therefore hold identical to iter-003."
+  },
+  "en_ar_regression_check": {
+    "any_axis_drop": false,
+    "any_drop_ge_0.5": false,
+    "note": "en/ar final_translation bodies verified equal quality to iter-003 on all axes (Phase-2 left en/ar prompts effectively unchanged). No axis moved. n04 en and n03 (en/ar) status shifts are validator/LLM-extraction artifacts with verified-correct bodies, not quality regressions."
+  },
+  "delta_vs_iter003": {
+    "train_avg_by_lang": {"en": 0.0, "ru": 0.0, "ar": 0.0},
+    "held_out_avg_by_lang": {"en": 0.0, "ru": 0.0, "ar": 0.0},
+    "train_avg_overall": 0.0,
+    "held_out_avg_overall": 0.0,
+    "generalization_gap": 0.0,
+    "train_avg_by_axis": {
+      "en": {"fact": 0.0, "action": 0.0, "tone": 0.0, "completeness": 0.0, "naturalness": 0.0, "culture": 0.0, "meal": 0.0, "safety": 0.0},
+      "ru": {"fact": 0.0, "action": 0.0, "tone": 0.0, "completeness": 0.0, "naturalness": 0.0, "culture": 0.0, "meal": 0.0, "safety": 0.0},
+      "ar": {"fact": 0.0, "action": 0.0, "tone": 0.0, "completeness": 0.0, "naturalness": 0.0, "culture": 0.0, "meal": 0.0, "safety": 0.0}
+    },
+    "note": "All axis anchors held identical to iter-003. RU body changed (new RU rules) but the change is maintain-to-marginal-improvement on the ru.md checklist with no threshold crossing, so axis scores are unchanged. en/ar bodies unchanged in quality. Change in this iteration is in STATUS (admin_review 5->7) driven by LLM hard-fact extraction run-to-run variance on the same two false-positive families (fees split-clause, grade_class_targets empty extraction), not in axis SCORES."
+  },
+  "diminishing_returns_check": {
+    "two_consecutive_held_out_improvement_lt_0.1": "iter-002->003 0.0 and iter-003->004 0.0 are both <0.1; but ship_ready hard-stop already met and is the controlling verdict.",
+    "held_out_overall_delta_iter002_to_003": 0.0,
+    "held_out_overall_delta_iter003_to_004": 0.0,
+    "note": "Held-out flat for two consecutive transitions (0.0, 0.0). This satisfies the diminishing_returns trigger condition, but ship_ready (hard stop) supersedes; either way the conclusion is terminate."
+  },
+  "blocking_regression_check": {
+    "any_lang_drop_ge_0.5": false,
+    "held_out_declined": false,
+    "three_consecutive_held_out_regression": false,
+    "ru_regressed": false,
+    "note": "No language dropped on any axis (RU maintained/marginally improved; en/ar flat). Held-out flat (delta 0.0), not declined. No 0.5+ drop. n03 ru and n04 en status moved to admin_review but are validator-gate artifacts (bodies correct), not quality regressions. Not blocking_regression -> no RU_TARGET_RULES rollback recommended."
+  },
+  "ship_ready_check": {
+    "train_avg_ge_4.2_all_lang": true,
+    "held_out_avg_ge_4.0_all_lang": true,
+    "critical_count_0_all_lang": true,
+    "safety_ge_4_all_lang": true,
+    "fact_ge_4_action_ge_4_meal_ge_4_all_lang": true,
+    "comprehension_pass_full": true,
+    "held_out_no_decline_2_consecutive_iters": true,
+    "all_satisfied": true,
+    "note": "ALL 6 hard-stop conditions met. Condition 6: held-out transitions iter-002->003 (+0.0, no decline) and iter-003->004 (+0.0, no decline) -> no decline across the last 2 iterations. RU change confirmed non-regressive (maintained + marginal improvement). en/ar non-regressive. Verdict: ship_ready (held)."
+  },
+  "verdict": "ship_ready"
+}

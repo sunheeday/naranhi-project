@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import CharacterEmptyState from '@/components/brand/CharacterEmptyState'
 
 export interface ScheduleEvent {
   id: string
@@ -162,10 +163,7 @@ export default function CalendarView({
       <div className="mt-4 px-6 flex flex-col gap-3 pb-24">
         <p className="text-sm font-semibold text-text-secondary">{monthEventsTitle.replace('{month}', String(month))}</p>
         {currentMonthEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <span className="text-4xl" aria-hidden="true">📅</span>
-            <p className="text-sm text-text-secondary">{noEventsLabel}</p>
-          </div>
+          <CharacterEmptyState character="walk" title={noEventsLabel} size="compact" />
         ) : (
           currentMonthEvents.map(e => (
             <EventCard key={e.id} event={e} />
@@ -212,10 +210,7 @@ export default function CalendarView({
             </p>
           )}
           {sheetEvents.length === 0 ? (
-            <div className="flex flex-col items-center py-8 gap-3">
-              <span className="text-3xl" aria-hidden="true">📅</span>
-              <p className="text-sm text-text-secondary">{noEventsLabel}</p>
-            </div>
+            <CharacterEmptyState character="pointBlue" title={noEventsLabel} size="compact" />
           ) : (
             <div className="flex flex-col gap-3 pb-2">
               {sheetEvents.map(e => (

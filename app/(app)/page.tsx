@@ -6,8 +6,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
+import BrandHeader from '@/components/brand/BrandHeader'
+import CharacterEmptyState from '@/components/brand/CharacterEmptyState'
 import HomePoller from './HomePoller'
-import NoticeCardItem from './NoticeCardItem'
+import HomeNoticeSections from './HomeNoticeSections'
 import SchoolCrawlerKickoff from './SchoolCrawlerKickoff'
 import HomeNoticeTranslationKickoff from './HomeNoticeTranslationKickoff'
 
@@ -28,6 +30,11 @@ interface DisplayNotice {
   status: NoticeStatus
   arrivedAt: string
   needsTranslation: boolean
+  /** 학부모 행동이 필요한 공지(제출·납부·준비물 등)인지 — 홈 섹션 구분 기준 */
+  actionRequired: boolean
+  /** 연결된 일정이 있을 때의 마감/일정 칩 (예: 'D-3 · 4/18'), 없으면 null */
+  dueLabel: string | null
+  dueUrgent: boolean
 }
 
 type CategoryLabels = Record<Locale, string>
@@ -40,6 +47,12 @@ const BADGE: Record<'supplies' | 'action' | 'schedule' | 'null', { bar: string; 
     label: { ko: '일정', en: 'Schedule', zh: '日程', vi: 'Lịch', ru: 'Расписание', ar: 'الجدول', fr: 'Planning', id: 'Jadwal', th: 'ตารางเวลา' } },
   null:     { bar: 'bg-ink',          bg: 'bg-surface-card',    text: 'text-ink',
     label: { ko: '공지', en: 'Notice', zh: '通知', vi: 'Thông báo', ru: 'Объявление', ar: 'إشعار', fr: 'Annonce', id: 'Pemberitahuan', th: 'ประกาศ' } },
+}
+
+// 홈 상단 섹션 라벨 (행동 필요 / 단순 안내)
+const SECTION_LABELS: { todo: CategoryLabels; news: CategoryLabels } = {
+  todo: { ko: '해야 할 일', en: 'To-do', zh: '待办事项', vi: 'Việc cần làm', ru: 'Нужно сделать', ar: 'مهام مطلوبة', fr: 'À faire', id: 'Perlu dilakukan', th: 'สิ่งที่ต้องทำ' },
+  news: { ko: '소식', en: 'News', zh: '通知消息', vi: 'Tin tức', ru: 'Новости', ar: 'أخبار', fr: 'Actualités', id: 'Kabar', th: 'ข่าวสาร' },
 }
 
 interface HomeMessages {
@@ -127,6 +140,40 @@ function dominantCardType(cards: { type: string }[]): 'supplies' | 'action' | 's
   return null
 }
 
+// 학부모가 뭔가 해야 하는 공지(제출·납부·준비물)면 '해야 할 일', 그 외(단순 일정/안내)는 '소식'.
+function isActionRequired(cards: { type: string }[]): boolean {
+  return cards.some(c => c.type === 'action' || c.type === 'supplies')
+}
+
+function isoToUtcMs(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number)
+  return Date.UTC(y, (m ?? 1) - 1, d ?? 1)
+}
+
+function todayKstIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+/**
+ * 연결된 일정(event_date)으로 D-day 칩을 만든다.
+ * 지난 날짜는 마감 정보로 부적절하므로 표시하지 않는다(null).
+ * 주의: event_date는 '행사일'이며 정확한 '제출 마감일'과 다를 수 있다.
+ */
+function computeDue(eventDate: string | null | undefined, todayIso: string): { label: string; urgent: boolean } | null {
+  if (!eventDate || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return null
+  const days = Math.round((isoToUtcMs(eventDate) - isoToUtcMs(todayIso)) / 86400000)
+  if (days < 0) return null
+  const [, m, d] = eventDate.split('-')
+  const md = `${Number(m)}/${Number(d)}`
+  const dtag = days === 0 ? 'D-DAY' : `D-${days}`
+  return { label: `${dtag} · ${md}`, urgent: days <= 3 }
+}
+
 function previewNotices(): DisplayNotice[] {
   return [
     {
@@ -136,6 +183,9 @@ function previewNotices(): DisplayNotice[] {
       status: 'done',
       arrivedAt: '12분 전',
       needsTranslation: false,
+      actionRequired: true,
+      dueLabel: 'D-3 · 4/18',
+      dueUrgent: true,
     },
     {
       id: 'preview-supplies',
@@ -144,14 +194,31 @@ function previewNotices(): DisplayNotice[] {
       status: 'done',
       arrivedAt: '2시간 전',
       needsTranslation: false,
+      actionRequired: true,
+      dueLabel: 'D-9 · 4/24',
+      dueUrgent: false,
     },
     {
       id: 'preview-schedule',
       cardType: 'schedule',
       title: '학부모 상담주간 일정 안내',
-      status: 'processing',
+      status: 'done',
       arrivedAt: '어제',
       needsTranslation: false,
+      actionRequired: false,
+      dueLabel: 'D-12 · 4/27',
+      dueUrgent: false,
+    },
+    {
+      id: 'preview-info',
+      cardType: null,
+      title: '4월 학사일정 및 휴업일 안내',
+      status: 'done',
+      arrivedAt: '2일 전',
+      needsTranslation: false,
+      actionRequired: false,
+      dueLabel: null,
+      dueUrgent: false,
     },
   ]
 }
@@ -274,88 +341,126 @@ export default async function HomePage() {
         ;(cardsByNotice[c.notice_id] ??= []).push({ type: c.type })
       }
 
-      notices = rows.map(row => ({
-        id: row.id,
-        cardType: dominantCardType(cardsByNotice[row.id] ?? []),
-        title: pickTitle({ ...(row as NoticeRow), ai_translations: translationsByNotice[row.id] ?? {} }, locale, homeMsg),
-        status: row.status,
-        arrivedAt: relativeTime(row.created_at, homeMsg),
-        needsTranslation: locale !== 'ko' && !translationsByNotice[row.id]?.[locale],
-      }))
+      // 공지별 D-day용 날짜: 연결된 일정(schedules) 중 오늘 이후 가장 가까운 event_date.
+      // event_date가 없으면 칩은 표시하지 않는다(안전).
+      const todayIso = todayKstIso()
+      const dueByNotice: Record<string, string> = {}
+      if (child.id) {
+        const { data: scheduleRows } = await supabase
+          .from('schedules')
+          .select('notice_id, event_date')
+          .eq('child_id', child.id)
+          .in('notice_id', noticeIds)
+          .gte('event_date', todayIso)
+          .order('event_date', { ascending: true })
+        for (const s of scheduleRows ?? []) {
+          if (s.notice_id && s.event_date && !dueByNotice[s.notice_id]) {
+            dueByNotice[s.notice_id] = s.event_date
+          }
+        }
+      }
+
+      notices = rows.map(row => {
+        const noticeCards = cardsByNotice[row.id] ?? []
+        const due = computeDue(dueByNotice[row.id], todayIso)
+        return {
+          id: row.id,
+          cardType: dominantCardType(noticeCards),
+          title: pickTitle({ ...(row as NoticeRow), ai_translations: translationsByNotice[row.id] ?? {} }, locale, homeMsg),
+          status: row.status,
+          arrivedAt: relativeTime(row.created_at, homeMsg),
+          needsTranslation: locale !== 'ko' && !translationsByNotice[row.id]?.[locale],
+          actionRequired: isActionRequired(noticeCards),
+          dueLabel: due?.label ?? null,
+          dueUrgent: due?.urgent ?? false,
+        }
+      })
     }
   }
 
   const shouldCollectSchoolNotices = schoolCrawlerState ? schoolNeedsInitialCrawl(schoolCrawlerState) : false
   const isPreparingSchoolNotices = shouldCollectSchoolNotices || hasProcessingNotices
 
+  const actionNotices = notices.filter(n => n.actionRequired)
+  const infoNotices = notices.filter(n => !n.actionRequired)
+  const todoTitle = SECTION_LABELS.todo[locale] ?? SECTION_LABELS.todo.ko
+  const newsTitle = SECTION_LABELS.news[locale] ?? SECTION_LABELS.news.ko
+
+  const mapNoticeForClient = (notice: DisplayNotice) => {
+    const badge = BADGE[notice.cardType ?? 'null']
+    const badgeLabel = badge.label[locale] ?? badge.label.ko
+    return {
+      id: notice.id,
+      accentBar: badge.bar,
+      badgeBg: badge.bg,
+      badgeText: badge.text,
+      badgeLabel,
+      title: notice.title,
+      statusLabel: notice.status !== 'done' ? statusLabel(notice.status, homeMsg) : '',
+      arrivedAt: notice.arrivedAt,
+      arrivedSuffix: homeMsg.relative.arrived_suffix,
+      dueLabel: notice.dueLabel,
+      dueUrgent: notice.dueUrgent,
+      deleteLabel: messages.home.delete ?? '삭제',
+      confirmTitle: messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?',
+      confirmBody: messages.home.hide_confirm_body,
+      confirmCancel: messages.common.cancel ?? '취소',
+      confirmDelete: messages.home.delete ?? '삭제',
+      deletingLabel: messages.home.deleting ?? '삭제 중...',
+    }
+  }
+
   return (
     <main className="flex flex-col min-h-screen pb-24">
-      <HomePoller hasPending={hasProcessingNotices} />
+      <HomePoller active={isPreparingSchoolNotices} />
       <HomeNoticeTranslationKickoff
         locale={locale}
         noticeIds={notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
       />
-      <header className="sticky top-0 bg-canvas border-b border-hairline-soft px-6 py-4 flex items-center justify-between z-10">
-        <div className="min-w-0">
-          <span className="block text-base font-bold text-ink truncate" style={{ letterSpacing: '-0.01em' }}>{messages.common.app_name}</span>
-          <p className="text-xs text-muted truncate mt-0.5">{childInfo}</p>
-        </div>
-        <Link
-          href="/settings"
-          aria-label={messages.nav.settings}
-          className="w-10 h-10 flex items-center justify-center rounded-full active:bg-surface-card"
-        >
-          <SettingsIcon />
-        </Link>
-      </header>
+      <BrandHeader
+        title={messages.common.app_name}
+        subtitle={childInfo}
+        character="readingPaper"
+        rightSlot={
+          <Link
+            href="/settings"
+            aria-label={messages.nav.settings}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface/70 active:bg-surface"
+          >
+            <SettingsIcon />
+          </Link>
+        }
+      />
 
-      <section className="px-6 pt-6">
-        <p className="text-xs font-medium text-muted-soft uppercase tracking-wide mb-3">{messages.home.notices_title}</p>
-
+      <section className="px-6 pt-6 flex flex-col gap-7">
         {notices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <span className="text-3xl" aria-hidden="true">📭</span>
-            <p className="text-sm text-muted-soft text-center">
-              {isPreparingSchoolNotices
-                ? messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'
-                : messages.home.no_notices}
-            </p>
-            {isPreparingSchoolNotices && schoolCrawlerState ? (
-              <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} />
-            ) : null}
-          </div>
+          isPreparingSchoolNotices ? (
+            <CharacterEmptyState
+              character="standingPaper"
+              title={messages.home.crawl_collecting ?? '학교 공지를 가져오는 중이에요.'}
+              action={
+                schoolCrawlerState ? <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} /> : undefined
+              }
+            />
+          ) : (
+            <CharacterEmptyState
+              character="readingBlue"
+              title={messages.home.no_notices}
+            />
+          )
         ) : (
           <>
             {isPreparingSchoolNotices && schoolCrawlerState ? (
               <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} showFailure={false} />
             ) : null}
-            <ul className="flex flex-col gap-3">
-              {notices.map(notice => {
-                const badge = BADGE[notice.cardType ?? 'null']
-                const badgeLabel = badge.label[locale] ?? badge.label.ko
-                return (
-                  <li key={notice.id}>
-                    <NoticeCardItem
-                      noticeId={notice.id}
-                      title={notice.title}
-                      statusLabel={notice.status !== 'done' ? statusLabel(notice.status, homeMsg) : ''}
-                      arrivedAt={notice.arrivedAt}
-                      arrivedSuffix={homeMsg.relative.arrived_suffix}
-                      accentBar={badge.bar}
-                      badgeBg={badge.bg}
-                      badgeText={badge.text}
-                      badgeLabel={badgeLabel}
-                      deleteLabel={messages.home.delete ?? '삭제'}
-                      confirmTitle={messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?'}
-                      confirmBody={messages.home.hide_confirm_body}
-                      confirmCancel={messages.common.cancel ?? '취소'}
-                      confirmDelete={messages.home.delete ?? '삭제'}
-                      deletingLabel={messages.home.deleting ?? '삭제 중...'}
-                    />
-                  </li>
-                )
-              })}
-            </ul>
+
+            <HomeNoticeSections
+              locale={locale}
+              todoTitle={todoTitle}
+              newsTitle={newsTitle}
+              actionNotices={actionNotices.map(mapNoticeForClient)}
+              infoNotices={infoNotices.map(mapNoticeForClient)}
+            />
           </>
         )}
       </section>
@@ -365,7 +470,7 @@ export default async function HomePage() {
 
 function SettingsIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="#111111" aria-hidden="true">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="#2B211C" aria-hidden="true">
       <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.02 7.02 0 0 0-1.62-.94l-.36-2.54A.484.484 0 0 0 14 4h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
     </svg>
   )

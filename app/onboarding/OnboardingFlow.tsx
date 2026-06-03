@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { Locale } from '@/lib/i18n'
+import CharacterImage from '@/components/brand/CharacterImage'
 import { saveChildAndProfile } from './actions'
 import SchoolSearchInput, { type SchoolPick } from './SchoolSearchInput'
 
@@ -128,11 +129,14 @@ export default function OnboardingFlow({ messages, locale }: Props) {
 
       {step === 1 && (
         <form onSubmit={handleStep1Submit} className="flex flex-col gap-6">
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">{messages.step1_title}</h1>
-            {messages.step1_search_hint && (
-              <p className="text-sm text-text-secondary mt-1">{messages.step1_search_hint}</p>
-            )}
+          <div className="flex flex-col items-center text-center gap-3">
+            <CharacterImage character="pointYellow" size={104} disc priority />
+            <div>
+              <h1 className="text-xl font-bold text-text-primary">{messages.step1_title}</h1>
+              {messages.step1_search_hint && (
+                <p className="text-sm text-text-secondary mt-1">{messages.step1_search_hint}</p>
+              )}
+            </div>
           </div>
           <SchoolSearchInput
             value={school}
@@ -154,7 +158,10 @@ export default function OnboardingFlow({ messages, locale }: Props) {
 
       {step === 2 && (
         <form onSubmit={studentForm.handleSubmit(handleStudentSubmit)} className="flex flex-col gap-6">
-          <h1 className="text-xl font-bold text-text-primary">{messages.step3_title}</h1>
+          <div className="flex flex-col items-center text-center gap-3">
+            <CharacterImage character="holdingHands" size={104} disc priority />
+            <h1 className="text-xl font-bold text-text-primary">{messages.step3_title}</h1>
+          </div>
           <div className="flex flex-col gap-3">
             <select
               {...studentForm.register('grade', { valueAsNumber: true })}

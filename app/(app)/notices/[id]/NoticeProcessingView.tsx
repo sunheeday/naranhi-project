@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import CharacterImage from '@/components/brand/CharacterImage'
 
 interface Props {
   noticeId: string
@@ -37,8 +38,9 @@ export default function NoticeProcessingView({ noticeId, title, description }: P
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 gap-6">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" aria-label="processing" />
+      <div className="flex flex-col items-center gap-4">
+        <CharacterImage character="standingPaper" size={120} disc />
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" aria-label="processing" />
         <h1 className="text-lg font-bold text-text-primary text-center">{title}</h1>
         <p className="text-sm text-text-secondary text-center">{description}</p>
       </div>

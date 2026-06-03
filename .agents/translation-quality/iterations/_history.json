@@ -1,0 +1,61 @@
+[
+  {
+    "iter": 1,
+    "date": "2026-06-01",
+    "scores": {
+      "en": { "train_avg": 3.86, "held_out_avg": 4.02 },
+      "ru": { "train_avg": 4.1, "held_out_avg": 4.16 },
+      "ar": { "train_avg": 3.98, "held_out_avg": 4.08 }
+    },
+    "train_avg": 3.98,
+    "held_out_avg": 4.08,
+    "generalization_gap": -0.105,
+    "critical_count": 0,
+    "verdict": "needs_iteration"
+  },
+  {
+    "iter": 2,
+    "date": "2026-06-02",
+    "scores": {
+      "en": { "train_avg": 4.61, "held_out_avg": 4.63 },
+      "ru": { "train_avg": 4.7, "held_out_avg": 4.75 },
+      "ar": { "train_avg": 4.54, "held_out_avg": 4.65 }
+    },
+    "train_avg": 4.62,
+    "held_out_avg": 4.68,
+    "generalization_gap": -0.057,
+    "critical_count": 0,
+    "verdict": "needs_iteration",
+    "note": "CS#1/#2/#3 all effective: en anti-literal fix (+1.0 Naturalness), food-traffic-light corrected in all 3 langs, n01 PASS+ready via validator symmetrization. No regression (gap still negative). n04 en/ar status->admin_review is a validator-gate artifact (grade_class_targets/dates normalization asymmetry), NOT a quality drop. Remaining high-leverage non-translation issue: hard_fact false positives on dates/grade_class_targets/times sending 15/18 to admin_review."
+  },
+  {
+    "iter": 3,
+    "date": "2026-06-02",
+    "scores": {
+      "en": { "train_avg": 4.61, "held_out_avg": 4.63 },
+      "ru": { "train_avg": 4.7, "held_out_avg": 4.75 },
+      "ar": { "train_avg": 4.54, "held_out_avg": 4.65 }
+    },
+    "train_avg": 4.62,
+    "held_out_avg": 4.68,
+    "generalization_gap": -0.057,
+    "critical_count": 0,
+    "verdict": "ship_ready",
+    "note": "Clean stabilization iteration. Axis scores held identical to iter-002 across all langs/axes (no observed translation-text quality change; CS#1 is validator-only). Change is in STATUS not score: ready_to_save 3->13, admin_review 15->5 as CS#1 (dates/times/grade_class_targets normalization) cleared the dominant false positives. iter-002 status regressions n04 en (grade_class_targets) and n04 ar (dates 2028) both recovered to ready_to_save. ship_ready 6/6 hard-stop conditions met: condition 6 ('no held-out decline across last 2 iters') now satisfiable and satisfied (iter-001->002 +0.59, iter-002->003 0.0; both non-declining). Remaining 5 admin_review cases (n06 en/ru, n03 en/ar, n04 ru) verified as validator-gate / LLM-extraction artifacts, bodies correct, NOT quality issues. No regression, gap stays negative (held-out > train). Recommend auto-termination."
+  },
+  {
+    "iter": 4,
+    "date": "2026-06-02",
+    "scores": {
+      "en": { "train_avg": 4.61, "held_out_avg": 4.63 },
+      "ru": { "train_avg": 4.7, "held_out_avg": 4.75 },
+      "ar": { "train_avg": 4.54, "held_out_avg": 4.65 }
+    },
+    "train_avg": 4.62,
+    "held_out_avg": 4.68,
+    "generalization_gap": -0.057,
+    "critical_count": 0,
+    "verdict": "ship_ready",
+    "note": "Phase-2 added RU_TARGET_RULES only (en/ar prompts effectively unchanged). RU final_translation TEXT did change vs iter-003, but assessment = maintained + marginal improvement on ru.md checklist: n02 opening 'Здравствуйте.'->'Уважаемые родители!' (literal-greeting anti-pattern fixed), 'Просим Вас' request pattern more consistent; all must-pass features preserved (capitalized Вы, thousand-separator spaces 250 000, «», 24h time, Russian month-name dates, numeral-noun agreement, Korean school-concept meaning translation). No ru.md feature regressed -> RU NOT a regression; rollback NOT recommended. Since RU tone/culture were already at ceiling in iter-003, marginal gains do not cross axis thresholds -> axis scores held identical. en/ar bodies verified equal quality to iter-003 (no axis drop, no 0.5 fall). STATUS: ready_to_save 13->11, admin_review 5->7. The two new admin cases (n03 ru fees split-clause; n04 en grade_class_targets empty-extraction) are the SAME validator/LLM-extraction false-positive families already documented in iter-002/003 (n03 en/ar fees; n04 ru grades) rotating across languages run-to-run; all 18 bodies verified correct -> NOT quality regressions and NOT caused by RU rules. blocking_regression NOT met (no 0.5 drop, held-out flat, gap -0.057). ship_ready 6/6 still satisfied; held-out non-declining for iter-002->003 (0.0) and iter-003->004 (0.0). Recommend auto-termination."
+  }
+]

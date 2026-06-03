@@ -1,0 +1,338 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ar",
+  "source_text": "# 학부모 디지털 안전 교육 신청 안내\n\n학부모님께,\n\n자녀의 온라인 안전 지도를 돕기 위한 학부모 대상 교육을 운영합니다.\n\n- 신청 기간: 2026년 7월 1일(수) ~ 2026년 7월 8일(수)\n- 교육 일시: 2026년 7월 15일(수) 10:00 ~ 12:00\n- 교육 방법: 온라인 화상 교육\n- 신청 방법: 이메일 접수 parentsafe@ice.go.kr\n- 문의: 학부모지원팀 032-600-4490\n- 대상: 초등학생 및 중학생 보호자 40명\n\n다문화가정 보호자도 쉽게 참여할 수 있도록 쉬운 안내 자료를 함께 제공할 예정입니다.\n",
+  "final_translation": "إشعار بخصوص التقديم لتعليم أولياء الأمور حول السلامة الرقمية\n\nحضرات أولياء الأمور الكرام،\n\nنقدم برنامجًا تعليميًا لأولياء الأمور لمساعدتهم في توجيه أبنائهم نحو السلامة عبر الإنترنت.\n\nفترة التقديم: 1 يوليو 2026 (الأربعاء) ~ 8 يوليو 2026 (الأربعاء)\nتاريخ ووقت التعليم: 15 يوليو 2026 (الأربعاء) 10:00 ~ 12:00\nطريقة التعليم: تعليم عبر الفيديو عبر الإنترنت\nطريقة التقديم: إرسال عبر البريد الإلكتروني إلى: parentsafe@ice.go.kr\nللاستفسارات: فريق دعم أولياء الأمور على الرقم: 032-600-4490\nالجمهور المستهدف: 40 ولي أمر لطلاب المدارس الابتدائية والإعدادية\n\nسيتم توفير مواد إرشادية سهلة الفهم لضمان سهولة المشاركة لأولياء الأمور من الأسر متعددة الثقافات.",
+  "source_hard_facts": {
+    "document_type": "notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "2026년 7월 1일(수)",
+          "normalized": "2026-07-01",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2026년 7월 15일(수)",
+          "normalized": "2026-07-15",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "10:00 ~ 12:00",
+          "normalized": "10:00-12:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "온라인 화상 교육",
+          "normalized": "online video education",
+          "confidence": 1.0
+        }
+      ],
+      "materials": [],
+      "submissions": [
+        {
+          "raw_text": "이메일 접수",
+          "normalized": "email submission",
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "2026년 7월 8일(수)",
+          "normalized": "2026-07-08",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "학부모지원팀 032-600-4490",
+          "normalized": "032-600-4490",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "parentsafe@ice.go.kr",
+          "normalized": "parentsafe@ice.go.kr",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "초등학생 및 중학생 보호자",
+          "normalized": "guardians of elementary and middle school students",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "40명",
+          "normalized": "40 people",
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "신청",
+          "normalized": "apply",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "이메일 접수",
+          "normalized": "submit via email",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "Notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": "ولي أمر لطلاب المدارس الابتدائية والإعدادية",
+      "other": "40"
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "1 يوليو 2026 (الأربعاء)",
+          "normalized": "2026-07-01",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "8 يوليو 2026 (الأربعاء)",
+          "normalized": "2026-07-08",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "15 يوليو 2026 (الأربعاء)",
+          "normalized": "2026-07-15",
+          "inferred_year_required": false,
+          "confidence": 1.0
+        }
+      ],
+      "times": [
+        {
+          "raw_text": "10:00 ~ 12:00",
+          "normalized": "10:00-12:00",
+          "confidence": 1.0
+        }
+      ],
+      "locations": [
+        {
+          "raw_text": "تعليم عبر الفيديو عبر الإنترنت",
+          "normalized": "Online video education",
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "مواد إرشادية سهلة الفهم",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [
+        {
+          "raw_text": "إرسال عبر البريد الإلكتروني",
+          "normalized": "Email submission",
+          "confidence": 1.0
+        }
+      ],
+      "deadlines": [
+        {
+          "raw_text": "8 يوليو 2026 (الأربعاء)",
+          "normalized": "2026-07-08",
+          "confidence": 1.0
+        }
+      ],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "parentsafe@ice.go.kr",
+          "normalized": "parentsafe@ice.go.kr",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "032-600-4490",
+          "normalized": "032-600-4490",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [
+        {
+          "raw_text": "طلاب المدارس الابتدائية والإعدادية",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "actions_required": [
+        {
+          "raw_text": "التقديم",
+          "normalized": "Application",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "إرسال عبر البريد الإلكتروني",
+          "normalized": "Send via email",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": []
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "학부모 디지털 안전 교육 신청 안내",
+    "summary_ko": "학부모 디지털 안전 교육 신청 안내입니다.\n자녀의 온라인 안전 지도를 위한 교육이 운영됩니다.\n\n- 신청 기간: 2026년 7월 1일(수) ~ 2026년 7월 8일(수)\n- 교육 일시: 2026년 7월 15일(수) 10:00 ~ 12:00\n- 교육 방법: 온라인 화상 교육\n- 신청 방법: 이메일 접수 parentsafe@ice.go.kr\n- 문의: 학부모지원팀 032-600-4490\n- 대상: 초등학생 및 중학생 보호자 40명\n\n다문화가정 보호자도 쉽게 참여할 수 있도록 쉬운 안내 자료가 제공될 예정입니다.",
+    "summary_target_language": "إشعار بخصوص التقديم لتعليم أولياء الأمور حول السلامة الرقمية.\nسيتم تقديم برنامج تعليمي لمساعدة أولياء الأمور في توجيه أبنائهم نحو السلامة عبر الإنترنت.\n\n- فترة التقديم: 1 يوليو 2026 (الأربعاء) ~ 8 يوليو 2026 (الأربعاء)\n- تاريخ ووقت التعليم: 15 يوليو 2026 (الأربعاء) 10:00 ~ 12:00\n- طريقة التعليم: تعليم عبر الفيديو عبر الإنترنت\n- طريقة التقديم: إرسال عبر البريد الإلكتروني إلى: parentsafe@ice.go.kr\n- للاستفسارات: فريق دعم أولياء الأمور على الرقم: 032-600-4490\n- الجمهور المستهدف: 40 ولي أمر لطلاب المدارس الابتدائية والإعدادية\n\nسيتم توفير مواد إرشادية سهلة الفهم لضمان سهولة المشاركة لأولياء الأمور من الأسر متعددة الثقافات.",
+    "document_type": "notice",
+    "target_language": "ar",
+    "audience": "parents of elementary and middle school students",
+    "important_dates": [
+      "2026-07-15 10:00-12:00"
+    ],
+    "deadlines": [
+      "2026-07-08"
+    ],
+    "actions_required": [
+      "apply",
+      "submit via email"
+    ],
+    "has_meal_info": false,
+    "has_allergy_info": false,
+    "contains_critical_health_info": false,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [
+      "학부모 디지털 안전 교육 신청 안내",
+      "notice",
+      "parents of elementary and middle school students"
+    ],
+    "admin_review_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Notice Regarding Application for Parent Digital Safety Education\n\nDear Parents,\n\nWe are offering education for parents to help guide their children's online safety.\n\n- Application Period: July 1, 2026 (Wednesday) ~ July 8, 2026 (Wednesday)\n- Education Date and Time: July 15, 2026 (Wednesday) 10:00 ~ 12:00\n- Education Method: Online video education\n- Application Method: Email submission to parentsafe@ice.go.kr\n- Inquiries: Parent Support Team at 032-600-4490\n- Target Audience: 40 guardians of elementary and middle school students\n\nEasy-to-understand guidance materials will also be provided to ensure easy participation for guardians from multicultural families.",
+      "preserved_placeholders": [],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "إشعار بخصوص التقديم لتعليم أولياء الأمور حول السلامة الرقمية\n\nحضرات أولياء الأمور الكرام،\n\nنقدم برنامجًا تعليميًا لأولياء الأمور لمساعدتهم في توجيه أبنائهم نحو السلامة عبر الإنترنت.\n\nفترة التقديم: 1 يوليو 2026 (الأربعاء) ~ 8 يوليو 2026 (الأربعاء)\nتاريخ ووقت التعليم: 15 يوليو 2026 (الأربعاء) 10:00 ~ 12:00\nطريقة التعليم: تعليم عبر الفيديو عبر الإنترنت\nطريقة التقديم: إرسال عبر البريد الإلكتروني إلى: parentsafe@ice.go.kr\nللاستفسارات: فريق دعم أولياء الأمور على الرقم: 032-600-4490\nالجمهور المستهدف: 40 ولي أمر لطلاب المدارس الابتدائية والإعدادية\n\nسيتم توفير مواد إرشادية سهلة الفهم لضمان سهولة المشاركة لأولياء الأمور من الأسر متعددة الثقافات.",
+      "resolved_ingredients": [],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "디지털 안전 학부모 교육 신청 안내\n\n학부모님께,\n\n학부모님께서 자녀의 온라인 안전을 지도하는 데 도움을 드리기 위한 교육 프로그램을 제공합니다.\n\n신청 기간: 2026년 7월 1일 (수) ~ 2026년 7월 8일 (수)\n교육 일시: 2026년 7월 15일 (수) 10:00 ~ 12:00\n교육 방법: 온라인 화상 교육\n신청 방법: 이메일 제출: parentsafe@ice.go.kr\n문의: 학부모 지원팀 032-600-4490\n대상: 초등학생 및 중학생 학부모 40명\n\n다문화 가정 학부모님의 쉬운 참여를 위해 이해하기 쉬운 안내 자료가 제공될 예정입니다.",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The Arabic translation accurately preserves all factual information, dates, times, locations, contact details, and the target audience. The administrative meaning of the notice, including the application process and deadlines, is clearly conveyed. The tone is appropriately official and polite, matching the original Korean school notice. No information is omitted or added, and the clarity for parents is excellent. The back-translation confirms the high fidelity of the translation."
+    }
+  }
+}

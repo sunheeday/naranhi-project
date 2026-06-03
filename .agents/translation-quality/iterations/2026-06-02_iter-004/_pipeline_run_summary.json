@@ -1,0 +1,26 @@
+{
+  "elapsed_seconds": 136.6,
+  "notices": [
+    {
+      "id": "n04-college-info-session",
+      "role": "held_out",
+      "languages": {
+        "ar": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 1,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

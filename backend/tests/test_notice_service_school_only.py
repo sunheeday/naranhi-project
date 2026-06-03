@@ -148,7 +148,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             for op in supabase.operations
             if op[0] == "notices" and op[1] == "update"
         ]
-        self.assertNotIn("status", notice_updates[-1])
+        self.assertEqual(notice_updates[-1]["status"], "done")
         self.assertNotIn("summary_translations", notice_updates[-1])
         self.assertNotIn("child_id", str(supabase.operations))
         self.assertEqual(saved["schedules"], [])
@@ -291,11 +291,11 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({row["event_date"] for row in schedule_inserts[0]}, {"2026-06-12"})
         self.assertEqual(saved["schedules"][0]["title"], "현장체험학습 안내")
 
-    def test_admin_review_translation_still_creates_schedules(self):
+    def test_failed_validation_translation_still_creates_schedules(self):
         supabase = FakeSupabase()
         supabase.children = [{"id": "child-1"}]
         pipeline_result = {
-            "status": "admin_review_required",
+            "status": "ready_to_save",
             "source_text": "설문 기간은 2026.5.18.~05.22. 입니다.",
             "final_translation": "Thời gian khảo sát là từ ngày 18/5/2026 đến 22/5/2026.",
             "source_hard_facts": {
@@ -310,8 +310,13 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
                 },
             },
             "target_hard_facts": {},
-            "metadata": {"title": "설문 조사 안내", "summary_target_language": "설문 일정 안내"},
-            "admin_review": {"required": True, "reason": "hard_fact_validation_failed"},
+            "metadata": {
+                "title": "설문 조사 안내",
+                "summary_target_language": "설문 일정 안내",
+                "validation_status": "failed",
+                "validation_failure_reason": "hard_fact_validation_failed",
+            },
+            "admin_review": {"required": False, "reason": None},
             "validation": {},
             "raw_steps": {},
         }

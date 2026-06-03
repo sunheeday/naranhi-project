@@ -172,7 +172,10 @@ function MealDayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; 
 
 function DishRow({ dish, allergyPrefix }: { dish: MealDish; allergyPrefix: string }) {
   const hasAllergy = dish.allergens.length > 0
-  const allergyNames = dish.allergens.map(n => ALLERGEN_NAMES[n] ?? `#${n}`).join(', ')
+  const allergyNames = (dish.allergenLabels && dish.allergenLabels.length > 0
+    ? dish.allergenLabels
+    : dish.allergens.map(n => ALLERGEN_NAMES[n] ?? `#${n}`)
+  ).join(', ')
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span className="text-sm text-text-primary">{dish.name}</span>

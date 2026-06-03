@@ -15,6 +15,7 @@
   "nav": {
     "home": "Home",
     "meals": "Meals",
+    "camera": "Camera",
     "calendar": "Calendar",
     "settings": "Settings"
   },
@@ -94,6 +95,9 @@
     "meal_no_today": "No meal information for today.",
     "meal_unsupported": "School code not registered, meal cannot be displayed.",
     "meal_error": "Could not load meal information.",
+    "translation_pending_banner": "We'll let you know when the school notice translations are ready.",
+    "translation_complete_banner": "School notice translations are ready.",
+    "translation_complete_action": "View",
     "meal_breakfast": "Breakfast",
     "meal_lunch": "Lunch",
     "meal_dinner": "Dinner",
@@ -151,6 +155,31 @@
     "timetable_error": "Could not load class information.",
     "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match.",
     "gcal_error": "Google Calendar connection failed. Please log out and sign in again."
+  },
+  "camera": {
+    "nav_title": "Camera",
+    "eyebrow": "Notice capture",
+    "title": "Upload a photo of a HiClass teacher notice or KakaoTalk notice",
+    "subtitle": "Take a photo of a notice or choose a captured image, and we will translate it for you.",
+    "tips_title": "Tips for clearer recognition",
+    "tips": [
+      "Keep all four corners of the page visible.",
+      "Use a bright spot with fewer shadows.",
+      "Retake the photo if the text looks blurry."
+    ],
+    "choose_image": "Choose photo",
+    "retake": "Choose again",
+    "submit": "OCR and translate",
+    "uploading": "Recognizing and translating...",
+    "ready": "Ready",
+    "empty": "Use the camera or choose an image from your album.",
+    "error_format": "Only image files can be uploaded.",
+    "error_size": "File size must be 10MB or less.",
+    "error_upload": "OCR or translation failed. Please try again later.",
+    "success": "OCR and translation are ready.",
+    "extracted_title": "Extracted text",
+    "translated_title": "Translation",
+    "unreadable_warning": "The photo was not readable enough. Please retake it brighter and sharper."
   },
   "settings": {
     "title": "Settings",

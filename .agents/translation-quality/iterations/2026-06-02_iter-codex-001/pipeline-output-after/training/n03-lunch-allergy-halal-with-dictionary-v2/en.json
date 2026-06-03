@@ -1,0 +1,402 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "en",
+  "source_text": "# 6월 둘째 주 급식 및 알레르기 안내\n\n학부모님께,\n\n6월 8일(월)부터 6월 12일(금)까지의 급식 주요 메뉴를 안내드립니다.\n\n- 6월 8일(월): 잡곡밥, 돼지고기김치찌개, 달걀말이, 오이무침\n- 6월 9일(화): 카레라이스, 닭다리구이, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 쇠고기미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴이 포함된 젤리\n\n알레르기 유발 식품: 우유, 달걀, 밀, 대두\n주의: 일부 소스에는 맛술이 포함될 수 있습니다.\n\n식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n문의: 영양교사 02-410-7782\n",
+  "final_translation": "Meal and Allergy Information for the Second Week of June\n\nDear Parents,\n\nWe would like to inform you about the main school meal menu from Monday, June 8th to Friday, June 12th.\n\n- Monday, June 8th: Multi-grain rice, Pork Kimchi Stew, Rolled Omelet, Seasoned Cucumber\n- Tuesday, June 9th: Curry Rice, Roasted Chicken Drumstick, Yogurt\n- Wednesday, June 10th: Jajangmyeon, Pickled Radish, Fried Dumplings\n- Thursday, June 11th: Brown Rice, Beef Seaweed Soup, Braised Tofu, Kimchi\n- Friday, June 12th: Bibimbap, Egg Soup, Jelly containing gelatin\n\nAllergenic Foods: Milk, Egg, Wheat, Soybean\nCaution: Some sauces may contain cooking wine.\n\nThe menu is subject to change depending on ingredient supply conditions.\n\nInquiries: Nutrition Teacher 02-410-7782",
+  "source_hard_facts": {
+    "document_type": "meal_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 9일(화)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 10일(수)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 11일(목)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "영양교사 02-410-7782",
+          "normalized": "Nutrition Teacher 02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "식단은 식재료 수급 상황에 따라 변경될 수 있습니다.",
+          "normalized": "The menu may change depending on ingredient supply conditions.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "주의: 일부 소스에는 맛술이 포함될 수 있습니다.",
+          "normalized": "Caution: Some sauces may contain cooking wine.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "잡곡밥",
+        "돼지고기김치찌개",
+        "달걀말이",
+        "오이무침",
+        "카레라이스",
+        "닭다리구이",
+        "요구르트",
+        "짜장면",
+        "단무지",
+        "군만두",
+        "현미밥",
+        "쇠고기미역국",
+        "두부조림",
+        "김치",
+        "비빔밥",
+        "계란국",
+        "젤라틴이 포함된 젤리"
+      ],
+      "ingredients_raw": [
+        "맛술",
+        "젤라틴"
+      ],
+      "allergens_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [
+      "The year for the dates (June 8th to June 12th) is not explicitly stated."
+    ],
+    "human_review_required": true,
+    "human_review_reason": "Missing year for dates. Allergy and ingredient information requires careful review and dictionary mapping.",
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "meal_and_allergy_information",
+    "sender": {
+      "school": true,
+      "organization": null,
+      "person_or_role": "Nutrition Teacher"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "Monday, June 8th",
+          "normalized": "06-08",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Friday, June 12th",
+          "normalized": "06-12",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "June 8th",
+          "normalized": "06-08",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "June 9th",
+          "normalized": "06-09",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "June 10th",
+          "normalized": "06-10",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "June 11th",
+          "normalized": "06-11",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "June 12th",
+          "normalized": "06-12",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "Nutrition Teacher 02-410-7782",
+          "normalized": "02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "Some sauces may contain cooking wine.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "The menu is subject to change depending on ingredient supply conditions.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "Multi-grain rice",
+        "Pork Kimchi Stew",
+        "Rolled Omelet",
+        "Seasoned Cucumber",
+        "Curry Rice",
+        "Roasted Chicken Drumstick",
+        "Yogurt",
+        "Jajangmyeon",
+        "Pickled Radish",
+        "Fried Dumplings",
+        "Brown Rice",
+        "Beef Seaweed Soup",
+        "Braised Tofu",
+        "Kimchi",
+        "Bibimbap",
+        "Egg Soup",
+        "Jelly containing gelatin"
+      ],
+      "ingredients_raw": [],
+      "allergens_raw": [
+        "Milk",
+        "Egg",
+        "Wheat",
+        "Soybean"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 0.95
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [
+      {
+        "raw_text": "맛술",
+        "ingredient_id": "ing_matsul",
+        "canonical_ko": "맛술",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      },
+      {
+        "raw_text": "젤라틴",
+        "ingredient_id": "ing_gelatin",
+        "canonical_ko": "젤라틴",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      }
+    ],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": true,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "6월 둘째 주 급식 및 알레르기 안내",
+    "summary_ko": "6월 둘째 주 급식 및 알레르기 안내입니다.\n\n- 6월 8일(월)부터 6월 12일(금)까지의 주요 메뉴를 안내합니다.\n- 알레르기 유발 식품(우유, 달걀, 밀, 대두) 정보가 포함되어 있습니다.\n- 일부 소스에 맛술이 포함될 수 있으니 주의 바랍니다.\n- 식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n- 문의: 영양교사 02-410-7782",
+    "summary_target_language": "This is an announcement regarding the meal and allergy information for the second week of June.\n\n- It provides the main menu from Monday, June 8th to Friday, June 12th.\n- Information on allergenic foods (Milk, Egg, Wheat, Soybean) is included.\n- Please note that some sauces may contain cooking wine.\n- The menu is subject to change depending on ingredient supply conditions.\n- Inquiries: Nutrition Teacher 02-410-7782",
+    "document_type": "meal_notice",
+    "target_language": "en",
+    "audience": "parents",
+    "important_dates": [
+      "6월 8일(월)",
+      "6월 9일(화)",
+      "6월 10일(수)",
+      "6월 11일(목)",
+      "6월 12일(금)"
+    ],
+    "deadlines": [],
+    "actions_required": [],
+    "has_meal_info": true,
+    "has_allergy_info": true,
+    "contains_critical_health_info": true,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [
+      "6월 둘째 주 급식 및 알레르기 안내",
+      "급식",
+      "알레르기",
+      "6월",
+      "meal",
+      "allergy",
+      "June"
+    ],
+    "validation_failure_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Meal and Allergy Information for the Second Week of June\n\nDear Parents,\n\nWe would like to inform you about the main school meal menu from Monday, June 8th to Friday, June 12th.\n\n- Monday, June 8th: Multi-grain rice, Pork Kimchi Stew, Rolled Omelet, Seasoned Cucumber\n- Tuesday, June 9th: Curry Rice, Roasted Chicken Drumstick, Yogurt\n- Wednesday, June 10th: Jajangmyeon, Pickled Radish, Fried Dumplings\n- Thursday, June 11th: Brown Rice, Beef Seaweed Soup, Braised Tofu, Kimchi\n- Friday, June 12th: Bibimbap, Egg Soup, Jelly containing ing_gelatin\n\nAllergenic Foods: Milk, Egg, Wheat, Soybean\nCaution: Some sauces may contain ing_matsul.\n\nThe menu is subject to change depending on ingredient supply conditions.\n\nInquiries: Nutrition Teacher 02-410-7782",
+      "preserved_placeholders": [
+        "ing_gelatin",
+        "ing_matsul"
+      ],
+      "translator_notes": [
+        "The year for the dates (June 8th to June 12th) is not explicitly stated in the source text.",
+        "Allergy and ingredient information requires careful review and dictionary mapping in the final target language translation."
+      ],
+      "possible_risks": [
+        "The ingredient 'ing_matsul' (cooking wine) may contain alcohol, which could be a religious restriction for some families.",
+        "The ingredient 'ing_gelatin' (gelatin) may be derived from animal sources (e.g., pork, beef) which could be a religious or dietary restriction for some families."
+      ]
+    },
+    "target": {
+      "target_translation": "Meal and Allergy Information for the Second Week of June\n\nDear Parents,\n\nWe would like to inform you about the main school meal menu from Monday, June 8th to Friday, June 12th.\n\n- Monday, June 8th: Multi-grain rice, Pork Kimchi Stew, Rolled Omelet, Seasoned Cucumber\n- Tuesday, June 9th: Curry Rice, Roasted Chicken Drumstick, Yogurt\n- Wednesday, June 10th: Jajangmyeon, Pickled Radish, Fried Dumplings\n- Thursday, June 11th: Brown Rice, Beef Seaweed Soup, Braised Tofu, Kimchi\n- Friday, June 12th: Bibimbap, Egg Soup, Jelly containing gelatin\n\nAllergenic Foods: Milk, Egg, Wheat, Soybean\nCaution: Some sauces may contain cooking wine.\n\nThe menu is subject to change depending on ingredient supply conditions.\n\nInquiries: Nutrition Teacher 02-410-7782",
+      "resolved_ingredients": [
+        {
+          "ingredient_id": "ing_gelatin",
+          "target_text": "gelatin",
+          "source": "approved_dictionary"
+        },
+        {
+          "ingredient_id": "ing_matsul",
+          "target_text": "cooking wine",
+          "source": "approved_dictionary"
+        }
+      ],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "6월 둘째 주 식사 및 알레르기 정보\n\n학부모님께,\n\n6월 8일 월요일부터 6월 12일 금요일까지의 주요 학교 급식 메뉴에 대해 알려드립니다.\n\n- 6월 8일 월요일: 잡곡밥, 돼지고기 김치찌개, 계란말이, 오이무침\n- 6월 9일 화요일: 카레라이스, 닭다리구이, 요구르트\n- 6월 10일 수요일: 짜장면, 단무지, 군만두\n- 6월 11일 목요일: 현미밥, 소고기 미역국, 두부조림, 김치\n- 6월 12일 금요일: 비빔밥, 계란국, 젤라틴 함유 젤리\n\n알레르기 유발 식품: 우유, 계란, 밀, 대두\n주의: 일부 소스에는 조리용 와인이 포함될 수 있습니다.\n\n메뉴는 재료 공급 상황에 따라 변경될 수 있습니다.\n\n문의: 영양교사 02-410-7782",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves all factual information, including dates, contact details, and allergy information. The tone is appropriately official and polite, consistent with a school notice. No information is omitted or added, and the meaning is clear for parents. The handling of allergy and ingredient terms (Milk, Egg, Wheat, Soybean, cooking wine, gelatin) is appropriate, assuming these terms are resolved via an approved dictionary as per rule #5. The absence of a year for the dates is consistent with rule #1 (Do not add facts not present in the source)."
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "elapsed_seconds": 296.0,
+  "notices": [
+    {
+      "id": "n01-bike-safety",
+      "role": "training",
+      "languages": {
+        "en": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ru": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        },
+        "ar": {
+          "status": "ready_to_save",
+          "validation": {
+            "hard_fact": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            },
+            "context_tone": {
+              "status": "passed",
+              "attempts": 0,
+              "issues": []
+            }
+          }
+        }
+      }
+    }
+  ]
+}

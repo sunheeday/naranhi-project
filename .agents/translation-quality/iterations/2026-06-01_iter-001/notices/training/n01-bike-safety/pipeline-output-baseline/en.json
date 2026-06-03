@@ -1,0 +1,283 @@
+{
+  "status": "admin_review_required",
+  "source_language": "ko",
+  "target_language": "en",
+  "source_text": "픽시자전거 안전사고 예방 및 안전수칙 안내\n\n학부모님, 안녕하십니까?\n\n최근 브레이크(제동장치) 없이 운행하는 이른바 ‘픽시자전거’ 이용이 증가하면서 학생 안전사고 위험이 커지고 있습니다. 특히 제동장치가 없는 자전거는 긴급 상황 시 즉시 멈추기 어려워 큰 사고로 이어질 수 있어 각별한 주의가 필요합니다. 이에 인천광역시교육청에서는 학생 안전 강화를 위해 픽시자전거 안전교육 및 안전문화 확산을 추진하고 있으며, 관련 안전교육 자료와 가정통신문을 안내하고 있습니다.\n\n■ 픽시자전거란?\n\n픽시(Fixie) 자전거는 원래 경기용 자전거로 제작된 형태로, 일반 자전거와 달리 바퀴와 페달이 고정되어 있어 페달을 멈춰도 바퀴가 계속 회전하는 특징이 있습니다.\n\n특히 일부 학생들이:\n\n- 브레이크를 제거하거나,\n- 묘기 및 과속 주행을 하거나,\n- 이어폰 착용 상태로 운행하는 사례가 발생하고 있어 매우 위험합니다.\n\n■ 꼭 알아야 할 안전수칙\n\n1. 브레이크 없는 자전거는 절대 운행하지 않기\n2. 보호장비 반드시 착용하기\n   안전모(헬멧) / 무릎·팔꿈치 보호대 / 야간 반사장치\n3. 도로에서는 교통법규 지키기\n   신호 준수 / 횡단보도에서는 자전거에서 내려 이동 / 휴대전화·이어폰 사용 금지 / 2인 이상 동승 금지\n4. 위험한 묘기 주행 금지\n   차도·인도·공원 등에서:\n   손 놓고 타기 / 급회전 / 점프 / 집단 질주 등 금지\n5. 야간 운행 시 밝은 복장과 전조등 사용\n\n■ 가정에서 함께 지도해주세요!\n\n학부모님께서는 자녀와 함께 아래 내용을 꼭 확인해 주시기 바랍니다.\n\n☑ 브레이크가 정상 작동하는지 점검하기\n☑ 안전모 착용 여부 확인하기\n☑ 무면허 전동킥보드·위험 자전거 운행 금지 지도하기\n☑ 친구들과 위험한 주행을 하지 않도록 지속적으로 대화하기\n\n학생들의 안전은 학교와 가정이 함께할 때 더욱 지켜질 수 있습니다. 가정에서도 지속적인 관심과 안전지도를 부탁드립니다.\n\n감사합니다.\n\n■ 문의: 인천광역시교육청 안전복지과 (☎ 032-320-0096)\n",
+  "final_translation": "Notice on Fixed-Gear Bicycle Safety Accident Prevention and Safety Rules\n\nGreetings, Parents/Guardians,\n\nRecently, the use of so-called 'fixed-gear bicycles' operated without brakes (braking devices) is increasing, raising the risk of student safety accidents. In particular, bicycles without braking devices are difficult to stop immediately in emergency situations, which can lead to serious accidents, requiring special attention. Therefore, the Incheon Metropolitan City Office of Education is promoting fixed-gear bicycle safety education and the spread of a safety culture to strengthen student safety, and is providing related safety education materials and family letters.\n\n■ What is a Fixed-Gear Bicycle?\n\nA fixed-gear (Fixie) bicycle is originally manufactured as a racing bicycle, and unlike regular bicycles, its wheels and pedals are fixed, so the wheels continue to rotate even if the pedals are stopped.\n\nIn particular, some students are:\n- removing brakes,\n- performing stunts and speeding, or\n- operating while wearing earphones, which is very dangerous.\n\n■ Essential Safety Rules to Know\n\n1. Absolutely do not operate bicycles without brakes.\n2. Always wear protective gear.\n   Safety helmet / Knee and elbow pads / Nighttime reflective devices\n3. Obey traffic laws on roads.\n   Observe traffic signals / Dismount and walk bicycle at crosswalks / Prohibit use of mobile phones and earphones / Prohibit riding with two or more people\n4. Prohibit dangerous stunt riding.\n   On roadways, sidewalks, parks, etc.: Prohibit riding hands-free / sharp turns / jumps / group racing, etc.\n5. Use bright clothing and headlights when riding at night.\n\n■ Please provide guidance together at home!\n\nParents/Guardians, please be sure to check the following with your children.\n\n☑ Check if brakes are functioning properly.\n☑ Confirm helmet wearing.\n☑ Guide against operating unlicensed electric kickboards and dangerous bicycles.\n☑ Continuously converse with them to prevent dangerous riding with friends.\n\nStudent safety can be further protected when schools and homes work together. We request your continued attention and safety guidance at home.\n\nThank you.\n\n■ Inquiries: Incheon Metropolitan City Office of Education, Safety and Welfare Division (☎ 032-320-0096)",
+  "source_hard_facts": {
+    "document_type": "school_notice",
+    "sender": {
+      "school": null,
+      "organization": "인천광역시교육청 안전복지과",
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": "학부모님",
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [],
+      "times": [],
+      "locations": [
+        {
+          "raw_text": "도로",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "횡단보도",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "차도·인도·공원",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "raw_text": "안전모(헬멧)",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "무릎·팔꿈치 보호대",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "야간 반사장치",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "전조등",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "인천광역시교육청 안전복지과",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "032-320-0096",
+          "normalized": "032-320-0096",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [
+        {
+          "raw_text": "브레이크 없는 자전거는 절대 운행하지 않기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "보호장비 반드시 착용하기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "도로에서는 교통법규 지키기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "신호 준수",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "횡단보도에서는 자전거에서 내려 이동",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "휴대전화·이어폰 사용 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "2인 이상 동승 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "위험한 묘기 주행 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "손 놓고 타기 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "급회전 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "점프 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "집단 질주 등 금지",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "야간 운행 시 밝은 복장과 전조등 사용",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "브레이크가 정상 작동하는지 점검하기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "안전모 착용 여부 확인하기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "무면허 전동킥보드·위험 자전거 운행 금지 지도하기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "친구들과 위험한 주행을 하지 않도록 지속적으로 대화하기",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "가정에서도 지속적인 관심과 안전지도를 부탁드립니다.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "최근 브레이크(제동장치) 없이 운행하는 이른바 ‘픽시자전거’ 이용이 증가하면서 학생 안전사고 위험이 커지고 있습니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "특히 제동장치가 없는 자전거는 긴급 상황 시 즉시 멈추기 어려워 큰 사고로 이어질 수 있어 각별한 주의가 필요합니다.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "일부 학생들이: 브레이크를 제거하거나, 묘기 및 과속 주행을 하거나, 이어폰 착용 상태로 운행하는 사례가 발생하고 있어 매우 위험합니다.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": false,
+      "menu_items_raw": [],
+      "ingredients_raw": [],
+      "allergens_raw": [],
+      "requires_dictionary_mapping": false
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "target_hard_facts": {},
+  "ingredient_identity_map": {
+    "mapped_ingredients": [],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": false,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "contacts",
+          "source_value": "인천광역시교육청 안전복지과",
+          "translated_value": "incheon metropolitan city office of education, safety and welfare division, phone:0323200096",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        },
+        {
+          "field": "contacts",
+          "source_value": "phone:0323200096, 인천광역시교육청 안전복지과",
+          "translated_value": "incheon metropolitan city office of education, safety and welfare division",
+          "issue": "translated facts contain a new critical value",
+          "recommended_fix": "remove unsupported critical value unless it exists in source"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": true,
+    "reason": "hard_fact_validation_failed",
+    "priority": "high"
+  },
+  "metadata": {
+    "validation_status": "human_review_required",
+    "admin_review_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "contacts",
+          "source_value": "인천광역시교육청 안전복지과",
+          "translated_value": "incheon metropolitan city office of education, safety and welfare division, phone:0323200096",
+          "issue": "source fact is missing or changed in translated facts",
+          "recommended_fix": "restore the source fact with the same meaning"
+        },
+        {
+          "field": "contacts",
+          "source_value": "phone:0323200096, 인천광역시교육청 안전복지과",
+          "translated_value": "incheon metropolitan city office of education, safety and welfare division",
+          "issue": "translated facts contain a new critical value",
+          "recommended_fix": "remove unsupported critical value unless it exists in source"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

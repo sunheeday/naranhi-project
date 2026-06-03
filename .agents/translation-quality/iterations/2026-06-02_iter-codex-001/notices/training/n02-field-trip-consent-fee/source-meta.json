@@ -1,0 +1,7 @@
+{
+  "origin": "mock-seed-v1",
+  "kind": "event-consent-form",
+  "issuer": "나란히중학교",
+  "notes": "Tests dates, fee preservation, signed-form return, and formal tone.",
+  "seed_set": "seed-set-v1"
+}

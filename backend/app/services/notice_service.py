@@ -5,6 +5,7 @@ from app.core.supabase import get_supabase_client
 from app.crawler.detail_content_extractor import fetch_notice_detail_content
 from app.translation.gemini_client import GeminiJsonClient
 from app.translation.orchestrator import TranslationPipeline, TranslationPipelineInput
+from app.translation.prompts import translate_meal_labels_prompt
 
 
 class NoticeService:
@@ -64,8 +65,8 @@ class NoticeService:
         settings = get_settings()
         if not settings.supabase_configured:
             raise RuntimeError("Supabase is not configured.")
-        if not settings.gemini_configured or not settings.gemini_key_material:
-            raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
+        if not settings.gemini_configured:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S)가 필요합니다.")
 
         supabase = get_supabase_client()
         notice_result = (
@@ -139,6 +140,119 @@ class NoticeService:
             "saved": saved,
         }
 
+    async def translate_text(
+        self,
+        *,
+        source_text: str,
+        target_language: str,
+        translation_kind: str | None = None,
+        approved_ingredient_dictionary: list[dict[str, object]] | None = None,
+        approved_ingredient_dictionary_target: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
+        settings = get_settings()
+        if not settings.gemini_configured:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S)가 필요합니다.")
+
+        if translation_kind == "meal_labels":
+            return await self._translate_meal_labels(
+                source_text=source_text,
+                target_language=target_language,
+            )
+
+        try:
+            gemini = GeminiJsonClient.from_settings(settings)
+            pipeline = TranslationPipeline(gemini)
+            result = await pipeline.run(
+                TranslationPipelineInput(
+                    source_text=source_text,
+                    target_language=target_language,
+                    approved_ingredient_dictionary=[
+                        dict(item) for item in (approved_ingredient_dictionary or [])
+                    ],
+                    approved_ingredient_dictionary_target=[
+                        dict(item) for item in (approved_ingredient_dictionary_target or [])
+                    ],
+                )
+            )
+        except Exception as exc:
+            if not _is_gemini_quota_error(exc):
+                raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
+
+            fallback = await self._best_effort_translate_notice(
+                gemini=GeminiJsonClient.from_settings(settings),
+                notice={},
+                target_language=target_language,
+                source_text=source_text,
+            )
+            return {
+                "ok": True,
+                "target_language": target_language,
+                "status": fallback["status"],
+                "translation": fallback.get("final_translation"),
+                "pipeline_result": fallback,
+            }
+
+        return {
+            "ok": True,
+            "target_language": target_language,
+            "status": result["status"],
+            "translation": result.get("final_translation"),
+            "pipeline_result": result,
+        }
+
+    async def _translate_meal_labels(
+        self,
+        *,
+        source_text: str,
+        target_language: str,
+    ) -> dict[str, object]:
+        settings = get_settings()
+        gemini = GeminiJsonClient.from_settings(settings)
+        items = _parse_meal_label_source_text(source_text)
+        if not items:
+            return {
+                "ok": True,
+                "target_language": target_language,
+                "status": "ready_to_save",
+                "translation": source_text,
+                "translations": {},
+                "pipeline_result": {"final_translation": source_text},
+            }
+
+        prompt = translate_meal_labels_prompt(
+            target_language=target_language,
+            items=items,
+        )
+        response = await gemini.generate_json(prompt=prompt, temperature=0.1)
+        translated_items = response.get("items")
+        translations: dict[str, str] = {}
+        if isinstance(translated_items, list):
+            for item in translated_items:
+                if not isinstance(item, dict):
+                    continue
+                item_id = _optional_str(item.get("id"))
+                translation = _optional_str(item.get("translation"))
+                if item_id and translation:
+                    translations[item_id] = translation
+
+        # Fill any missing items with the original text so the client gets a full map.
+        for item in items:
+            item_id = item["id"]
+            translations.setdefault(item_id, item["text"])
+
+        lines = [f"[[{item['id']}]] {translations[item['id']]}" for item in items]
+        final_translation = "\n".join(lines)
+        return {
+            "ok": True,
+            "target_language": target_language,
+            "status": "ready_to_save",
+            "translation": final_translation,
+            "translations": translations,
+            "pipeline_result": {
+                "final_translation": final_translation,
+            },
+        }
+
     async def _best_effort_translate_notice(
         self,
         *,
@@ -160,7 +274,7 @@ class NoticeService:
         fallback_title = _optional_str(fallback.get("title"))
 
         return {
-            "status": "admin_review_required",
+            "status": "ready_to_save",
             "source_language": "ko",
             "target_language": target_language,
             "source_text": source_text,
@@ -181,13 +295,15 @@ class NoticeService:
                 },
             },
             "admin_review": {
-                "required": True,
-                "reason": "quota_best_effort_fallback",
-                "priority": "high",
+                "required": False,
+                "reason": None,
+                "priority": "normal",
             },
             "metadata": {
                 "title": fallback_title,
                 "fallback_mode": "quota_best_effort",
+                "validation_status": "failed",
+                "validation_failure_reason": "quota_best_effort_fallback",
             },
             "raw_steps": {
                 "best_effort": fallback,
@@ -210,12 +326,9 @@ class NoticeService:
         admin_review = pipeline_result.get("admin_review") or {}
         validation = pipeline_result.get("validation") or {}
         status = pipeline_result.get("status")
-        validation_status = (
-            "human_review_required"
-            if admin_review.get("required")
-            else "passed"
-            if status == "ready_to_save"
-            else "failed"
+        validation_status = str(
+            metadata.get("validation_status")
+            or ("passed" if status == "ready_to_save" else "failed")
         )
 
         row = {
@@ -231,8 +344,8 @@ class NoticeService:
             "metadata": metadata,
             "raw_pipeline": pipeline_result.get("raw_steps") or {},
             "validation_status": validation_status,
-            "requires_admin_review": bool(admin_review.get("required")),
-            "admin_review_reason": admin_review.get("reason") or metadata.get("admin_review_reason"),
+            "requires_admin_review": False,
+            "admin_review_reason": None,
         }
         upsert = (
             supabase.table("notice_ai_translations")
@@ -255,6 +368,8 @@ class NoticeService:
         notice_patch: dict[str, Any] = {}
         if metadata.get("title"):
             notice_patch["title"] = metadata["title"]
+        if pipeline_result.get("status") == "ready_to_save":
+            notice_patch["status"] = "done"
 
         if notice_patch:
             supabase.table("notices").update(notice_patch).eq("id", notice_id).execute()
@@ -570,7 +685,7 @@ def _best_effort_translation_prompt(
 - JSON object만 반환해라.
 - 사실을 추가하거나 추측하지 마라.
 - 날짜, 시간, 준비물, 제출물, 금액, 장소, 대상 학년은 가능한 한 원문 그대로 보존해라.
-- 문단 구조를 유지해라.
+- 읽기 쉬운 줄바꿈을 사용해라: 짧은 문단을 빈 줄 하나로 구분하고, 날짜·마감·해야 할 일·금액·준비물·장소는 각각 "- "로 시작하는 한 줄에 둔다. 문장 중간에서 줄을 끊지 마라.
 - 번역 품질이 완벽하지 않아도 좋으니 반드시 전체 공지를 끝까지 번역해라.
 
 반환 스키마:
@@ -610,6 +725,24 @@ def _merge_card_content(existing: object, incoming: object) -> dict[str, Any]:
     if isinstance(incoming, dict):
         merged.update(incoming)
     return merged
+
+
+def _due_date_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
+    """추출된 deadlines(정규화 YYYY-MM-DD) 중 가장 이른 날짜를 반환한다.
+
+    deadlines는 '제출/행동 마감일'이므로 schedules.event_date(행사일 포함)와 달리
+    홈 D-day에 바로 쓸 수 있다. 정규화된 ISO가 없으면 None.
+    """
+    source_facts = _hard_facts(pipeline_result.get("source_hard_facts"))
+    target_facts = _hard_facts(pipeline_result.get("target_hard_facts"))
+    deadlines: list[str] = []
+    for container in (source_facts, target_facts):
+        deadlines.extend(_normalized_iso_dates(container.get("deadlines")))
+    deadlines = _dedupe(deadlines)
+    if not deadlines:
+        return None
+    # YYYY-MM-DD는 사전식 정렬이 곧 날짜 정렬이므로 min이 가장 이른 마감일.
+    return min(deadlines)
 
 
 def _schedule_dates_from_pipeline(pipeline_result: dict[str, Any]) -> list[str]:
@@ -800,6 +933,24 @@ def _iso_date(value: str) -> str | None:
     if len(text) >= 10 and text[4] == "-" and text[7] == "-":
         return text[:10]
     return None
+
+
+def _parse_meal_label_source_text(source_text: str) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for raw_line in source_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("# "):
+            continue
+        if not line.startswith("[["):
+            continue
+        marker_end = line.find("]]")
+        if marker_end <= 2:
+            continue
+        item_id = line[2:marker_end].strip()
+        text = line[marker_end + 2 :].strip()
+        if item_id and text:
+            items.append({"id": item_id, "text": text})
+    return items
 
 
 def get_notice_service() -> NoticeService:

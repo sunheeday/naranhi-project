@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
-import { getCachedOrFetchMealsForRange, translateMealsForLocale, type Meal } from '@/lib/neis'
+import { getCachedOrFetchMealsForRange, translateMealCollectionsForLocale, type Meal } from '@/lib/neis'
+import BrandHeader from '@/components/brand/BrandHeader'
 import MealWeekView, { type DayEntry } from './MealWeekView'
 
 interface Props {
@@ -70,7 +71,7 @@ export default async function MealsPage({ searchParams }: Props) {
   let childLabel = ''
 
   if (isUiPreviewEnabled()) {
-    dayEntries = previewMealEntries(monday)
+    dayEntries = await previewMealEntries(monday, locale)
     childLabel = '나란히초등학교 3-2'
   } else {
     const supabase = await createSupabaseServerClient()
@@ -100,12 +101,18 @@ export default async function MealsPage({ searchParams }: Props) {
           monday,
           friday,
         )
+        const rawMealsByDay: Meal[][] = []
+        for (let i = 0; i < 5; i++) {
+          const iso = addDaysIso(monday, i)
+          rawMealsByDay.push(map.get(iso) ?? [])
+        }
+        const translatedMealsByDay = await translateMealCollectionsForLocale(rawMealsByDay, locale)
         const days: DayEntry[] = []
         for (let i = 0; i < 5; i++) {
           const iso = addDaysIso(monday, i)
           days.push({
             isoDate: iso,
-            meals: await translateMealsForLocale(map.get(iso) ?? [], locale),
+            meals: translatedMealsByDay[i] ?? [],
           })
         }
         dayEntries = days
@@ -138,12 +145,7 @@ export default async function MealsPage({ searchParams }: Props) {
 
   return (
     <main className="flex flex-col min-h-screen pb-20">
-      <header className="sticky top-0 bg-surface border-b border-border px-6 py-4 z-10">
-        <h1 className="text-lg font-bold text-text-primary">{m.title ?? '급식'}</h1>
-        {childLabel && (
-          <p className="text-xs text-muted truncate mt-0.5">{childLabel}</p>
-        )}
-      </header>
+      <BrandHeader title={m.title ?? '급식'} subtitle={childLabel || undefined} character="readingYellow" />
 
       {unsupported && (
         <div role="alert" className="mx-6 mt-4 rounded-card border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -164,7 +166,7 @@ export default async function MealsPage({ searchParams }: Props) {
   )
 }
 
-function previewMealEntries(monday: string): DayEntry[] {
+async function previewMealEntries(monday: string, locale: Locale): Promise<DayEntry[]> {
   const menus: Meal[][] = [
     [{
       mealType: 2,
@@ -218,7 +220,9 @@ function previewMealEntries(monday: string): DayEntry[] {
     }],
   ]
 
-  return menus.map((meals, index) => ({
+  const translatedMenus = await translateMealCollectionsForLocale(menus, locale)
+
+  return translatedMenus.map((meals, index) => ({
     isoDate: addDaysIso(monday, index),
     meals,
   }))

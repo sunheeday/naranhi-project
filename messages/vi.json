@@ -15,6 +15,7 @@
   "nav": {
     "home": "Trang chủ",
     "meals": "Bữa ăn",
+    "camera": "Camera",
     "calendar": "Lịch",
     "settings": "Cài đặt"
   },
@@ -90,6 +91,9 @@
     "meal_no_today": "Hôm nay không có thông tin bữa trưa.",
     "meal_unsupported": "Chưa đăng ký mã trường nên không hiển thị được bữa trưa.",
     "meal_error": "Không thể tải thông tin bữa ăn.",
+    "translation_pending_banner": "Chúng tôi sẽ báo khi bản dịch thông báo của trường hoàn tất.",
+    "translation_complete_banner": "Bản dịch thông báo của trường đã sẵn sàng.",
+    "translation_complete_action": "Xem",
     "meal_breakfast": "Bữa sáng",
     "meal_lunch": "Bữa trưa",
     "meal_dinner": "Bữa tối",

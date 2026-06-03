@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import type { Locale } from '@/lib/i18n'
+import { upsertPendingNoticeTranslationBatch } from '@/lib/notice-translation-batch'
 
 interface Props {
   locale: Locale
@@ -42,13 +42,12 @@ function writeAttemptState(key: string, cooldownMs: number) {
 }
 
 export default function HomeNoticeTranslationKickoff({ locale, noticeIds }: Props) {
-  const router = useRouter()
   const startedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (locale === 'ko' || noticeIds.length === 0) return
 
-    let cancelled = false
+    upsertPendingNoticeTranslationBatch(locale, noticeIds)
 
     async function run() {
       const nextNoticeId = noticeIds.find(noticeId => {
@@ -77,18 +76,10 @@ export default function HomeNoticeTranslationKickoff({ locale, noticeIds }: Prop
         writeAttemptState(key, FAILURE_COOLDOWN_MS)
         // Ignore and let the next refresh retry after a short cooldown.
       }
-
-      if (!cancelled) {
-        router.refresh()
-      }
     }
 
     void run()
-
-    return () => {
-      cancelled = true
-    }
-  }, [locale, noticeIds, router])
+  }, [locale, noticeIds])
 
   return null
 }

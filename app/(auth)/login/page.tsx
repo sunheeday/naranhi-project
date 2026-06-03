@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import CharacterImage from '@/components/brand/CharacterImage'
 import LoginButtons from './LoginButtons'
 
 interface Props {
@@ -56,29 +57,19 @@ export default async function LoginPage({ searchParams }: Props) {
   const initialError = mapErrorMessage(errorCode, loginMessages)
 
   return (
-    <main className="flex flex-col min-h-screen px-6 pt-16 pb-8">
+    <main className="flex flex-col min-h-screen brand-header-bg px-6 pt-14 pb-8">
       <div className="absolute top-4 end-4">
         <LanguageSwitcher currentLocale={locale} compact />
       </div>
 
-      <div className="flex flex-col items-center mt-16 mb-10">
-        {/* 브랜드 배지: 검정 단색 원형 로고 */}
-        <div
-          className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center mb-5"
-          aria-hidden="true"
-        >
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <circle cx="14" cy="14" r="5" fill="white" />
-            <circle cx="26" cy="14" r="5" fill="white" fillOpacity="0.85" />
-            <rect x="7" y="22" width="12" height="10" rx="5" fill="white" />
-            <rect x="21" y="22" width="12" height="10" rx="5" fill="white" fillOpacity="0.85" />
-          </svg>
-        </div>
+      <div className="flex flex-col items-center mt-10 mb-9">
+        {/* 브랜드 캐릭터: 나리·누리 손 흔들기 */}
+        <CharacterImage character="wave" size={168} disc priority className="mb-5" />
         <h1 className="text-3xl font-bold text-ink" style={{ letterSpacing: '-0.02em' }}>{loginMessages.title}</h1>
-        <p className="text-sm text-muted mt-2">{loginMessages.subtitle}</p>
+        <p className="text-sm text-muted mt-2 text-center">{loginMessages.subtitle}</p>
       </div>
 
-      <section className="rounded-card border border-hairline bg-surface-card p-5 mb-6">
+      <section className="rounded-card border border-hairline bg-surface p-5 mb-6 shadow-soft">
         <h2 className="text-base font-semibold text-ink">{loginMessages.language_title}</h2>
         <p className="text-sm text-muted mt-1 mb-4">{loginMessages.language_body}</p>
         <LanguageSwitcher currentLocale={locale} />

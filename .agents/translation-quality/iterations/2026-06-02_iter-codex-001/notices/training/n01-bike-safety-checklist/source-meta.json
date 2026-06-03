@@ -1,0 +1,7 @@
+{
+  "origin": "mock-seed-v1",
+  "kind": "safety-notice",
+  "issuer": "인천늘봄초등학교",
+  "notes": "Tests English anti-literal action rendering and general safety tone.",
+  "seed_set": "seed-set-v1"
+}

@@ -15,6 +15,7 @@
   "nav": {
     "home": "Accueil",
     "meals": "Repas",
+    "camera": "Photo",
     "calendar": "Calendrier",
     "settings": "Paramètres"
   },
@@ -92,6 +93,9 @@
     "meal_no_today": "Pas d'information sur le repas d'aujourd'hui.",
     "meal_unsupported": "Code école non enregistré, le repas ne peut pas être affiché.",
     "meal_error": "Impossible de charger les informations sur le repas.",
+    "translation_pending_banner": "Nous vous préviendrons quand la traduction des annonces de l'école sera prête.",
+    "translation_complete_banner": "La traduction des annonces de l'école est prête.",
+    "translation_complete_action": "Voir",
     "meal_breakfast": "Petit-déjeuner",
     "meal_lunch": "Déjeuner",
     "meal_dinner": "Dîner",

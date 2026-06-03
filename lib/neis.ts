@@ -14,7 +14,6 @@ import type { Locale } from '@/lib/i18n'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const PAGE_SIZE = 100
-const GEMINI_REST_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const mealTranslationCache = new Map<string, string>()
 
 export interface SchoolSearchResult {
@@ -29,6 +28,7 @@ export interface SchoolSearchResult {
 export interface MealDish {
   name: string
   allergens: number[]  // 1~19 알레르기 코드
+  allergenLabels?: string[]
 }
 
 export interface Meal {
@@ -38,10 +38,6 @@ export interface Meal {
   calories: string | null
   nutrients: Array<{ name: string; amount: string }> | null
   origins: Array<{ ingredient: string; country: string }> | null
-}
-
-interface GeminiTranslationResponse {
-  translations?: Record<string, string>
 }
 
 export interface TimetablePeriod {
@@ -516,14 +512,27 @@ export async function translateMealsForLocale(
   meals: Meal[],
   locale: Locale,
 ): Promise<Meal[]> {
-  if (locale === 'ko' || meals.length === 0) return meals
+  const [translated] = await translateMealCollectionsForLocale([meals], locale)
+  return translated ?? meals
+}
+
+export async function translateMealCollectionsForLocale(
+  collections: Meal[][],
+  locale: Locale,
+): Promise<Meal[][]> {
+  if (locale === 'ko' || collections.every(meals => meals.length === 0)) return collections
 
   const uniqueTexts = Array.from(
     new Set(
-      meals.flatMap(meal => [
-        meal.mealTypeName,
-        ...meal.dishes.map(dish => dish.name),
-      ]).map(text => text.trim()).filter(Boolean),
+      collections
+        .flatMap(meals => meals)
+        .flatMap(meal => [
+          meal.mealTypeName,
+          ...meal.dishes.map(dish => dish.name),
+          ...meal.dishes.flatMap(dish => dish.allergens.map(code => ALLERGEN_NAMES[code] ?? `#${code}`)),
+        ])
+        .map(text => text.trim())
+        .filter(Boolean),
     ),
   )
 
@@ -537,60 +546,101 @@ export async function translateMealsForLocale(
     }
   }
 
-  return meals.map(meal => ({
-    ...meal,
-    mealTypeName: mealTranslationCache.get(`${locale}:${meal.mealTypeName}`) ?? meal.mealTypeName,
-    dishes: meal.dishes.map(dish => ({
-      ...dish,
-      name: mealTranslationCache.get(`${locale}:${dish.name}`) ?? dish.name,
+  return collections.map(meals =>
+    meals.map(meal => ({
+      ...meal,
+      mealTypeName: mealTranslationCache.get(`${locale}:${meal.mealTypeName}`) ?? meal.mealTypeName,
+      dishes: meal.dishes.map(dish => ({
+        ...dish,
+        name: mealTranslationCache.get(`${locale}:${dish.name}`) ?? dish.name,
+        allergenLabels: dish.allergens.map(code => {
+          const source = ALLERGEN_NAMES[code] ?? `#${code}`
+          return mealTranslationCache.get(`${locale}:${source}`) ?? source
+        }),
+      })),
     })),
-  }))
+  )
 }
 
 async function translateMealStrings(
   texts: string[],
   locale: Locale,
 ): Promise<Record<string, string>> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEYS?.split(',')[0]?.trim()
-  if (!apiKey || texts.length === 0) return {}
+  if (texts.length === 0) return {}
+  return await translateMealStringsViaPipeline(texts, locale)
+}
 
-  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
-  const url = `${GEMINI_REST_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
-  const prompt = [
-    `Translate these Korean school meal labels into ${locale}.`,
-    'Return JSON only in the form {"translations":{"Korean":"Translated"}}.',
-    'Keep food names natural and concise.',
-    'Do not add explanations.',
-    JSON.stringify({ texts }, null, 2),
-  ].join('\n\n')
+async function translateMealStringsViaPipeline(
+  texts: string[],
+  locale: Locale,
+): Promise<Record<string, string>> {
+  const apiBase = (
+    process.env.FASTAPI_INTERNAL_URL
+    || process.env.NEXT_PUBLIC_API_BASE_URL
+    || ''
+  ).trim().replace(/\/+$/, '')
+  if (!apiBase) return {}
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-        },
-      }),
-      cache: 'no-store',
-    })
-    if (!response.ok) {
-      return {}
-    }
-    const data = await response.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
-    }
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as GeminiTranslationResponse
-    return parsed.translations ?? {}
-  } catch {
-    return {}
+  const sourceText = buildMealTranslationSourceText(texts)
+  const response = await fetch(`${apiBase}/notices/translate-text`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source_text: sourceText,
+      target_language: locale,
+      translation_kind: 'meal_labels',
+    }),
+    cache: 'no-store',
+  })
+  if (!response.ok) return {}
+
+  const body = await response.json() as {
+    translations?: Record<string, string> | null
+    translation?: string | null
+    pipeline_result?: { final_translation?: string | null } | null
   }
+  if (body.translations && typeof body.translations === 'object') {
+    const direct: Record<string, string> = {}
+    texts.forEach((source, index) => {
+      const token = `M${String(index + 1).padStart(3, '0')}`
+      const translated = body.translations?.[token]
+      if (typeof translated === 'string' && translated.trim()) {
+        direct[source] = translated.trim()
+      }
+    })
+    if (Object.keys(direct).length > 0) {
+      return direct
+    }
+  }
+  const translatedText = body.pipeline_result?.final_translation ?? body.translation ?? ''
+  return parseMealTranslationOutput(translatedText, texts)
+}
+
+function buildMealTranslationSourceText(texts: string[]): string {
+  const lines = texts.map((text, index) => `${mealTranslationToken(index)} ${text}`)
+  return ['# 급식 번역 항목', ...lines].join('\n')
+}
+
+function parseMealTranslationOutput(
+  translatedText: string,
+  sourceTexts: string[],
+): Record<string, string> {
+  const byToken = new Map<string, string>()
+  for (const rawLine of translatedText.split('\n')) {
+    const line = rawLine.trim()
+    const match = line.match(/^(?:[-*]\s*)?\[\[(M\d{3})\]\]\s*[:\-–]?\s*(.+?)\s*$/)
+    if (!match) continue
+    byToken.set(match[1], match[2].trim())
+  }
+
+  const result: Record<string, string> = {}
+  sourceTexts.forEach((source, index) => {
+    const translated = byToken.get(`M${String(index + 1).padStart(3, '0')}`)
+    if (translated) result[source] = translated
+  })
+  return result
+}
+
+function mealTranslationToken(index: number): string {
+  return `[[M${String(index + 1).padStart(3, '0')}]]`
 }

@@ -15,6 +15,7 @@
   "nav": {
     "home": "หน้าหลัก",
     "meals": "อาหาร",
+    "camera": "กล้อง",
     "calendar": "ปฏิทิน",
     "settings": "ตั้งค่า"
   },
@@ -92,6 +93,9 @@
     "meal_no_today": "ไม่มีข้อมูลอาหารวันนี้",
     "meal_unsupported": "ยังไม่ได้ลงทะเบียนรหัสโรงเรียน ไม่สามารถแสดงอาหารได้",
     "meal_error": "ไม่สามารถโหลดข้อมูลอาหารได้",
+    "translation_pending_banner": "เมื่อแปลประกาศโรงเรียนเสร็จแล้ว เราจะแจ้งให้คุณทราบ",
+    "translation_complete_banner": "คำแปลประกาศของโรงเรียนพร้อมแล้ว",
+    "translation_complete_action": "ดู",
     "meal_breakfast": "อาหารเช้า",
     "meal_lunch": "อาหารกลางวัน",
     "meal_dinner": "อาหารเย็น",
