@@ -37,6 +37,8 @@ class GeminiDocumentExtractor:
         timeout: float = 90.0,
         max_inline_mb: int = 20,
         client: httpx.AsyncClient | None = None,
+        vertex_project: str | None = None,
+        vertex_location: str | None = None,
     ) -> None:
         self.api_keys = _split_api_keys(api_keys or os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or "")
         self.models = _ocr_model_candidates(model)
@@ -47,8 +49,8 @@ class GeminiDocumentExtractor:
         # Vertex AI mode: when VERTEX_AI_PROJECT_ID is set, call Gemini through
         # Vertex AI with ADC (no API key). Required for GCP free-trial credit, and
         # it sidesteps the hand-built multimodal REST payload that returned 400.
-        self.vertex_project = (os.getenv("VERTEX_AI_PROJECT_ID") or "").strip() or None
-        self.vertex_location = (os.getenv("VERTEX_AI_LOCATION") or "global").strip() or "global"
+        self.vertex_project = (vertex_project or os.getenv("VERTEX_AI_PROJECT_ID") or "").strip() or None
+        self.vertex_location = (vertex_location or os.getenv("VERTEX_AI_LOCATION") or "global").strip() or "global"
         self.use_vertex = bool(self.vertex_project)
         self._vertex_client: Any = None
 
@@ -82,28 +84,14 @@ class GeminiDocumentExtractor:
             raise RuntimeError(f"Gemini inline upload limit exceeded for POC: {len(data)} bytes")
 
         if self.use_vertex:
-            parsed = await self._extract_bytes_vertex(data, mime_type=mime_type, prompt=prompt)
+            try:
+                parsed = await self._extract_bytes_vertex(data, mime_type=mime_type, prompt=prompt)
+            except RuntimeError:
+                if not self.api_keys:
+                    raise
+                parsed = await self._extract_bytes_api_key(data, mime_type=mime_type, prompt=prompt)
         else:
-            payload = {
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": prompt},
-                            {
-                                "inlineData": {
-                                    "mimeType": mime_type,
-                                    "data": base64.b64encode(data).decode("ascii"),
-                                }
-                            },
-                        ]
-                    }
-                ],
-                "generationConfig": {
-                    "temperature": 0.0,
-                    "responseMimeType": "application/json",
-                },
-            }
-            parsed = await self._generate_json_payload(payload, models=self.models, retry_empty_text=True)
+            parsed = await self._extract_bytes_api_key(data, mime_type=mime_type, prompt=prompt)
         return GeminiExtractResult(
             text=str(parsed.get("text") or ""),
             confidence=_optional_float(parsed.get("confidence")),
@@ -112,6 +100,28 @@ class GeminiDocumentExtractor:
             detected_layout=str(parsed.get("detected_layout") or "unknown"),
             source_pages=[int(item) for item in parsed.get("source_pages") or [] if str(item).isdigit()],
         )
+
+    async def _extract_bytes_api_key(self, data: bytes, *, mime_type: str, prompt: str) -> dict[str, Any]:
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt},
+                        {
+                            "inlineData": {
+                                "mimeType": mime_type,
+                                "data": base64.b64encode(data).decode("ascii"),
+                            }
+                        },
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.0,
+                "responseMimeType": "application/json",
+            },
+        }
+        return await self._generate_json_payload(payload, models=self.models, retry_empty_text=True)
 
     async def generate_json(self, prompt: str, *, model: str | None = None) -> dict[str, Any]:
         if not self.available:

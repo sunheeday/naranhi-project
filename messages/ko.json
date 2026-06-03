@@ -15,6 +15,7 @@
   "nav": {
     "home": "홈",
     "meals": "급식",
+    "camera": "촬영",
     "calendar": "캘린더",
     "settings": "설정"
   },
@@ -145,6 +146,31 @@
     "timetable_error": "수업 정보를 불러오지 못했어요.",
     "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요.",
     "gcal_error": "구글 캘린더 연결에 실패했어요. 로그아웃 후 다시 로그인해 주세요."
+  },
+  "camera": {
+    "nav_title": "촬영",
+    "eyebrow": "가정통신문 촬영",
+    "title": "하이클래스 담임선생님 공지, 카카오톡 공지를 사진으로 넣어주세요",
+    "subtitle": "안내문을 촬영하거나 캡처된 이미지로 선택하면, 번역해드릴게요.",
+    "tips_title": "잘 인식되는 촬영 팁",
+    "tips": [
+      "문서 네 모서리가 보이게 찍어주세요.",
+      "그림자가 적은 밝은 곳이 좋아요.",
+      "글자가 흔들리면 다시 촬영해 주세요."
+    ],
+    "choose_image": "사진 선택",
+    "retake": "다시 선택",
+    "submit": "OCR·번역하기",
+    "uploading": "인식 및 번역 중...",
+    "ready": "선택 완료",
+    "empty": "카메라로 촬영하거나 앨범에서 이미지를 선택할 수 있어요.",
+    "error_format": "이미지 파일만 업로드할 수 있어요.",
+    "error_size": "파일 크기는 10MB 이하여야 합니다.",
+    "error_upload": "OCR 또는 번역에 실패했어요. 잠시 후 다시 시도해주세요.",
+    "success": "OCR과 번역이 완료됐어요.",
+    "extracted_title": "추출된 원문",
+    "translated_title": "번역 결과",
+    "unreadable_warning": "사진의 글자를 충분히 읽지 못했어요. 더 밝고 선명하게 다시 촬영해 주세요."
   },
   "settings": {
     "title": "설정",

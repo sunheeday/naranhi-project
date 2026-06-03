@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.capture import router as capture_router
 from app.api.crawler import router as crawler_router
 from app.api.health import router as health_router
 from app.api.notices import router as notices_router
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(notices_router, prefix="/notices", tags=["notices"])
     app.include_router(crawler_router, prefix="/crawler", tags=["crawler"])
+    app.include_router(capture_router, prefix="/capture", tags=["capture"])
 
     return app
 
