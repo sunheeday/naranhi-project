@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 interface BottomNavLabels {
   home: string
   meals: string
+  camera?: string
   calendar: string
   settings: string
 }
@@ -13,10 +14,11 @@ interface BottomNavLabels {
 export default function BottomNav({ labels }: { labels: BottomNavLabels }) {
   const pathname = usePathname()
   const navItems = [
-    { href: '/', label: labels.home, icon: HomeIcon },
-    { href: '/meals', label: labels.meals, icon: MealIcon },
-    { href: '/calendar', label: labels.calendar, icon: CalendarIcon },
-    { href: '/settings', label: labels.settings, icon: SettingsIcon },
+    { href: '/', label: labels.home, icon: HomeIcon, action: false },
+    { href: '/meals', label: labels.meals, icon: MealIcon, action: false },
+    { href: '/camera', label: labels.camera ?? '촬영', icon: CameraIcon, action: true },
+    { href: '/calendar', label: labels.calendar, icon: CalendarIcon, action: false },
+    { href: '/settings', label: labels.settings, icon: SettingsIcon, action: false },
   ]
 
   return (
@@ -25,7 +27,7 @@ export default function BottomNav({ labels }: { labels: BottomNavLabels }) {
       className="fixed bottom-0 inset-x-0 mx-auto w-full max-w-app bg-canvas border-t border-hairline-soft h-14 pb-safe flex items-center shadow-nav"
     >
       <ul className="flex w-full">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon, action }) => {
           const isActive = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <li key={href} className="flex-1">
@@ -33,12 +35,31 @@ export default function BottomNav({ labels }: { labels: BottomNavLabels }) {
                 href={href}
                 aria-label={label}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center h-14 gap-0.5 text-[11px] font-semibold transition-colors ${
-                  isActive ? 'text-primary' : 'text-muted-soft'
-                }`}
+                className={
+                  action
+                    ? 'relative -mt-5 flex h-[72px] flex-col items-center justify-start gap-1 text-[11px] font-semibold text-primary transition-transform active:scale-95'
+                    : `flex flex-col items-center justify-center h-14 gap-0.5 text-[11px] font-semibold transition-colors ${
+                        isActive ? 'text-primary' : 'text-muted-soft'
+                      }`
+                }
               >
-                <Icon active={isActive} />
-                <span>{label}</span>
+                {action ? (
+                  <>
+                    <span
+                      className={`flex h-14 w-14 items-center justify-center rounded-full border-4 border-canvas shadow-btn-primary ${
+                        isActive ? 'bg-primary-active' : 'bg-primary'
+                      }`}
+                    >
+                      <Icon active />
+                    </span>
+                    <span>{label}</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon active={isActive} />
+                    <span>{label}</span>
+                  </>
+                )}
               </Link>
             </li>
           )
@@ -72,6 +93,15 @@ function CalendarIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill={fill} aria-hidden="true">
       <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
+    </svg>
+  )
+}
+
+function CameraIcon({ active }: { active: boolean }) {
+  const fill = active ? '#FFFFFF' : '#A89F99'
+  return (
+    <svg width="25" height="25" viewBox="0 0 24 24" fill={fill} aria-hidden="true">
+      <path d="M9 3 7.17 5H5c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-2.17L15 3H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
     </svg>
   )
 }

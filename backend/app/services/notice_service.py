@@ -65,8 +65,8 @@ class NoticeService:
         settings = get_settings()
         if not settings.supabase_configured:
             raise RuntimeError("Supabase is not configured.")
-        if not settings.gemini_configured or not settings.gemini_key_material:
-            raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
+        if not settings.gemini_configured:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S)가 필요합니다.")
 
         supabase = get_supabase_client()
         notice_result = (
@@ -150,8 +150,8 @@ class NoticeService:
         approved_ingredient_dictionary_target: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
         settings = get_settings()
-        if not settings.gemini_configured or not settings.gemini_key_material:
-            raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
+        if not settings.gemini_configured:
+            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S)가 필요합니다.")
 
         if translation_kind == "meal_labels":
             return await self._translate_meal_labels(
