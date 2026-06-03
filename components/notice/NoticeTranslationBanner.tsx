@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import type { Locale } from '@/lib/i18n'
@@ -34,7 +34,7 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const [batch, setBatch] = useState<NoticeTranslationBatch | null>(null)
-  const [mode, setMode] = useState<BannerMode>(null)
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
 
   useEffect(() => {
     const sync = () => setBatch(readNoticeTranslationBatch())
@@ -48,32 +48,38 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0) {
-      setMode(null)
-      return
-    }
-    if (batch.phase === 'complete') {
-      if (batch.completionBannerDismissedAt) {
-        setMode(null)
-      } else {
-        setMode('complete')
-      }
-      return
-    }
-    if (!batch.pendingBannerShownAt) {
+    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0) return
+    if (batch.phase === 'pending' && !batch.pendingBannerShownAt) {
       markPendingBannerShown(batch)
     }
-    setMode('pending')
   }, [batch, locale])
 
+  const activeKey = useMemo(() => {
+    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0) return null
+    return `${batch.locale}:${batch.phase}:${batch.createdAt}:${batch.completedAt ?? 0}`
+  }, [batch, locale])
+
+  const mode: BannerMode = useMemo(() => {
+    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0 || !activeKey) {
+      return null
+    }
+    if (dismissedKey === activeKey) {
+      return null
+    }
+    if (batch.phase === 'complete') {
+      return batch.completionBannerDismissedAt ? null : 'complete'
+    }
+    return 'pending'
+  }, [activeKey, batch, dismissedKey, locale])
+
   useEffect(() => {
-    if (mode !== 'complete' || !batch) return
+    if (mode !== 'complete' || !batch || !activeKey) return
     const timer = window.setTimeout(() => {
       dismissNoticeTranslationCompletionBanner(batch)
-      setMode(current => (current === 'complete' ? null : current))
+      setDismissedKey(activeKey)
     }, COMPLETE_BANNER_MS)
     return () => window.clearTimeout(timer)
-  }, [batch, mode])
+  }, [activeKey, batch, mode])
 
   useEffect(() => {
     if (!batch || batch.locale !== locale || batch.phase !== 'pending' || batch.noticeIds.length === 0) {
@@ -151,7 +157,9 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
               if (mode === 'complete') {
                 dismissNoticeTranslationCompletionBanner(batch)
               }
-              setMode(null)
+              if (activeKey) {
+                setDismissedKey(activeKey)
+              }
             }}
           >
             <span aria-hidden="true">×</span>
