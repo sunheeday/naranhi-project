@@ -7,11 +7,11 @@
 
 ## 1. Summary
 
-- **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거, `n04-school-talent-show`의 ru/ar 제목 톤과 target fact extractor 규칙 보강
-- **보류한 이슈:** `n03-lunch-allergy-halal`의 dictionary/data block
-- **Change Set 수:** 3
-- **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`
-- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료, `n04-school-talent-show` ru/ar 재실행 완료
+- **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거, `n04-school-talent-show`의 ru/ar 제목 톤과 target fact extractor 규칙 보강, `n03-lunch-allergy-halal`의 unmapped critical ingredient 추정 번역 억제, dictionary-aware meal gate 및 per-notice ingredient dictionary 주입
+- **보류한 이슈:** 없음
+- **Change Set 수:** 5
+- **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`, `backend/app/translation/validators.py`, `scripts/run_iteration.py`, `scripts/translation_quality_driver.py`
+- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료, `n04-school-talent-show` ru/ar 재실행 완료, `n03-lunch-allergy-halal` en/ru/ar dictionary-aware pass 확인
 
 ## 2. Change Sets
 
@@ -119,12 +119,76 @@
     - ru/ar 모두 `ready_to_save`, `hard_fact=passed`, `context_tone=passed`
 - **상태:** `applied`
 
+### Change Set #4 — Unmapped critical ingredient handling hardening
+
+- **해결하는 피드백:** `n03-lunch-allergy-halal`에서 empty ingredient dictionary 상태일 때 `맛술`/`젤라틴`이 언어별로 제각각 추정 번역되거나 Markdown code formatting이 섞이던 문제
+- **무엇을 바꿨는가:**
+  - 파일: `backend/app/translation/prompts.py`
+  - 함수/블록:
+    - `COMMON_SYSTEM_PROMPT`
+    - `translate_ko_to_en_pivot_prompt`
+    - `translate_en_to_target_prompt`
+    - `fix_hard_facts_prompt`
+    - `fix_context_tone_prompt`
+  - 파일: `backend/app/translation/validators.py`
+  - 변경 요약:
+    - unmapped ingredient는 모든 단계에서 exact Korean token을 그대로 유지하고, 추정 번역/음역/설명 추가/code fence 사용을 금지
+    - validator 추천 문구도 human review가 아니라 `preserve unmapped Korean ingredient tokens without guessing` 쪽으로 정렬
+    - context/tone validation 및 metadata prompt 문구에서도 human-review 중심 표현을 줄이고 fail/unsafe 중심으로 정리 시작
+- **왜 이렇게 했는가:**
+  - `n03`는 현재 prompt를 아무리 좋아지게 해도 approved dictionary가 비어 있으면 validation은 실패해야 한다.
+  - 하지만 user-facing 번역문은 그 와중에도 언어마다 임의 추정(`mirin`, backticks, mixed handling`) 없이 일관되게 안전해야 한다.
+- **기대 효과:**
+  - `Cultural & Linguistic Appropriateness`
+  - `Hard Fact Preservation`
+  - critical 식재료 관련 false confidence 감소
+- **회귀 리스크:**
+  - 최종 번역에 한국어 ingredient token이 남아 가독성이 떨어질 수 있음
+  - dictionary 미비가 길어지면 product UX 차원에서 후속 표시 정책이 필요함
+- **검증 방법:**
+  - `python3 -m py_compile backend/app/translation/prompts.py backend/app/translation/validators.py`
+  - `n03-lunch-allergy-halal` en/ru/ar 재실행 완료
+  - before/after 확인:
+    - en: `mirin (맛술)` 추정 설명 제거, `맛술`/`젤라틴` exact Korean token 유지
+    - ru: `кулинарное вино` 추정 제거, `맛술`/`젤라틴` exact Korean token 유지
+    - ar: backticks 제거, `맛술`/`젤라틴` exact Korean token 유지
+    - 세 언어 모두 `status=ready_to_save`, `validation_status=failed` 유지 (dictionary block은 의도된 실패)
+- **상태:** `applied`
+
+### Change Set #5 — Dictionary-aware meal gate + per-notice ingredient dictionaries
+
+- **해결하는 피드백:** `n03-lunch-allergy-halal`에서 mock dictionary를 준비해도 runner가 항상 빈 dictionary를 넘겨 실험이 불가능하던 문제, 그리고 mapped ingredient가 모두 준비돼도 validator가 `requires_dictionary_mapping=true`만으로 계속 fail 처리하던 문제
+- **무엇을 바꿨는가:**
+  - 파일: `scripts/run_iteration.py`
+  - 파일: `scripts/translation_quality_driver.py`
+  - 파일: `backend/app/translation/validators.py`
+  - 파일: `backend/app/translation/orchestrator.py`
+  - 파일: `backend/app/translation/prompts.py`
+  - 파일: `notices/training/n03-lunch-allergy-halal/source-meta.json`
+  - 변경 요약:
+    - runner/driver가 notice별 `source-meta.json`에서 `approved_ingredient_dictionary`, `approved_ingredient_dictionary_target_by_language`를 읽어 파이프라인에 주입하도록 추가
+    - `n03` source meta에 minimal mock dictionary(`맛술`, `젤라틴`)와 en/ru/ar target text를 추가
+    - validator가 `ingredient_identity_map`을 함께 받아, critical ingredient가 모두 mapped이고 unmapped item이 없으면 meal/allergy gate를 통과시키도록 수정
+    - target hard-fact extractor prompt에 "연도 미기재 시 year를 추론하지 말고 normalized=null" 규칙을 추가해 러시아어의 `2020-06-08`류 false extra-date를 억제
+- **왜 이렇게 했는가:**
+  - `n03`는 prompt 엔지니어링과 data-policy 검증이 섞여 있는 케이스라, dictionary를 실제로 주입해볼 수 있어야 prompt와 validator를 분리해서 판단할 수 있다.
+  - dictionary가 모두 mapped된 뒤에도 gate가 계속 fail이면 그건 prompt 문제가 아니라 validator 설계 문제다.
+- **기대 효과:**
+  - meal/allergy 케이스에서 prompt 문제와 dictionary/data 문제를 명확히 분리
+  - per-notice mock dictionary 실험 가능
+  - yearless-date extractor hallucination 감소
+- **회귀 리스크:**
+  - mapped ingredient가 일부만 있을 때 too-permissive pass가 나면 안 되므로 unmapped/critical flag 조건을 계속 유지해야 함
+  - `source-meta.json` 포맷이 notice별로 달라지면 runner가 dictionary를 놓칠 수 있음
+- **검증 방법:**
+  - `python3 -m py_compile scripts/run_iteration.py scripts/translation_quality_driver.py backend/app/translation/orchestrator.py backend/app/translation/prompts.py backend/app/translation/validators.py`
+  - `PYTHONPATH=backend python3 -m unittest backend/tests/test_translation_validators.py`
+  - `n03-lunch-allergy-halal` dictionary 주입 재실행:
+    - v1: en/ru는 mapped ingredient가 보여도 gate fail, ar는 Vertex 429
+    - v2 after fix: en `hard_fact=passed`, ru `hard_fact=passed`, ar `hard_fact=passed`; 세 언어 모두 `context_tone=passed`
+- **상태:** `applied`
+
 ## 3. Deferred
-
-### Deferred — `n03-lunch-allergy-halal`
-
-- **사유:** `맛술`, `젤라틴`이 empty approved dictionary 때문에 validation failure가 발생함
-- **다음 이터레이션 권고:** prompt 품질 문제로 보기보다 dictionary/data availability 문제로 분리
 
 ## 4. Proposed for Next Iteration
 
@@ -143,18 +207,28 @@
 - `n04-school-talent-show`
   - ru: `ready_to_save` 유지, title/manual tone 제거, Korean parenthetical school-term 제거
   - ar: `ready_to_save` 유지, title `إشعار ...`로 수정, Korean parenthetical school-term 제거
+- `n03-lunch-allergy-halal`
+  - phase 1: en/ru/ar `ready_to_save` 유지, validation failed는 그대로지만 unmapped critical ingredient를 추정 번역하지 않고 exact Korean token으로 통일
+  - phase 2 with mock dictionary: en/ru/ar 모두 `hard_fact=passed`, `context_tone=passed`, ingredient mapping populated
 - baseline 전체는 아직 진행 중이므로 `n02`~`n06`의 after run은 미실행
 
 ## 6. Files Changed
 
 - `backend/app/translation/prompts.py` — Change Set #1 적용
 - `backend/app/translation/prompts.py` — Change Set #3 적용
+- `backend/app/translation/prompts.py` — Change Set #4 적용
+- `backend/app/translation/prompts.py` — Change Set #5 적용
 - `backend/app/translation/orchestrator.py` — Change Set #2 적용
+- `backend/app/translation/orchestrator.py` — Change Set #5 적용
 - `backend/app/services/notice_service.py` — Change Set #2 적용
+- `backend/app/translation/validators.py` — Change Set #4 적용
+- `backend/app/translation/validators.py` — Change Set #5 적용
+- `scripts/run_iteration.py` — Change Set #5 적용
+- `scripts/translation_quality_driver.py` — Change Set #5 적용
 
 ## 7. Handoff
 
 - baseline이 아직 9/18 출력만 생성된 상태라 (`n01`~`n03`) 전체 training/held-out 비교는 보류
 - baseline 종료 후 우선 재실행 후보:
   - `n01-bike-safety-checklist` 전체 언어
-  - `n03-lunch-allergy-halal`은 dictionary block 분리 확인
+  - `n03-lunch-allergy-halal`은 dictionary block 분리 확인 및 product-level 표시 정책 점검

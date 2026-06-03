@@ -47,15 +47,34 @@ async def run_one(
     pipeline: TranslationPipeline,
     source_text: str,
     lang: str,
+    approved_ingredient_dictionary: list[dict],
+    approved_ingredient_dictionary_target: list[dict],
 ) -> dict:
     payload = TranslationPipelineInput(
         source_text=source_text,
         target_language=lang,
-        approved_ingredient_dictionary=[],
-        approved_ingredient_dictionary_target=[],
+        approved_ingredient_dictionary=approved_ingredient_dictionary,
+        approved_ingredient_dictionary_target=approved_ingredient_dictionary_target,
         max_auto_fix_attempts_per_stage=1,
     )
     return await pipeline.run(payload)
+
+
+def _load_source_meta(source_path: Path) -> dict:
+    meta_path = source_path.parent / "source-meta.json"
+    if not meta_path.is_file():
+        return {}
+    return json.loads(meta_path.read_text(encoding="utf-8"))
+
+
+def _ingredient_dictionaries_for_language(
+    meta: dict,
+    lang: str,
+) -> tuple[list[dict], list[dict]]:
+    source_dictionary = list(meta.get("approved_ingredient_dictionary") or [])
+    target_by_language = meta.get("approved_ingredient_dictionary_target_by_language") or {}
+    target_dictionary = list(target_by_language.get(lang) or [])
+    return source_dictionary, target_dictionary
 
 
 async def main() -> int:
@@ -80,6 +99,7 @@ async def main() -> int:
     args = parser.parse_args()
 
     source_text = args.source.read_text(encoding="utf-8")
+    source_meta = _load_source_meta(args.source)
     langs = [lang.strip() for lang in args.langs.split(",") if lang.strip()]
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -104,8 +124,17 @@ async def main() -> int:
     results: dict[str, dict] = {}
     for lang in langs:
         print(f"  → {lang} ...", flush=True)
+        approved_ingredient_dictionary, approved_ingredient_dictionary_target = (
+            _ingredient_dictionaries_for_language(source_meta, lang)
+        )
         try:
-            result = await run_one(pipeline, source_text, lang)
+            result = await run_one(
+                pipeline,
+                source_text,
+                lang,
+                approved_ingredient_dictionary,
+                approved_ingredient_dictionary_target,
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"    FAILED: {exc}", file=sys.stderr)
             result = {

@@ -45,15 +45,31 @@ async def run_one(
     pipeline: TranslationPipeline,
     source_text: str,
     lang: str,
+    approved_ingredient_dictionary: list[dict],
+    approved_ingredient_dictionary_target: list[dict],
 ) -> dict:
     payload = TranslationPipelineInput(
         source_text=source_text,
         target_language=lang,
-        approved_ingredient_dictionary=[],
-        approved_ingredient_dictionary_target=[],
+        approved_ingredient_dictionary=approved_ingredient_dictionary,
+        approved_ingredient_dictionary_target=approved_ingredient_dictionary_target,
         max_auto_fix_attempts_per_stage=1,
     )
     return await pipeline.run(payload)
+
+
+def _load_source_meta(source_path: Path) -> dict:
+    meta_path = source_path.parent / "source-meta.json"
+    if not meta_path.is_file():
+        return {}
+    return json.loads(meta_path.read_text(encoding="utf-8"))
+
+
+def _ingredient_dictionaries_for_language(meta: dict, lang: str) -> tuple[list[dict], list[dict]]:
+    source_dictionary = list(meta.get("approved_ingredient_dictionary") or [])
+    target_by_language = meta.get("approved_ingredient_dictionary_target_by_language") or {}
+    target_dictionary = list(target_by_language.get(lang) or [])
+    return source_dictionary, target_dictionary
 
 
 async def main() -> int:
@@ -116,14 +132,24 @@ async def main() -> int:
         out_dir = source_path.parent / "pipeline-output"
         out_dir.mkdir(parents=True, exist_ok=True)
         source_text = source_path.read_text(encoding="utf-8")
+        source_meta = _load_source_meta(source_path)
 
         print(f"\n[{notice_id}] role={role} kind={notice.get('kind')}")
 
         notice_summary = {"id": notice_id, "role": role, "languages": {}}
         for lang in target_langs:
             t0 = time.time()
+            approved_ingredient_dictionary, approved_ingredient_dictionary_target = (
+                _ingredient_dictionaries_for_language(source_meta, lang)
+            )
             try:
-                result = await run_one(pipeline, source_text, lang)
+                result = await run_one(
+                    pipeline,
+                    source_text,
+                    lang,
+                    approved_ingredient_dictionary,
+                    approved_ingredient_dictionary_target,
+                )
                 status = result.get("status", "?")
                 hf = (result.get("validation") or {}).get("hard_fact") or {}
                 ct = (result.get("validation") or {}).get("context_tone") or {}

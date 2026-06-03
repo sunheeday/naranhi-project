@@ -76,6 +76,7 @@ class TranslationPipeline:
         hard_fact_validation = validate_hard_facts_by_code(
             source_hard_facts,
             target_hard_facts,
+            ingredient_map,
         )
         hard_fact_attempts = 0
 
@@ -117,6 +118,7 @@ class TranslationPipeline:
             hard_fact_validation = validate_hard_facts_by_code(
                 source_hard_facts,
                 target_hard_facts,
+                ingredient_map,
             )
 
         if hard_fact_validation["verdict"] == "FAIL":

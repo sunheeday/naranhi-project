@@ -139,6 +139,59 @@ class NoticeService:
             "saved": saved,
         }
 
+    async def translate_text(
+        self,
+        *,
+        source_text: str,
+        target_language: str,
+        approved_ingredient_dictionary: list[dict[str, object]] | None = None,
+        approved_ingredient_dictionary_target: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
+        settings = get_settings()
+        if not settings.gemini_configured or not settings.gemini_key_material:
+            raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
+
+        try:
+            gemini = GeminiJsonClient.from_settings(settings)
+            pipeline = TranslationPipeline(gemini)
+            result = await pipeline.run(
+                TranslationPipelineInput(
+                    source_text=source_text,
+                    target_language=target_language,
+                    approved_ingredient_dictionary=[
+                        dict(item) for item in (approved_ingredient_dictionary or [])
+                    ],
+                    approved_ingredient_dictionary_target=[
+                        dict(item) for item in (approved_ingredient_dictionary_target or [])
+                    ],
+                )
+            )
+        except Exception as exc:
+            if not _is_gemini_quota_error(exc):
+                raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
+
+            fallback = await self._best_effort_translate_notice(
+                gemini=GeminiJsonClient.from_settings(settings),
+                notice={},
+                target_language=target_language,
+                source_text=source_text,
+            )
+            return {
+                "ok": True,
+                "target_language": target_language,
+                "status": fallback["status"],
+                "translation": fallback.get("final_translation"),
+                "pipeline_result": fallback,
+            }
+
+        return {
+            "ok": True,
+            "target_language": target_language,
+            "status": result["status"],
+            "translation": result.get("final_translation"),
+            "pipeline_result": result,
+        }
+
     async def _best_effort_translate_notice(
         self,
         *,
