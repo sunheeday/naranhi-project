@@ -2,8 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { getNoticeDetail, type NoticeCardDto } from '@/lib/notices'
-import type { CardType } from '@/types/database'
+import { getNoticeDetail } from '@/lib/notices'
 import NoticeCardSwiper, { type NoticeCard } from './NoticeCardSwiper'
 import NoticeProcessingView from './NoticeProcessingView'
 import NoticeErrorView from './NoticeErrorView'
@@ -11,62 +10,6 @@ import NoticeLocaleTranslationKickoff from './NoticeLocaleTranslationKickoff'
 
 interface Props {
   params: Promise<{ id: string }>
-}
-
-function asObject(content: unknown): Record<string, unknown> | null {
-  if (content && typeof content === 'object' && !Array.isArray(content)) {
-    return content as Record<string, unknown>
-  }
-  return null
-}
-
-function asText(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
-  const obj = asObject(content)
-  if (!obj) return null
-  const rawItems = Array.isArray(obj.items) ? obj.items : []
-  const items = rawItems
-    .map(item => {
-      if (typeof item === 'string') {
-        const text = asText(item)
-        return text ? { text } : null
-      }
-      const itemObj = asObject(item)
-      if (!itemObj) return null
-      const text = asText(itemObj.text)
-      if (!text) return null
-      const hint = asText(itemObj.hint)
-      return hint ? { text, hint } : { text }
-    })
-    .filter((item): item is { text: string; hint?: string } => Boolean(item))
-  if (items.length === 0) return null
-  return {
-    type,
-    items,
-  }
-}
-
-function pickLocalized(content: unknown, locale: Locale): unknown {
-  if (!content || typeof content !== 'object' || Array.isArray(content)) return content
-  const c = content as Record<string, unknown>
-  // jsonb { ko, zh, vi, en, ru, ar, fr, ... } 형태면 사용자 locale → ko fallback
-  if (c.ko !== undefined || c[locale] !== undefined) {
-    return c[locale] ?? c.ko ?? content
-  }
-  return content
-}
-
-function mapCards(rows: NoticeCardDto[], locale: Locale): NoticeCard[] {
-  const mapped: NoticeCard[] = []
-  for (const r of rows) {
-    const localized = pickLocalized(r.content, locale)
-    let card = mapCommonCard(r.type, localized)
-    if (card) mapped.push(card)
-  }
-  return mapped
 }
 
 export default async function NoticePage({ params }: Props) {
@@ -122,34 +65,46 @@ export default async function NoticePage({ params }: Props) {
     )
   }
 
-  const summary = detail.summary
-  const cardRows = detail.cards
+  const md = messages.notice_detail
 
-  const dataCards = mapCards(cardRows, locale)
-  const swipeHint = dataCards.length > 0 ? messages.notice_detail.swipe_hint : undefined
+  // 소스별 카드: 본문 → 첨부…(정제본 렌더). 복잡한 첨부는 "원본 파일에서 보세요" 안내로 대체.
+  const cards: NoticeCard[] = detail.sourceCards.map(source => ({
+    type: 'source' as const,
+    emoji: source.kind === 'body' ? md.intro_emoji : md.file_emoji,
+    title: source.kind === 'body' ? md.body_title : source.filename || md.attachment_title,
+    content: source.content,
+    needsFile: source.needsFile,
+    complexNotice: md.attachment_complex,
+  }))
 
-  let cards: NoticeCard[]
-  if (detail.needsFile) {
-    // 정제 품질이 낮아(평탄화/할루시네이션 위험) 본문 대신 원본 파일을 안내한다. 요약 카드는 유지.
-    const fileCard: NoticeCard = {
+  // 맨 끝 원본 파일 카드(첨부가 하나라도 있을 때): 우리 Storage 사본을 미리보기/다운로드.
+  if (detail.attachmentFiles.length > 0) {
+    cards.push({
       type: 'file',
-      emoji: messages.notice_detail.file_emoji,
-      title: messages.notice_detail.file_title,
-      summary: messages.notice_detail.file_desc,
-      links: detail.fileLinks,
-      hint: swipeHint,
-    }
-    cards = [fileCard, ...dataCards]
-  } else if (dataCards.length > 0) {
-    cards = dataCards
-  } else {
-    cards = [{
+      emoji: md.file_emoji,
+      title: md.file_title,
+      files: detail.attachmentFiles.map(file => ({
+        filename: file.filename,
+        publicUrl: file.publicUrl,
+        previewable: file.previewable,
+      })),
+      fileLabels: { preview: md.preview, download: md.download },
+    })
+  }
+
+  // 예외(소스·첨부 모두 없음) 폴백.
+  if (cards.length === 0) {
+    cards.push({
       type: 'intro',
-      emoji: messages.notice_detail.intro_emoji,
-      title: messages.notice_detail.intro_title,
-      summary: summary ?? '',
-      hint: swipeHint,
-    }]
+      emoji: md.intro_emoji,
+      title: md.intro_title,
+      summary: detail.summary ?? '',
+    })
+  }
+
+  // 카드가 2개 이상이면 스와이프 힌트 표시.
+  if (cards.length > 1) {
+    for (const card of cards) card.hint = md.swipe_hint
   }
 
   return (

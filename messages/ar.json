@@ -98,6 +98,11 @@
     "meal_allergy_prefix": "⚠ مسببات الحساسية:"
   },
   "notice_detail": {
+    "body_title": "النص الرئيسي",
+    "attachment_title": "مرفق",
+    "attachment_complex": "هذا المرفق ذو تنسيق معقد — يُرجى فتح الملف الأصلي أدناه.",
+    "preview": "معاينة",
+    "download": "تنزيل",
     "summary_badge": "ملخص",
     "supplies_badge": "المستلزمات",
     "action_badge": "المهام",

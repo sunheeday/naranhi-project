@@ -98,6 +98,11 @@
     "meal_allergy_prefix": "⚠ สารก่อภูมิแพ้:"
   },
   "notice_detail": {
+    "body_title": "เนื้อหาหลัก",
+    "attachment_title": "ไฟล์แนบ",
+    "attachment_complex": "ไฟล์แนบนี้มีรูปแบบซับซ้อน โปรดเปิดไฟล์ต้นฉบับด้านล่าง",
+    "preview": "ดูตัวอย่าง",
+    "download": "ดาวน์โหลด",
     "summary_badge": "สรุป",
     "supplies_badge": "อุปกรณ์",
     "action_badge": "งานที่ต้องทำ",

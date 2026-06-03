@@ -100,6 +100,11 @@
     "meal_allergy_prefix": "⚠ 알레르기:"
   },
   "notice_detail": {
+    "body_title": "본문",
+    "attachment_title": "첨부파일",
+    "attachment_complex": "이 자료는 표·서식이 복잡해 아래 원본 파일에서 직접 확인해 주세요.",
+    "preview": "미리보기",
+    "download": "다운로드",
     "summary_badge": "핵심 요약",
     "supplies_badge": "준비물",
     "action_badge": "해야 할 일",

@@ -94,6 +94,11 @@
     "meal_allergy_prefix": "⚠ 过敏:"
   },
   "notice_detail": {
+    "body_title": "正文",
+    "attachment_title": "附件",
+    "attachment_complex": "该附件的表格与排版较复杂，请查看下方原始文件。",
+    "preview": "预览",
+    "download": "下载",
     "summary_badge": "核心摘要",
     "supplies_badge": "准备物品",
     "action_badge": "待办事项",

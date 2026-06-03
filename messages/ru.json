@@ -98,6 +98,11 @@
     "meal_allergy_prefix": "⚠ Аллергены:"
   },
   "notice_detail": {
+    "body_title": "Основной текст",
+    "attachment_title": "Вложение",
+    "attachment_complex": "У этого вложения сложное форматирование — откройте оригинальный файл ниже.",
+    "preview": "Просмотр",
+    "download": "Скачать",
     "summary_badge": "Кратко",
     "supplies_badge": "Принадлежности",
     "action_badge": "Дела",

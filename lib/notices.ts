@@ -13,6 +13,28 @@ export interface NoticeFileLink {
   url: string
 }
 
+/** 소스(본문/첨부)별 카드 — 각 소스의 정제 본문을 따로 보여준다. */
+export interface NoticeSourceCard {
+  kind: 'body' | 'attachment'
+  /** 첨부일 때 파일명(본문은 빈 문자열) */
+  filename: string
+  /** 정제된 markdown 본문(본문은 번역본 우선, 첨부는 한국어 정제본 — 번역은 후속 단계) */
+  content: string
+  /** 형식이 복잡해 정제본 대신 원본 파일을 안내해야 하는지 */
+  needsFile: boolean
+  /** 브라우저에서 미리보기 가능한 형식인지(PDF·이미지) */
+  previewable: boolean
+  /** 우리 Supabase Storage 의 파일 URL(첨부만) */
+  publicUrl: string | null
+}
+
+/** 원본 파일 카드에 보여줄 첨부 파일(우리 Storage 사본). */
+export interface NoticeAttachmentFile {
+  filename: string
+  publicUrl: string
+  previewable: boolean
+}
+
 export interface NoticeDetailDto {
   id: string
   status: NoticeStatus
@@ -27,6 +49,10 @@ export interface NoticeDetailDto {
   needsFile: boolean
   /** 사용자가 직접 확인할 원본 첨부 파일들 */
   fileLinks: NoticeFileLink[]
+  /** 본문/첨부 소스별 카드(순서: 본문 → 첨부…) */
+  sourceCards: NoticeSourceCard[]
+  /** 원본 파일 카드용 첨부 파일 목록(중복 파일 제거) */
+  attachmentFiles: NoticeAttachmentFile[]
 }
 
 export interface NoticeCardDto {
@@ -90,6 +116,8 @@ export async function getNoticeDetail(
   const extracted = asJsonObject(notice.extracted_content)
   const needsFile = extracted?.needs_file === true
   const fileLinks = extractFileLinks(extracted)
+  const sourceCards = buildSourceCards(extracted, translations, locale)
+  const attachmentFiles = buildAttachmentFiles(extracted)
 
   return {
     id: notice.id,
@@ -102,7 +130,70 @@ export async function getNoticeDetail(
     cards,
     needsFile,
     fileLinks,
+    sourceCards,
+    attachmentFiles,
   }
+}
+
+/** PDF·이미지면 브라우저 미리보기 가능. metadata.file_type 로 판단. */
+function isPreviewable(source: Record<string, unknown>): boolean {
+  const meta = asJsonObject(source.metadata)
+  const fileType = typeof meta?.file_type === 'string' ? meta.file_type : ''
+  return fileType === 'pdf' || fileType === 'image'
+}
+
+/** extracted_content.sources[] → included(중복제거된) 소스를 본문→첨부 순의 카드로. */
+function buildSourceCards(
+  extracted: Record<string, unknown> | null,
+  translations: Translations,
+  locale: Locale
+): NoticeSourceCard[] {
+  if (!extracted) return []
+  const sources = Array.isArray(extracted.sources) ? extracted.sources : []
+  const includedIds = new Set(
+    (Array.isArray(extracted.included_source_ids) ? extracted.included_source_ids : []).map(String)
+  )
+  const rows: (NoticeSourceCard & { _isBody: boolean; _order: number })[] = []
+  for (const source of sources) {
+    const obj = asJsonObject(source)
+    if (!obj) continue
+    if (!includedIds.has(String(obj.source_id ?? ''))) continue
+    const isBody = obj.source_type === 'html_body'
+    const refined = typeof obj.refined_text === 'string' ? obj.refined_text : ''
+    // 본문은 번역본 우선(기존 번역 흐름 재사용), 첨부는 한국어 정제본(번역은 후속 단계).
+    const content = (isBody ? pickTranslation(translations, locale) ?? refined : refined) || ''
+    const meta = asJsonObject(obj.metadata)
+    rows.push({
+      kind: isBody ? 'body' : 'attachment',
+      filename: typeof obj.filename === 'string' ? obj.filename : '',
+      content,
+      needsFile: obj.needs_file === true,
+      previewable: isPreviewable(obj),
+      publicUrl: typeof obj.public_url === 'string' ? obj.public_url : null,
+      _isBody: isBody,
+      _order: typeof meta?.order_index === 'number' ? meta.order_index : 999,
+    })
+  }
+  rows.sort((a, b) => (a._isBody === b._isBody ? a._order - b._order : a._isBody ? -1 : 1))
+  return rows.map(({ _isBody, _order, ...card }) => card)
+}
+
+/** extracted_content.sources[] → public_url 있는 첨부 파일들(중복 URL 제거). */
+function buildAttachmentFiles(extracted: Record<string, unknown> | null): NoticeAttachmentFile[] {
+  if (!extracted) return []
+  const sources = Array.isArray(extracted.sources) ? extracted.sources : []
+  const seen = new Set<string>()
+  const files: NoticeAttachmentFile[] = []
+  for (const source of sources) {
+    const obj = asJsonObject(source)
+    if (!obj) continue
+    const url = typeof obj.public_url === 'string' ? obj.public_url.trim() : ''
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    const filename = typeof obj.filename === 'string' && obj.filename.trim() ? obj.filename.trim() : 'attachment'
+    files.push({ filename, publicUrl: url, previewable: isPreviewable(obj) })
+  }
+  return files
 }
 
 function asJsonObject(value: unknown): Record<string, unknown> | null {

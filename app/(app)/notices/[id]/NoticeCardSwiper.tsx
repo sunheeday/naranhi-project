@@ -12,20 +12,29 @@ export interface NoticeCardItem {
   hint?: string
 }
 
-export interface NoticeFileLink {
+export interface NoticeFileEntry {
   filename: string
-  url: string
+  publicUrl: string
+  previewable: boolean
 }
 
 export interface NoticeCard {
-  type: 'intro' | 'file' | CardType
+  type: 'intro' | 'file' | 'source' | CardType
   emoji?: string
   title?: string
   dateRange?: string
   summary?: string
+  /** 'source' 카드의 정제 markdown 본문 */
+  content?: string
+  /** 'source' 카드: 형식이 복잡해 원본 파일 안내로 대체할지 */
+  needsFile?: boolean
+  /** needsFile 일 때 보여줄 안내 문구 */
+  complexNotice?: string
   hint?: string
   items?: NoticeCardItem[]
-  links?: NoticeFileLink[]
+  /** 'file' 카드: 우리 Storage 첨부 파일들(미리보기/다운로드) */
+  files?: NoticeFileEntry[]
+  fileLabels?: { preview: string; download: string }
 }
 
 export interface CardLabels {
@@ -46,13 +55,12 @@ const CARD_STYLE: Record<CardType, { icon: string; color: string; bg: string }> 
   supplies: { icon: '🎒', color: 'text-cat-supply',   bg: 'bg-cat-supply-bg' },
 }
 
-const CARD_ORDER: CardType[] = ['action', 'schedule', 'supplies']
-
 export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' })
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const orderedCards = [...cards].sort((a, b) => cardSortIndex(a.type) - cardSortIndex(b.type))
+  // 카드 순서는 호출부(page.tsx)가 본문 → 첨부 → 원본파일 순으로 정한다(여기선 재정렬 안 함).
+  const orderedCards = cards
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return
@@ -173,8 +181,37 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
     )
   }
 
+  if (card.type === 'source') {
+    return (
+      <div className="bg-canvas rounded-card shadow-soft p-6 flex flex-col gap-4 min-h-[360px] border border-hairline-soft">
+        <div className="flex items-center gap-2">
+          <span className="text-xl" aria-hidden="true">{card.emoji ?? '📄'}</span>
+          <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+            {card.title}
+          </span>
+        </div>
+
+        {card.needsFile ? (
+          <p className="text-[15px] leading-[1.7] text-body">{card.complexNotice}</p>
+        ) : card.content?.trim() ? (
+          <MarkdownBody source={card.content} />
+        ) : (
+          <p className="text-[15px] leading-[1.7] text-body">{card.complexNotice}</p>
+        )}
+
+        {card.hint && (
+          <p className="mt-auto pt-4 text-xs text-muted-soft text-center border-t border-hairline-soft">
+            {card.hint}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   if (card.type === 'file') {
-    const links = card.links ?? []
+    const files = card.files ?? []
+    const previewLabel = card.fileLabels?.preview ?? 'Preview'
+    const downloadLabel = card.fileLabels?.download ?? 'Download'
 
     return (
       <div className="bg-canvas rounded-card shadow-soft p-6 flex flex-col gap-5 min-h-[360px] border border-hairline-soft">
@@ -185,28 +222,40 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
           </span>
         </div>
 
-        {card.summary && (
-          <p className="text-[16px] leading-[1.7] text-body">{card.summary}</p>
-        )}
-
-        {links.length > 0 ? (
+        {files.length > 0 ? (
           <ul className="flex flex-col gap-3">
-            {links.map((link, i) => (
-              <li key={i}>
+            {files.map((file, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-2 px-4 py-3 rounded-card border border-hairline-soft bg-surface"
+              >
+                <span aria-hidden="true">📄</span>
+                <span className="flex-1 truncate text-ink font-medium">{file.filename}</span>
+                {file.previewable && (
+                  <a
+                    href={file.publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={previewLabel}
+                    title={previewLabel}
+                    className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-card text-text-secondary hover:bg-canvas transition-colors"
+                  >
+                    <span aria-hidden="true">👁️</span>
+                  </a>
+                )}
                 <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-3 rounded-card border border-hairline-soft bg-surface text-ink font-semibold hover:bg-canvas transition-colors"
+                  href={`${file.publicUrl}?download=${encodeURIComponent(file.filename)}`}
+                  aria-label={downloadLabel}
+                  title={downloadLabel}
+                  className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-card text-text-secondary hover:bg-canvas transition-colors"
                 >
-                  <span aria-hidden="true">📄</span>
-                  <span className="truncate">{link.filename}</span>
+                  <span aria-hidden="true">⬇️</span>
                 </a>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-soft">{card.summary ? '' : '첨부된 원본 파일이 없어요.'}</p>
+          <p className="text-sm text-muted-soft">첨부된 원본 파일이 없어요.</p>
         )}
 
         {card.hint && (
@@ -246,12 +295,5 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
 
 function labelFor(type: CardType, labels: CardLabels): string {
   return labels[type]
-}
-
-function cardSortIndex(type: 'intro' | 'file' | CardType): number {
-  if (type === 'file') return -2
-  if (type === 'intro') return -1
-  const index = CARD_ORDER.indexOf(type as CardType)
-  return index >= 0 ? index : CARD_ORDER.length
 }
 

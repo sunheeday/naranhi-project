@@ -96,6 +96,11 @@
     "meal_allergy_prefix": "⚠ Dị ứng:"
   },
   "notice_detail": {
+    "body_title": "Nội dung chính",
+    "attachment_title": "Tệp đính kèm",
+    "attachment_complex": "Tệp đính kèm này có định dạng phức tạp — vui lòng mở tệp gốc bên dưới.",
+    "preview": "Xem trước",
+    "download": "Tải xuống",
     "summary_badge": "Tóm tắt",
     "supplies_badge": "Đồ dùng",
     "action_badge": "Việc cần làm",

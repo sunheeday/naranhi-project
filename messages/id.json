@@ -98,6 +98,11 @@
     "meal_allergy_prefix": "⚠ Alergen:"
   },
   "notice_detail": {
+    "body_title": "Teks utama",
+    "attachment_title": "Lampiran",
+    "attachment_complex": "Lampiran ini berformat rumit — silakan buka file asli di bawah.",
+    "preview": "Pratinjau",
+    "download": "Unduh",
     "summary_badge": "Ringkasan",
     "supplies_badge": "Perlengkapan",
     "action_badge": "Tugas",
