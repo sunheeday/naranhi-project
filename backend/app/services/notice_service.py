@@ -5,6 +5,7 @@ from app.core.supabase import get_supabase_client
 from app.crawler.detail_content_extractor import fetch_notice_detail_content
 from app.translation.gemini_client import GeminiJsonClient
 from app.translation.orchestrator import TranslationPipeline, TranslationPipelineInput
+from app.translation.prompts import translate_meal_labels_prompt
 
 
 class NoticeService:
@@ -144,12 +145,19 @@ class NoticeService:
         *,
         source_text: str,
         target_language: str,
+        translation_kind: str | None = None,
         approved_ingredient_dictionary: list[dict[str, object]] | None = None,
         approved_ingredient_dictionary_target: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
         settings = get_settings()
         if not settings.gemini_configured or not settings.gemini_key_material:
             raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
+
+        if translation_kind == "meal_labels":
+            return await self._translate_meal_labels(
+                source_text=source_text,
+                target_language=target_language,
+            )
 
         try:
             gemini = GeminiJsonClient.from_settings(settings)
@@ -190,6 +198,59 @@ class NoticeService:
             "status": result["status"],
             "translation": result.get("final_translation"),
             "pipeline_result": result,
+        }
+
+    async def _translate_meal_labels(
+        self,
+        *,
+        source_text: str,
+        target_language: str,
+    ) -> dict[str, object]:
+        settings = get_settings()
+        gemini = GeminiJsonClient.from_settings(settings)
+        items = _parse_meal_label_source_text(source_text)
+        if not items:
+            return {
+                "ok": True,
+                "target_language": target_language,
+                "status": "ready_to_save",
+                "translation": source_text,
+                "translations": {},
+                "pipeline_result": {"final_translation": source_text},
+            }
+
+        prompt = translate_meal_labels_prompt(
+            target_language=target_language,
+            items=items,
+        )
+        response = await gemini.generate_json(prompt=prompt, temperature=0.1)
+        translated_items = response.get("items")
+        translations: dict[str, str] = {}
+        if isinstance(translated_items, list):
+            for item in translated_items:
+                if not isinstance(item, dict):
+                    continue
+                item_id = _optional_str(item.get("id"))
+                translation = _optional_str(item.get("translation"))
+                if item_id and translation:
+                    translations[item_id] = translation
+
+        # Fill any missing items with the original text so the client gets a full map.
+        for item in items:
+            item_id = item["id"]
+            translations.setdefault(item_id, item["text"])
+
+        lines = [f"[[{item['id']}]] {translations[item['id']]}" for item in items]
+        final_translation = "\n".join(lines)
+        return {
+            "ok": True,
+            "target_language": target_language,
+            "status": "ready_to_save",
+            "translation": final_translation,
+            "translations": translations,
+            "pipeline_result": {
+                "final_translation": final_translation,
+            },
         }
 
     async def _best_effort_translate_notice(
@@ -307,12 +368,8 @@ class NoticeService:
         notice_patch: dict[str, Any] = {}
         if metadata.get("title"):
             notice_patch["title"] = metadata["title"]
-
-        # 추출된 마감일 중 가장 이른 날짜를 notices.due_date에 저장 (홈 D-day용).
-        # 마감일을 못 찾으면 기존 값을 덮어쓰지 않는다.
-        due_date = _due_date_from_pipeline(pipeline_result)
-        if due_date:
-            notice_patch["due_date"] = due_date
+        if pipeline_result.get("status") == "ready_to_save":
+            notice_patch["status"] = "done"
 
         if notice_patch:
             supabase.table("notices").update(notice_patch).eq("id", notice_id).execute()
@@ -876,6 +933,24 @@ def _iso_date(value: str) -> str | None:
     if len(text) >= 10 and text[4] == "-" and text[7] == "-":
         return text[:10]
     return None
+
+
+def _parse_meal_label_source_text(source_text: str) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for raw_line in source_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("# "):
+            continue
+        if not line.startswith("[["):
+            continue
+        marker_end = line.find("]]")
+        if marker_end <= 2:
+            continue
+        item_id = line[2:marker_end].strip()
+        text = line[marker_end + 2 :].strip()
+        if item_id and text:
+            items.append({"id": item_id, "text": text})
+    return items
 
 
 def get_notice_service() -> NoticeService:

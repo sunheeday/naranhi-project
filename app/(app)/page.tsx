@@ -9,7 +9,7 @@ import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-c
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterEmptyState from '@/components/brand/CharacterEmptyState'
 import HomePoller from './HomePoller'
-import NoticeCardItem from './NoticeCardItem'
+import HomeNoticeSections from './HomeNoticeSections'
 import SchoolCrawlerKickoff from './SchoolCrawlerKickoff'
 import HomeNoticeTranslationKickoff from './HomeNoticeTranslationKickoff'
 
@@ -20,7 +20,6 @@ interface NoticeRow {
   ai_translations: { [locale: string]: string }
   crawl_result: Json
   created_at: string
-  due_date: string | null
   notice_cards: { type: string }[]
 }
 
@@ -292,7 +291,7 @@ export default async function HomePage() {
     const { data: schoolRows } = child.school_id
       ? await supabase
           .from('notices')
-          .select('id, status, title, crawl_result, created_at, due_date')
+          .select('id, status, title, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('status', 'done')
           .order('created_at', { ascending: false })
@@ -363,8 +362,7 @@ export default async function HomePage() {
 
       notices = rows.map(row => {
         const noticeCards = cardsByNotice[row.id] ?? []
-        // 마감일(due_date)을 우선 사용하고, 없으면 연결된 일정(event_date)으로 대체.
-        const due = computeDue(row.due_date ?? dueByNotice[row.id], todayIso)
+        const due = computeDue(dueByNotice[row.id], todayIso)
         return {
           id: row.id,
           cardType: dominantCardType(noticeCards),
@@ -388,37 +386,33 @@ export default async function HomePage() {
   const todoTitle = SECTION_LABELS.todo[locale] ?? SECTION_LABELS.todo.ko
   const newsTitle = SECTION_LABELS.news[locale] ?? SECTION_LABELS.news.ko
 
-  const renderNoticeItem = (notice: DisplayNotice) => {
+  const mapNoticeForClient = (notice: DisplayNotice) => {
     const badge = BADGE[notice.cardType ?? 'null']
     const badgeLabel = badge.label[locale] ?? badge.label.ko
-    return (
-      <li key={notice.id}>
-        <NoticeCardItem
-          noticeId={notice.id}
-          title={notice.title}
-          statusLabel={notice.status !== 'done' ? statusLabel(notice.status, homeMsg) : ''}
-          arrivedAt={notice.arrivedAt}
-          arrivedSuffix={homeMsg.relative.arrived_suffix}
-          accentBar={badge.bar}
-          badgeBg={badge.bg}
-          badgeText={badge.text}
-          badgeLabel={badgeLabel}
-          dueLabel={notice.dueLabel}
-          dueUrgent={notice.dueUrgent}
-          deleteLabel={messages.home.delete ?? '삭제'}
-          confirmTitle={messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?'}
-          confirmBody={messages.home.hide_confirm_body}
-          confirmCancel={messages.common.cancel ?? '취소'}
-          confirmDelete={messages.home.delete ?? '삭제'}
-          deletingLabel={messages.home.deleting ?? '삭제 중...'}
-        />
-      </li>
-    )
+    return {
+      id: notice.id,
+      accentBar: badge.bar,
+      badgeBg: badge.bg,
+      badgeText: badge.text,
+      badgeLabel,
+      title: notice.title,
+      statusLabel: notice.status !== 'done' ? statusLabel(notice.status, homeMsg) : '',
+      arrivedAt: notice.arrivedAt,
+      arrivedSuffix: homeMsg.relative.arrived_suffix,
+      dueLabel: notice.dueLabel,
+      dueUrgent: notice.dueUrgent,
+      deleteLabel: messages.home.delete ?? '삭제',
+      confirmTitle: messages.home.hide_confirm_title ?? messages.home.delete_confirm_title ?? '이 공지를 숨길까요?',
+      confirmBody: messages.home.hide_confirm_body,
+      confirmCancel: messages.common.cancel ?? '취소',
+      confirmDelete: messages.home.delete ?? '삭제',
+      deletingLabel: messages.home.deleting ?? '삭제 중...',
+    }
   }
 
   return (
     <main className="flex flex-col min-h-screen pb-24">
-      <HomePoller hasPending={hasProcessingNotices} />
+      <HomePoller active={isPreparingSchoolNotices} />
       <HomeNoticeTranslationKickoff
         locale={locale}
         noticeIds={notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
@@ -460,31 +454,13 @@ export default async function HomePage() {
               <SchoolCrawlerKickoff schoolId={schoolCrawlerState.id} showFailure={false} />
             ) : null}
 
-            {actionNotices.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="w-2 h-2 rounded-full bg-cat-action" aria-hidden="true" />
-                  <h2 className="text-sm font-bold text-ink">{todoTitle}</h2>
-                  <span className="text-xs font-bold text-cat-action">{actionNotices.length}</span>
-                </div>
-                <ul className="flex flex-col gap-3">
-                  {actionNotices.map(renderNoticeItem)}
-                </ul>
-              </div>
-            )}
-
-            {infoNotices.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="w-2 h-2 rounded-full bg-muted-soft" aria-hidden="true" />
-                  <h2 className="text-sm font-bold text-ink">{newsTitle}</h2>
-                  <span className="text-xs font-bold text-muted-soft">{infoNotices.length}</span>
-                </div>
-                <ul className="flex flex-col gap-3">
-                  {infoNotices.map(renderNoticeItem)}
-                </ul>
-              </div>
-            )}
+            <HomeNoticeSections
+              locale={locale}
+              todoTitle={todoTitle}
+              newsTitle={newsTitle}
+              actionNotices={actionNotices.map(mapNoticeForClient)}
+              infoNotices={infoNotices.map(mapNoticeForClient)}
+            />
           </>
         )}
       </section>

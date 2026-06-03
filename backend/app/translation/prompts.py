@@ -338,6 +338,66 @@ Return this JSON schema:
 {HARD_FACT_SCHEMA}"""
 
 
+def translate_meal_labels_prompt(
+    *,
+    target_language: str,
+    items: list[dict[str, str]],
+) -> str:
+    target_name = _language_name(target_language)
+    language_specific_rules = _meal_label_language_specific_rules(target_language)
+    return f"""{COMMON_SYSTEM_PROMPT}
+
+Task:
+Translate short Korean school meal labels into the target language as structured label mappings.
+
+Input:
+- source_language_code: ko
+- source_language_name: Korean
+- target_language_code: {target_language}
+- target_language_name: {target_name}
+
+meal_label_items:
+{_json(items)}
+
+Rules:
+- Translate every item's `text` into natural {target_name} for a school meal screen.
+- This task is for short UI meal labels, menu names, and allergen names only. Do not preserve Korean menu labels unchanged unless the text is genuinely untranslatable.
+- Return one translated string per item id.
+- Preserve leading or trailing symbols exactly when they are part of the label, such as `*`, parentheses like `(9)`, slashes, commas, and number markers.
+- If the Korean text contains both a symbol marker and a food label, keep the marker in the same position and translate only the Korean food label.
+- Keep dish names concise and food-natural, not notice-style prose.
+- Do not leave Korean food words as Hangul, romanization, or transliteration when a plain target-language food name is available. Avoid outputs such as `jjukkumi`, `джуккуми`, `ккакдуги`, or similar carryovers unless the item is a true proper name/brand.
+- For familiar Korean dish types that have a clear food meaning, prefer a plain descriptive food label in the target language. Example: `깍두기` should be rendered as a diced-radish kimchi label, not left as a transliterated Korean word.
+- If a menu item is a common shortened compound label used in school meals, expand the shorthand into its food components only when the component meaning is conventional and reasonably clear from the Korean menu name. Do not leave only part of the dish untranslated or transliterated.
+- If the Korean dish label clearly names multiple food components, keep all of those named components in the translation. Do not collapse a multi-component dish into a single generic seafood/meat label when the source names more than one component.
+- Translate common allergens into standard parent-facing labels in {target_name}.
+- Do not add explanations, bullet markers, extra sentences, or category headings.
+- Do not merge multiple items together.
+{language_specific_rules}
+
+Return JSON:
+{{
+  "items": [
+    {{
+      "id": "",
+      "translation": ""
+    }}
+  ]
+}}"""
+
+
+def _meal_label_language_specific_rules(target_language: str) -> str:
+    if target_language == "ru":
+        return """
+Russian meal-label rules:
+- Use short, menu-style Russian food names, the way a school cafeteria menu would list them.
+- For rice dishes with an added grain or bean, prefer the pattern `рис с ...` rather than an awkward adjectival form. Example: `기장밥` should read like `рис с пшеном`, not `пшенной рис`.
+- For soups and broths, prefer natural cafeteria-style labels such as `куриный суп с травами` or `бульон с ...`, not overly literal compound nouns.
+- If a Korean shorthand menu label names several seafood items, keep all named seafood components in plain Russian food words where possible.
+"""
+    return ""
+
+
 def validate_hard_facts_prompt(
     *,
     source_hard_facts: dict[str, Any],

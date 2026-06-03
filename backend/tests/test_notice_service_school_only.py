@@ -148,7 +148,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             for op in supabase.operations
             if op[0] == "notices" and op[1] == "update"
         ]
-        self.assertNotIn("status", notice_updates[-1])
+        self.assertEqual(notice_updates[-1]["status"], "done")
         self.assertNotIn("summary_translations", notice_updates[-1])
         self.assertNotIn("child_id", str(supabase.operations))
         self.assertEqual(saved["schedules"], [])
