@@ -119,7 +119,7 @@ export async function getNoticeDetail(
   const sourceCards = buildSourceCards(extracted, locale)
   const attachmentFiles = buildAttachmentFiles(extracted)
   const summaryObj = asJsonObject(extracted?.summary)
-  const hasSummary = Boolean(summaryObj && typeof summaryObj.body === 'string' && summaryObj.body.trim())
+  const hasSummary = Boolean(summaryObj && typeof summaryObj.rendered === 'string' && summaryObj.rendered.trim())
   // 요약 텍스트 = extracted_content.summary 의 렌더 텍스트(ko) + 번역(다른 언어).
   // original_text 는 이제 '풀 본문'(팀 구조화/번역 입력)이라 요약은 여기서 따로 읽는다.
   const summary = pickTranslation(summaryTextMap(summaryObj), locale) ?? notice.title ?? null

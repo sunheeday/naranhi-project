@@ -24,18 +24,24 @@ class FakeGemini:
 
 
 class RenderSummaryTests(unittest.TestCase):
-    def test_body_and_attachments_prose(self) -> None:
+    def test_title_and_points(self) -> None:
         s = {
-            "body": "이 공지는 체험학습 정산 안내입니다.",
-            "attachments": [{"source_id": "a1", "name": "정산표", "summary": "체험비 정산 내역."}],
+            "title": "2026 다문화가정 문화 동행 프로그램 모집",
+            "points": [
+                {"label": "프로그램 내용", "value": "공연관람, 한국문화체험"},
+                {"label": "참가비", "value": "무료"},
+                {"label": "날짜", "value": "2026년 6월 4일"},
+            ],
         }
         md = render_summary_markdown(s)
-        self.assertIn("이 공지는 체험학습 정산 안내입니다.", md)
-        self.assertIn("첨부 '정산표'에는 체험비 정산 내역.", md)
+        self.assertEqual(
+            md,
+            "2026 다문화가정 문화 동행 프로그램 모집\n프로그램 내용: 공연관람, 한국문화체험\n참가비: 무료\n날짜: 2026년 6월 4일",
+        )
 
     def test_empty_inputs(self) -> None:
         self.assertEqual(render_summary_markdown(None), "")
-        self.assertEqual(render_summary_markdown({"body": "", "attachments": []}), "")
+        self.assertEqual(render_summary_markdown({"title": "", "points": []}), "")
 
 
 class FactCheckTests(unittest.TestCase):
@@ -51,59 +57,60 @@ class FactCheckTests(unittest.TestCase):
     def test_money_ok_when_present_in_source(self) -> None:
         self.assertEqual(_hallucinated_facts("비용은 30,000원입니다.", "체험비 30,000원 납부"), [])
 
+    def test_added_year_not_flagged(self) -> None:
+        # 원문 '6월 8일' → 요약 '2026년 6월 8일'(연도 추가)도 같은 (월,일)이라 통과.
+        self.assertEqual(_hallucinated_facts("신청 마감일: 2026년 6월 8일", "신청은 6월 8일까지"), [])
+
+    def test_dotted_date_matches_month_day(self) -> None:
+        self.assertEqual(_hallucinated_facts("기간: 2026.6.9.(화)", "6월 9일부터 운영"), [])
+
 
 class SummarizeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_normal_json_parsed_and_attachment_id_preserved(self) -> None:
+    async def test_structured_json_parsed(self) -> None:
         resp = json.dumps(
             {
-                "body": "이 공지는 체험학습 정산 안내입니다.",
-                "attachments": [{"source_id": "att1", "name": "정산표", "summary": "체험비 30,000원 정산."}],
+                "title": "진로체험학습 경비 정산",
+                "points": [
+                    {"label": "날짜", "value": "2026년 5월 21일"},
+                    {"label": "참여 인원", "value": "116명"},
+                ],
             },
             ensure_ascii=False,
         )
         g = FakeGemini([resp])
         out, calls = await summarize(
             title="정산",
-            body="체험비 30,000원 정산 결과",
-            attachments=[{"source_id": "att1", "name": "정산표", "text": "체험비 30,000원", "needs_file": False}],
+            body="2026년 5월 21일 진행, 참여 116명",
+            attachments=[],
             gemini=g,
         )
         self.assertEqual(calls, 1)
-        self.assertEqual(out["attachments"][0]["source_id"], "att1")
-        self.assertIn("정산", out["body"])
+        self.assertEqual(out["title"], "진로체험학습 경비 정산")
+        self.assertEqual(out["points"][0]["label"], "날짜")
+        self.assertEqual(out["points"][0]["value"], "2026년 5월 21일")
 
-    async def test_hallucination_twice_falls_back_to_minimal(self) -> None:
-        bad = json.dumps({"body": "행사는 2026년 12월 25일입니다.", "attachments": []}, ensure_ascii=False)
+    async def test_hallucination_twice_falls_back_to_title_only(self) -> None:
+        bad = json.dumps(
+            {"title": "행사", "points": [{"label": "날짜", "value": "2026년 12월 25일"}]},
+            ensure_ascii=False,
+        )
         g = FakeGemini([bad, bad])
-        out, calls = await summarize(title="행사", body="행사 안내", attachments=[], gemini=g)
-        self.assertEqual(calls, 2)  # 최초 + 재생성
-        self.assertNotIn("12월 25일", out["body"])  # 환각 숫자 제거
-        self.assertIn("행사", out["body"])  # title 기반 최소 요약
+        out, calls = await summarize(title="행사 안내", body="행사 안내", attachments=[], gemini=g)
+        self.assertEqual(calls, 2)
+        self.assertEqual(out["points"], [])  # 환각 항목 제거(제목만)
+        self.assertEqual(out["title"], "행사 안내")
 
     async def test_empty_input_minimal_no_llm_call(self) -> None:
         g = FakeGemini([])
         out, calls = await summarize(title="제목", body="", attachments=[], gemini=g)
         self.assertEqual(calls, 0)
         self.assertEqual(g.calls, 0)
-        self.assertIn("제목", out["body"])
+        self.assertEqual(out["title"], "제목")
 
     async def test_gemini_none_minimal(self) -> None:
         out, calls = await summarize(title="제목", body="내용", attachments=[], gemini=None)
         self.assertEqual(calls, 0)
-        self.assertIn("제목", out["body"])
-
-    async def test_needs_file_attachment_always_included_with_note(self) -> None:
-        resp = json.dumps({"body": "공지입니다.", "attachments": []}, ensure_ascii=False)
-        g = FakeGemini([resp])
-        out, calls = await summarize(
-            title="t",
-            body="본문 내용",
-            attachments=[{"source_id": "a2", "name": "규정.pdf", "text": "", "needs_file": True}],
-            gemini=g,
-        )
-        self.assertEqual(len(out["attachments"]), 1)
-        self.assertEqual(out["attachments"][0]["source_id"], "a2")
-        self.assertIn("원본", out["attachments"][0]["summary"])
+        self.assertEqual(out["title"], "제목")
 
 
 if __name__ == "__main__":
