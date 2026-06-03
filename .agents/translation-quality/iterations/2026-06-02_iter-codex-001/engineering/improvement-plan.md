@@ -8,10 +8,10 @@
 ## 1. Summary
 
 - **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거, `n04-school-talent-show`의 ru/ar 제목 톤과 target fact extractor 규칙 보강, `n03-lunch-allergy-halal`의 unmapped critical ingredient 추정 번역 억제, dictionary-aware meal gate 및 per-notice ingredient dictionary 주입
-- **보류한 이슈:** `n03-lunch-allergy-halal`의 아랍어 dictionary 검증 재실행 (Vertex 429로 미완료)
+- **보류한 이슈:** 없음
 - **Change Set 수:** 5
 - **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`, `backend/app/translation/validators.py`, `scripts/run_iteration.py`, `scripts/translation_quality_driver.py`
-- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료, `n04-school-talent-show` ru/ar 재실행 완료, `n03-lunch-allergy-halal` en/ru dictionary pass 확인
+- **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료, `n04-school-talent-show` ru/ar 재실행 완료, `n03-lunch-allergy-halal` en/ru/ar dictionary-aware pass 확인
 
 ## 2. Change Sets
 
@@ -185,16 +185,10 @@
   - `PYTHONPATH=backend python3 -m unittest backend/tests/test_translation_validators.py`
   - `n03-lunch-allergy-halal` dictionary 주입 재실행:
     - v1: en/ru는 mapped ingredient가 보여도 gate fail, ar는 Vertex 429
-    - v2 after fix: en `hard_fact=passed`, ru `hard_fact=passed`, 둘 다 `context_tone=passed`
-    - ar는 이번 턴에서 Vertex 429로 재확인 미완료
+    - v2 after fix: en `hard_fact=passed`, ru `hard_fact=passed`, ar `hard_fact=passed`; 세 언어 모두 `context_tone=passed`
 - **상태:** `applied`
 
 ## 3. Deferred
-
-### Deferred — `n03-lunch-allergy-halal` Arabic verification rerun
-
-- **사유:** dictionary-aware flow 자체는 구현됐지만, 아랍어 재검증 호출이 Vertex `429 RESOURCE_EXHAUSTED`로 종료됨
-- **다음 이터레이션 권고:** quota 여유 시 ar만 별도 재실행해 en/ru와 동일하게 `passed`까지 올라가는지 확인
 
 ## 4. Proposed for Next Iteration
 
@@ -215,7 +209,7 @@
   - ar: `ready_to_save` 유지, title `إشعار ...`로 수정, Korean parenthetical school-term 제거
 - `n03-lunch-allergy-halal`
   - phase 1: en/ru/ar `ready_to_save` 유지, validation failed는 그대로지만 unmapped critical ingredient를 추정 번역하지 않고 exact Korean token으로 통일
-  - phase 2 with mock dictionary: en `hard_fact=passed`, ru `hard_fact=passed`, 둘 다 ingredient mapping populated; ar는 Vertex 429로 미완료
+  - phase 2 with mock dictionary: en/ru/ar 모두 `hard_fact=passed`, `context_tone=passed`, ingredient mapping populated
 - baseline 전체는 아직 진행 중이므로 `n02`~`n06`의 after run은 미실행
 
 ## 6. Files Changed

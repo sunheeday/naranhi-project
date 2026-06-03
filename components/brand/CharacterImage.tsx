@@ -38,6 +38,7 @@ export default function CharacterImage({
         alt={alt}
         fill
         sizes={`${size}px`}
+        unoptimized
         priority={priority}
         className={`object-contain select-none ${disc ? '' : 'character-shadow'}`}
         draggable={false}
