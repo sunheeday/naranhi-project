@@ -145,6 +145,31 @@ def _squeeze_spaces(text: str) -> str:
     return "\n".join(out)
 
 
+_SECTION_MARKER_RE = re.compile(r"^([◉□■▣◆●◇▪])\s*(\S.{0,38})$")
+# 종결어미/마침표로 끝나면 '문장'이므로 제목으로 올리지 않는다.
+_HEADING_STOP = (".", "?", "!", "다", "요", "함", "음", "임", "됨", "죠", "까", "오")
+
+
+def _promote_section_headings(text: str) -> str:
+    """'◉ 질병결석' 같은 섹션 표시줄을 결정론적으로 '### …' 제목으로 올린다(LLM 무관·항상 일정).
+
+    LLM 정제는 매번 제목(#)을 붙였다 말았다 들쭉날쭉하므로, 정제 맨 끝에 이 단계를 둬서
+    섹션 구조를 일정하게 보장한다. 표(| 줄)·기존 제목(#)·노트(※)·리스트(-)는 건드리지 않고,
+    문장형(마침표/종결어미로 끝남)도 제외해 오탐을 막는다.
+    """
+    out: list[str] = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("|", "#")):
+            out.append(line)
+            continue
+        if _SECTION_MARKER_RE.match(stripped) and not stripped.endswith(_HEADING_STOP):
+            out.append(f"### {stripped}")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
 PROMPT = f"""너는 학교 가정통신문 '본문 정리기'다. 아래는 문서에서 자동 추출된 markdown이다.
 
 [가장 중요한 규칙 — 마스킹 토큰]
@@ -209,4 +234,6 @@ async def refine(raw_text: str, *, gemini: Any) -> tuple[str, str, int]:
     if missing:
         out += "\n\n## 관련 링크\n" + "\n".join(f"- {u}" for u in missing)
 
+    # 섹션 표시줄(◉ …)을 ### 제목으로 결정론적 승격 — LLM 변동과 무관하게 구조를 일정하게.
+    out = _promote_section_headings(out)
     return out, tag, calls[0]

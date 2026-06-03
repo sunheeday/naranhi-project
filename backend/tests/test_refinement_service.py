@@ -4,6 +4,7 @@ import asyncio
 import unittest
 
 from app.services.refinement_service import (
+    _promote_section_headings,
     _squeeze_spaces,
     degenerate,
     light_clean,
@@ -11,6 +12,22 @@ from app.services.refinement_service import (
     refine,
     unmask,
 )
+
+
+class SectionHeadingTests(unittest.TestCase):
+    def test_marker_line_promoted_to_heading(self) -> None:
+        out = _promote_section_headings("◉ 질병결석\n내용 줄")
+        self.assertIn("### ◉ 질병결석", out)
+        self.assertIn("내용 줄", out)
+
+    def test_sentence_with_marker_not_promoted(self) -> None:
+        # 종결어미로 끝나는 '문장'은 제목으로 올리지 않는다.
+        out = _promote_section_headings("◉ 아래 내용을 확인하세요.")
+        self.assertNotIn("###", out)
+
+    def test_table_and_existing_heading_untouched(self) -> None:
+        src = "## 이미 제목\n| a | b |\n| --- | --- |\n| 1 | 2 |"
+        self.assertEqual(_promote_section_headings(src), src)
 
 
 _ATOMS = (

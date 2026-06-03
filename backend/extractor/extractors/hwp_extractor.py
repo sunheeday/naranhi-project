@@ -118,6 +118,7 @@ def _hwp_to_markdown(path: Path, warnings: list[str]) -> str:
             )
             return ""
         xhtml_text = _unwrap_nested_tables(xhtml.read_text(encoding="utf-8", errors="replace"))
+        xhtml_text = _expand_table_spans(xhtml_text)  # 병합셀(rowspan/colspan)을 격자로 펼쳐 표 보존
         md = markdownify.markdownify(xhtml_text, heading_style="ATX")
         md = re.sub(r"(?m)^\s*xml version=.*$", "", md)   # xhtml 선언 leak 제거
         md = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", md)       # 이미지 markdown junk 제거
@@ -166,6 +167,96 @@ def _unwrap_nested_tables(xhtml: str) -> str:
             outer.replace_with(*blocks)
         else:
             outer.decompose()
+    return str(soup)
+
+
+def _cell_span(cell: object, name: str) -> int:
+    try:
+        return max(1, int(cell.get(name, 1) or 1))  # type: ignore[attr-defined]
+    except (TypeError, ValueError):
+        return 1
+
+
+def _pending_at_or_after(pending: dict[int, int], col: int) -> bool:
+    return any(c >= col and rem > 0 for c, rem in pending.items())
+
+
+def _expand_one_table(soup: object, table: object) -> None:
+    """한 표의 rowspan/colspan 을 펼쳐 직사각형 격자 <table> 로 교체한다(병합 없으면 그대로)."""
+    rows = [tr for tr in table.find_all("tr") if tr.find_parent("table") is table]  # type: ignore[attr-defined]
+    if not rows:
+        return
+    grid: list[list[str]] = []
+    pending: dict[int, int] = {}  # col -> 아래로 남은 rowspan 행수(빈칸으로 채움)
+    has_span = False
+    for tr in rows:
+        cells = [c for c in tr.find_all(["td", "th"]) if c.find_parent("table") is table]
+        row: list[str] = []
+        col = ci = 0
+        while ci < len(cells) or _pending_at_or_after(pending, col):
+            if len(row) > 80:  # 병적 구조 무한루프 안전 상한
+                break
+            if pending.get(col, 0) > 0:  # 위 행 rowspan 이 이 칸을 차지 → 빈칸
+                row.append("")
+                pending[col] -= 1
+                col += 1
+                continue
+            if ci < len(cells):
+                cell = cells[ci]
+                ci += 1
+                text = " ".join(cell.get_text(" ", strip=True).split())
+                cs = _cell_span(cell, "colspan")
+                rs = _cell_span(cell, "rowspan")
+                if cs > 1 or rs > 1:
+                    has_span = True
+                for k in range(cs):  # colspan: 첫 칸에만 값, 나머지는 빈칸(값 중복·창작 없음)
+                    row.append(text if k == 0 else "")
+                    if rs > 1:
+                        pending[col] = rs - 1
+                    col += 1
+                continue
+            row.append("")  # 셀은 끝났지만 오른쪽에 rowspan 잔여 → 빈칸 전진
+            col += 1
+        grid.append(row)
+    if not has_span:
+        return  # 병합 없는 표는 건드리지 않는다(markdownify 가 알아서 처리)
+    width = max((len(r) for r in grid), default=0)
+    if width < 2:
+        return
+    new_table = soup.new_tag("table")  # type: ignore[attr-defined]
+    for ri, row in enumerate(grid):
+        tr_tag = soup.new_tag("tr")  # type: ignore[attr-defined]
+        for k in range(width):
+            text = row[k] if k < len(row) else ""
+            cell_tag = soup.new_tag("th" if ri == 0 else "td")  # type: ignore[attr-defined]
+            if text:
+                cell_tag.string = text
+            tr_tag.append(cell_tag)
+        new_table.append(tr_tag)
+    table.replace_with(new_table)  # type: ignore[attr-defined]
+
+
+def _expand_table_spans(xhtml: str) -> str:
+    """표의 병합셀(rowspan/colspan)을 펼쳐 직사각형 격자로 만든다(markdownify 전 단계).
+
+    HWP 표는 셀 병합이 흔한데 markdownify 는 이를 못 그려 표가 평문으로 뭉개진다(평촌중
+    '출석인정결석'). 병합을 미리 빈 셀로 펼쳐 완전한 격자를 만들면 깔끔한 markdown 표가 된다.
+    값은 첫 칸에만 두고 펼친 칸은 빈칸 → 내용 중복·창작 없이 충실 보존.
+    bs4 미설치/파싱 실패 시 원본 그대로(폴백 안전).
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:  # noqa: BLE001 - bs4 없으면 펼치기만 건너뛴다.
+        return xhtml
+    try:
+        soup = BeautifulSoup(xhtml, "html.parser")
+    except Exception:  # noqa: BLE001
+        return xhtml
+    for table in soup.find_all("table"):
+        try:
+            _expand_one_table(soup, table)
+        except Exception:  # noqa: BLE001 - 한 표 실패가 전체 변환을 막지 않게.
+            continue
     return str(soup)
 
 
