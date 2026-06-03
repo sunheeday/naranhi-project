@@ -213,11 +213,28 @@ class ContentExtractionService:
         from extractor.extract_pipeline import extract_case
         from extractor.models import CaseConfig
 
+        # 추출 중 다운로드된 첨부 파일을 Supabase Storage 에 올린다(같은 바이트, 한 번만 다운로드).
+        uploads: dict[str, dict[str, Any]] = {}
+
+        async def _on_attachment(source_id: str, downloaded: Any) -> None:
+            from app.services.attachment_storage import upload_attachment
+
+            info = await upload_attachment(
+                notice_id=notice_id,
+                source_id=source_id,
+                path_on_disk=downloaded.path,
+                filename=downloaded.filename,
+                content_type=downloaded.content_type,
+            )
+            if info:
+                uploads[source_id] = info
+
         try:
             result = await asyncio.wait_for(
                 extract_case(
                     CaseConfig(id=notice_id, detail_url=detail_url, fetch_context=_fetch_context_from_notice(notice)),
                     gemini_client=gemini_client,
+                    on_attachment=_on_attachment,
                 ),
                 timeout=notice_timeout_seconds,
             )
@@ -240,8 +257,25 @@ class ContentExtractionService:
 
         gemini_calls_used = _gemini_calls_used(result)
         if _is_successful_extraction(result):
+            refinements, refine_calls = await _refine_sources(
+                result, gemini_client=gemini_client, notice_id=notice_id
+            )
+            gemini_calls_used += refine_calls
+
+            # 요약 생성: 정제된 본문+첨부를 한 번 더 압축해 '이 공지가 무엇인지' 요약을 만들고
+            # original_text 에 저장한다(기존 번역 파이프라인이 그대로 요약을 번역). best-effort.
+            from app.services.summary_service import summarize
+
+            body_text, summary_attachments = _summary_inputs(result, refinements)
+            summary, summary_calls = await summarize(
+                title=str(notice.get("title") or ""),
+                body=body_text,
+                attachments=summary_attachments,
+                gemini=gemini_client,
+            )
+            gemini_calls_used += summary_calls
             try:
-                _save_success(notice, result)
+                _save_success(notice, result, refinements, uploads, summary)
             except Exception as exc:  # noqa: BLE001 - one bad save must not abort the whole batch.
                 return _save_failure(
                     notice,
@@ -295,26 +329,264 @@ def _missing_supabase_config_names(settings: Any) -> list[str]:
     return missing
 
 
-def build_extracted_content(result: Any) -> dict[str, Any]:
+def build_extracted_content(
+    result: Any,
+    refinements: dict[str, dict[str, Any]] | None = None,
+    uploads: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    refinements = refinements or {}
+    uploads = uploads or {}
     payload = {
         "schema_version": EXTRACTED_CONTENT_SCHEMA_VERSION,
         "final_url": getattr(result, "final_url", ""),
         "content_kind": getattr(result, "content_kind", ""),
         "included_source_ids": getattr(result, "included_source_ids", []) or [],
-        "sources": [_source_summary(source) for source in getattr(result, "sources", []) or []],
+        "sources": [
+            _source_summary(
+                source,
+                refinements.get(str(getattr(source, "source_id", "")), {}),
+                uploads.get(str(getattr(source, "source_id", "")), {}),
+            )
+            for source in getattr(result, "sources", []) or []
+        ],
         "metadata": getattr(result, "metadata", {}) or {},
         "errors": getattr(result, "errors", []) or [],
     }
     return _jsonable(payload)
 
 
-def _save_success(notice: dict[str, Any], result: Any) -> None:
+# 본문을 이루는 소스(게시판 본문 + 본문 속 사진). 다운로드 가능한 '첨부 파일'과 구분한다.
+_BODY_SOURCE_TYPES = {"html_body", "inline_image"}
+
+
+def _order_index(source: Any) -> int:
+    meta = getattr(source, "metadata", {}) or {}
+    value = meta.get("order_index")
+    return value if isinstance(value, int) else 0
+
+
+def _body_sources(result: Any) -> list[Any]:
+    """본문 소스(게시판 본문 + 본문 속 사진)를 문서 순서대로. (사용자 모델: 본문=텍스트+사진)"""
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    included = list(getattr(result, "included_source_ids", []) or [])
+    sources = [
+        by_id[sid]
+        for sid in included
+        if sid in by_id and getattr(by_id[sid], "source_type", "") in _BODY_SOURCE_TYPES
+    ]
+    return sorted(sources, key=_order_index)
+
+
+def _primary_source_id(result: Any) -> str:
+    """본문 carrier = original_text(기존 호환·번역 대상) 및 본문 카드의 대표 소스.
+
+    html_body 가 있으면 그것, 없으면(사진만 있는 본문) 첫 본문 소스. 본문 소스가 전혀 없으면
+    첫 included(첨부만 있는 비정상 케이스).
+    """
+    body = _body_sources(result)
+    for source in body:
+        if getattr(source, "source_type", "") == "html_body":
+            return str(getattr(source, "source_id", ""))
+    if body:
+        return str(getattr(body[0], "source_id", ""))
+    included = list(getattr(result, "included_source_ids", []) or [])
+    return str(included[0]) if included else ""
+
+
+# 첨부가 이보다 많은 페이지(또는 그에 준하는 분량)면 정제하지 않고 원본 파일로 안내(needs_file).
+MAX_ATTACHMENT_PAGES = 20
+_TOO_LONG_CHARS = 20000  # 페이지수 없는 형식(HWP/HWPX 등) 폴백: 20페이지 ≈ 2만자
+
+
+def _source_page_count(source: Any) -> int | None:
+    meta = getattr(source, "metadata", {}) or {}
+    pages = meta.get("page_count")
+    return pages if isinstance(pages, int) and pages > 0 else None
+
+
+def _attachment_too_long(source: Any) -> bool:
+    """첨부가 너무 길어(20페이지 초과) 정제 대신 원본 파일로 안내해야 하는지.
+
+    PDF 는 정확한 페이지수로, 페이지수가 없는 형식(HWP/HWPX 등)은 글자수 대략값으로 판단한다.
+    """
+    pages = _source_page_count(source)
+    if pages is not None and pages > MAX_ATTACHMENT_PAGES:
+        return True
+    return len(str(getattr(source, "raw_text", "") or "")) > _TOO_LONG_CHARS
+
+
+def _refinement_entry(refined: str, gate: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "refined_text": refined,
+        "needs_file": bool(gate.get("needs_file")),
+        "needs_file_reason": gate.get("reasons", []),
+        "quality_signals": gate.get("signals", {}),
+    }
+
+
+async def _refine_sources(
+    result: Any, *, gemini_client: Any, notice_id: str
+) -> tuple[dict[str, dict[str, Any]], int]:
+    """본문(게시판 본문+사진을 합쳐 하나)과 첨부 파일(각각)을 정제·게이트 판정한다.
+
+    사용자 모델 = '본문(텍스트+사진)' + '첨부 파일'. 그래서 html_body 와 본문 속 inline_image 는
+    하나의 본문으로 합쳐 정제하고(사진 OCR이 본문에 자연히 포함), 다운로드 첨부만 따로 카드로 낸다.
+    한 묶음의 정제가 실패해도 원문을 그대로 써서 공지를 잃지 않는다.
+    반환: ({carrier_source_id: 정제결과}, 총 gemini 호출수).
+    """
+    from app.services.quality_gate import assess
+    from app.services.refinement_service import refine
+
+    async def _refine_one(raw_text: str) -> tuple[str, dict[str, Any], int]:
+        try:
+            refined, tag, calls = await refine(raw_text, gemini=gemini_client)
+            return _scrub_text(refined), assess(refined, tag), calls
+        except Exception as exc:  # noqa: BLE001 - 정제 실패가 공지를 잃게 하지 않는다(원문 폴백).
+            LOGGER.warning(
+                "refine failed, using raw: notice_id=%s exception=%s", notice_id, sanitize_error(exc)
+            )
+            return _scrub_text(raw_text), assess(raw_text, "refine_error"), 0
+
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    included = list(getattr(result, "included_source_ids", []) or [])
+    refinements: dict[str, dict[str, Any]] = {}
+    total_calls = 0
+
+    # 본문: 게시판 본문 + 본문 속 사진(OCR)을 순서대로 합쳐 '하나의 본문'으로 정제.
+    body = _body_sources(result)
+    body_ids = {str(getattr(s, "source_id", "")) for s in body}
+    body_raw = "\n\n".join(
+        str(getattr(s, "raw_text", "") or "").strip()
+        for s in body
+        if str(getattr(s, "raw_text", "") or "").strip()
+    )
+    carrier_id = _primary_source_id(result)
+    if body_raw.strip() and carrier_id:
+        refined, gate, calls = await _refine_one(body_raw)
+        total_calls += calls
+        refinements[carrier_id] = _refinement_entry(refined, gate)
+        LOGGER.info(
+            "body refine: notice_id=%s body_sources=%s needs_file=%s chars=%s->%s",
+            notice_id, len(body), refinements[carrier_id]["needs_file"], len(body_raw), len(refined),
+        )
+
+    # 첨부 파일: 다운로드 소스는 각각 따로 정제(자기 카드).
+    for source_id in included:
+        if source_id in body_ids:
+            continue
+        source = by_id.get(source_id)
+        if source is None:
+            continue
+        raw_text = str(getattr(source, "raw_text", "") or "")
+        if not raw_text.strip():
+            continue
+        if _attachment_too_long(source):  # 20페이지 초과 → 정제 안 함, 원본 파일로 안내
+            pages = _source_page_count(source)
+            refinements[source_id] = {
+                "refined_text": "",
+                "needs_file": True,
+                "needs_file_reason": [f"분량 많음({pages}쪽) — 원본 파일 확인" if pages else "분량 많음 — 원본 파일 확인"],
+                "quality_signals": {"tag": "too_long", "page_count": pages},
+            }
+            LOGGER.info(
+                "attachment too long, skip refine: notice_id=%s source_id=%s pages=%s chars=%s",
+                notice_id, source_id, pages, len(raw_text),
+            )
+            continue
+        refined, gate, calls = await _refine_one(raw_text)
+        total_calls += calls
+        refinements[source_id] = _refinement_entry(refined, gate)
+        LOGGER.info(
+            "attachment refine: notice_id=%s source_id=%s needs_file=%s chars=%s->%s",
+            notice_id, source_id, refinements[source_id]["needs_file"], len(raw_text), len(refined),
+        )
+
+    return refinements, total_calls
+
+
+def _summary_inputs(
+    result: Any, refinements: dict[str, dict[str, Any]]
+) -> tuple[str, list[dict[str, Any]]]:
+    """요약 입력 구성: 본문 정제본(body) + 첨부별 {source_id, name, text, needs_file}.
+
+    본문 carrier 의 refined_text 를 body 로, 나머지 included 첨부 소스를 문서 순서로 모은다.
+    """
+    carrier_id = _primary_source_id(result)
+    body_text = str((refinements.get(carrier_id) or {}).get("refined_text") or "")
+    body_ids = {str(getattr(s, "source_id", "")) for s in _body_sources(result)}
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+
+    attachments: list[dict[str, Any]] = []
+    for source_id in list(getattr(result, "included_source_ids", []) or []):
+        if source_id == carrier_id or source_id in body_ids:
+            continue
+        ref = refinements.get(source_id)
+        if ref is None:
+            continue
+        source = by_id.get(source_id)
+        attachments.append(
+            {
+                "source_id": source_id,
+                "name": str(getattr(source, "filename", "") or "") if source else "",
+                "text": str(ref.get("refined_text") or ""),
+                "needs_file": bool(ref.get("needs_file")),
+            }
+        )
+    return body_text, attachments
+
+
+def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
+    """본문 정제본 + 첨부 정제본들을 합쳐 '풀 본문'을 만든다.
+
+    팀 번역·구조화 파이프라인(translate_notice → notice_cards/schedules)의 입력이 되며,
+    요약이 아니라 전체 내용에서 카드·일정이 추출되도록 한다. 첨부는 '## 첨부: 파일명'
+    헤더로 구분해 이어붙인다.
+    """
+    body, attachments = _summary_inputs(result, refinements)
+    parts: list[str] = []
+    if body.strip():
+        parts.append(body.strip())
+    for att in attachments:
+        text = str(att.get("text") or "").strip()
+        if not text:
+            continue
+        name = str(att.get("name") or "").strip() or "첨부"
+        parts.append(f"## 첨부: {name}\n\n{text}")
+    return "\n\n".join(parts).strip()
+
+
+def _save_success(
+    notice: dict[str, Any],
+    result: Any,
+    refinements: dict[str, dict[str, Any]],
+    uploads: dict[str, dict[str, Any]] | None = None,
+    summary: dict[str, Any] | None = None,
+) -> None:
+    from app.services.summary_service import render_summary_markdown
+
     notice_id = str(notice["id"])
-    extracted_content = build_extracted_content(result)
+    extracted_content = build_extracted_content(result, refinements, uploads)
+
+    # 공지 레벨 needs_file(기존 프론트·번역 호환): 대표 소스(본문 우선) 기준.
+    primary = refinements.get(_primary_source_id(result), {})
+    extracted_content["needs_file"] = bool(primary.get("needs_file"))
+    extracted_content["needs_file_reason"] = primary.get("needs_file_reason", [])
+    extracted_content["quality_signals"] = primary.get("quality_signals", {})
+
+    # original_text = 정제된 풀 본문(본문+첨부 합본) → 팀 번역·구조화 파이프라인이 여기서
+    # 구조화 카드(해야할일/일정/준비물)·일정·해야할일/소식 분류를 풀 내용 기준으로 추출한다.
+    # 요약은 별도로 extracted_content.summary 에 보관(렌더 텍스트 포함, 프론트 요약 카드용).
+    if summary:
+        extracted_content["summary"] = {**summary, "rendered": render_summary_markdown(summary)}
+    original_text = (
+        _full_body_text(result, refinements)
+        or primary.get("refined_text")
+        or _scrub_text(str(getattr(result, "raw_text", "") or ""))
+    )
 
     payload = {
         "status": "done",
-        "original_text": _scrub_text(str(getattr(result, "raw_text", "") or "")),
+        "original_text": _scrub_text(original_text),
         "extracted_content": extracted_content,
         "extraction_next_run_at": None,
         "extraction_error_code": None,
@@ -695,9 +967,13 @@ def _build_summary(
     )
 
 
-def _source_summary(source: Any) -> dict[str, Any]:
+def _source_summary(
+    source: Any,
+    refinement: dict[str, Any] | None = None,
+    upload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     raw_text = getattr(source, "raw_text", "") or ""
-    return {
+    summary: dict[str, Any] = {
         "source_id": getattr(source, "source_id", ""),
         "source_type": getattr(source, "source_type", ""),
         "source_role": getattr(source, "source_role", ""),
@@ -713,6 +989,16 @@ def _source_summary(source: Any) -> dict[str, Any]:
         "errors": getattr(source, "errors", []) or [],
         "raw_text_chars": len(raw_text),
     }
+    # 소스별 정제 결과(있으면) — 프론트가 본문/첨부를 각각 카드로 렌더한다.
+    if refinement:
+        summary["refined_text"] = refinement.get("refined_text", "")
+        summary["needs_file"] = bool(refinement.get("needs_file"))
+        summary["needs_file_reason"] = refinement.get("needs_file_reason", [])
+    # Storage 업로드 결과(있으면) — 프론트 파일카드의 미리보기/다운로드 URL.
+    if upload:
+        summary["storage_path"] = upload.get("storage_path", "")
+        summary["public_url"] = upload.get("public_url", "")
+    return summary
 
 
 def _result_haystack(result: Any) -> str:

@@ -9,12 +9,15 @@ from postgrest.exceptions import APIError
 
 from app.services.content_extraction_service import (
     EXTRACTED_CONTENT_SCHEMA_VERSION,
+    _attachment_too_long,
     _auto_translate_notice_locales,
     _claim_notice,
     build_extracted_content,
     classify_extraction_error,
     _missing_translation_locales,
     _normalized_locale,
+    _primary_source_id,
+    _refine_sources,
     _save_success,
     _school_translation_locales,
     _is_successful_extraction,
@@ -121,16 +124,33 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertNotIn("raw_text", payload["sources"][0])
         self.assertEqual(payload["sources"][0]["raw_text_chars"], 5)
 
-    def test_save_success_payload_excludes_summary_fields(self) -> None:
+    def test_save_success_payload_uses_refined_text(self) -> None:
         client = MagicMock()
+        refinements = {
+            "source-1": {
+                "refined_text": "# 정제된 본문입니다",
+                "needs_file": False,
+                "needs_file_reason": [],
+                "quality_signals": {"tag": "ok"},
+            }
+        }
 
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
-            _save_success({"id": "notice-1", "summary_translations": {"en": "old"}}, FakeResult())
+            _save_success(
+                {"id": "notice-1", "summary_translations": {"en": "old"}},
+                FakeResult(),
+                refinements,
+            )
 
         payload = client.table.return_value.update.call_args.args[0]
         self.assertEqual(payload["status"], "done")
-        self.assertEqual(payload["original_text"], "전체 원문입니다")
+        # original_text 는 추출 날것(raw_text)이 아니라 대표 소스의 정제본이어야 한다.
+        self.assertEqual(payload["original_text"], "# 정제된 본문입니다")
+        self.assertNotEqual(payload["original_text"], FakeResult().raw_text)
         self.assertIn("extracted_content", payload)
+        self.assertFalse(payload["extracted_content"]["needs_file"])
+        # 소스별 정제본이 sources[] 에 들어가야 한다(프론트 카드용).
+        self.assertEqual(payload["extracted_content"]["sources"][0]["refined_text"], "# 정제된 본문입니다")
         for removed in (
             "summary_oneliner",
             "summary_translations",
@@ -140,6 +160,113 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
             "extraction_finished_at",
         ):
             self.assertNotIn(removed, payload)
+
+    def test_save_success_records_needs_file_flag(self) -> None:
+        client = MagicMock()
+        refinements = {
+            "source-1": {
+                "refined_text": "깨진 본문",
+                "needs_file": True,
+                "needs_file_reason": ["폴백(LLM 정제 실패)"],
+                "quality_signals": {"tag": "FALLBACK"},
+            }
+        }
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            _save_success({"id": "notice-1"}, FakeResult(), refinements)
+
+        extracted_content = client.table.return_value.update.call_args.args[0]["extracted_content"]
+        self.assertTrue(extracted_content["needs_file"])
+        self.assertEqual(extracted_content["needs_file_reason"], ["폴백(LLM 정제 실패)"])
+        self.assertTrue(extracted_content["sources"][0]["needs_file"])
+
+    def test_save_success_full_body_to_original_text_summary_to_extracted(self) -> None:
+        client = MagicMock()
+        refinements = {
+            "source-1": {
+                "refined_text": "# 본문 정제본",
+                "needs_file": False,
+                "needs_file_reason": [],
+                "quality_signals": {"tag": "ok"},
+            }
+        }
+        summary = {
+            "title": "정산 안내",
+            "points": [{"label": "참가비", "value": "무료"}],
+        }
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            _save_success({"id": "notice-1", "title": "테스트 공지"}, FakeResult(), refinements, None, summary)
+
+        payload = client.table.return_value.update.call_args.args[0]
+        # original_text = 풀 본문(정제본) — 요약이 아니라 팀 구조화 파이프라인 입력용.
+        self.assertEqual(payload["original_text"], "# 본문 정제본")
+        # 요약은 extracted_content.summary 에 (구조 JSON + 렌더 텍스트).
+        ec_summary = payload["extracted_content"]["summary"]
+        self.assertEqual(ec_summary["title"], "정산 안내")
+        self.assertIn("정산 안내", ec_summary["rendered"])
+        self.assertIn("참가비: 무료", ec_summary["rendered"])
+
+    def test_primary_source_prefers_body(self) -> None:
+        result = FakeResult(
+            included_source_ids=["att", "body"],
+            sources=[
+                FakeSource(source_id="att", source_type="attachment_pdf"),
+                FakeSource(source_id="body", source_type="html_body"),
+            ],
+        )
+        self.assertEqual(_primary_source_id(result), "body")
+
+    def test_build_extracted_content_merges_refined_text_per_source(self) -> None:
+        refinements = {"source-1": {"refined_text": "정제본", "needs_file": False, "needs_file_reason": []}}
+        payload = build_extracted_content(FakeResult(), refinements)
+        self.assertEqual(payload["sources"][0]["refined_text"], "정제본")
+        self.assertFalse(payload["sources"][0]["needs_file"])
+
+    def test_refine_sources_falls_back_to_raw_on_failure(self) -> None:
+        class BoomGemini:
+            async def generate_text(self, prompt, *, model=None):
+                raise RuntimeError("vertex unavailable")
+
+        import asyncio
+
+        result = FakeResult(sources=[FakeSource(raw_text="원문 그대로 보존")])
+        refinements, calls = asyncio.run(
+            _refine_sources(result, gemini_client=BoomGemini(), notice_id="notice-1")
+        )
+        # 정제 실패 시에도 소스 원문을 그대로 쓰고 호출수는 0.
+        self.assertEqual(refinements["source-1"]["refined_text"], "원문 그대로 보존")
+        self.assertEqual(calls, 0)
+        self.assertIn("needs_file", refinements["source-1"])
+
+    def test_attachment_too_long_by_pages_and_length(self) -> None:
+        self.assertTrue(_attachment_too_long(FakeSource(metadata={"page_count": 25})))
+        self.assertFalse(_attachment_too_long(FakeSource(metadata={"page_count": 10})))
+        self.assertTrue(_attachment_too_long(FakeSource(raw_text="가" * 20001, metadata={})))
+        self.assertFalse(_attachment_too_long(FakeSource(raw_text="짧은 첨부", metadata={})))
+
+    def test_refine_sources_skips_long_attachment(self) -> None:
+        # 20페이지 초과 첨부는 정제하지 않고(refined_text="") needs_file=True 로 원본 안내.
+        class FakeGemini:
+            async def generate_text(self, prompt, *, model=None):
+                return "정제된 본문"
+
+        import asyncio
+
+        result = FakeResult(
+            included_source_ids=["body", "att"],
+            sources=[
+                FakeSource(source_id="body", source_type="html_body", raw_text="본문 내용입니다"),
+                FakeSource(source_id="att", source_type="attachment_pdf", raw_text="x" * 100,
+                           metadata={"page_count": 30}),
+            ],
+        )
+        refinements, _ = asyncio.run(
+            _refine_sources(result, gemini_client=FakeGemini(), notice_id="n")
+        )
+        self.assertTrue(refinements["att"]["needs_file"])
+        self.assertEqual(refinements["att"]["refined_text"], "")
+        self.assertIn("body", refinements)  # 본문은 정상 정제됨
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})

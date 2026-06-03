@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
+
 from extractor.models import SourceExtraction
-from extractor.quality import jaccard_similarity
+from extractor.quality import jaccard_similarity, token_set
 
 
 # 파일 종류별 추출 신뢰도/정보량 우선순위.
@@ -20,6 +22,22 @@ TYPE_PRIORITY = {
 
 MIN_TEXT_FOR_JACCARD = 120
 JACCARD_THRESHOLD = 0.9
+
+# 포함관계(상위집합) 중복 판정.
+# 큰 첨부(HWP)가 본문 내용을 통째로 담고 있을 때, Jaccard 는 크기 차이 때문에 낮게 나와
+# 못 잡는다(예: 본문이 HWP 에 100% 들어있어도 Jaccard 0.26). 그래서 '작은 글의 단어가
+# 큰 글에 얼마나 들어있나(포함률)'로 따로 판정한다.
+CONTAINMENT_THRESHOLD = 0.85       # 작은 글 단어의 85%+ 가 큰 글에 있으면 포함으로 본다
+MIN_TOKENS_FOR_CONTAINMENT = 40    # 짧은 안내문("첨부 참고") 오판 방지: 작은 글이 40단어 이상일 때만
+
+# 작은 글에만 있으면 '고유 정보'로 보아 통합하지 않을 핵심 패턴(마감일·참가비 등).
+# quality.DATE_RE 는 점수용이라 'X월 Y일' 같은 흔한 마감일 표기를 놓쳐서 여기서 별도 정의한다.
+_CRIT_DATE_RE = re.compile(
+    r"\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}"   # 2026.3.30 / 2026년 3월 30(일)
+    r"|\d{1,2}\s*월\s*\d{1,2}\s*일"                       # 3월 30일
+    r"|\d{1,2}\s*[./]\s*\d{1,2}"                           # 3/30, 3.30
+)
+_CRIT_MONEY_RE = re.compile(r"\d[\d,]*\s*원")              # 15,000원
 
 
 def assign_roles_and_dedupe(
@@ -108,18 +126,84 @@ def _is_duplicate(a: SourceExtraction, b: SourceExtraction) -> bool:
         if jaccard_similarity(a.raw_text, b.raw_text) >= JACCARD_THRESHOLD:
             return True
 
+    # 3. 포함관계: 한쪽(보통 본문)이 다른쪽(보통 첨부 HWP)에 거의 다 들어있으면 중복.
+    #    Jaccard 가 크기 차이로 못 잡는 '첨부가 본문의 상위집합' 케이스를 잡는다.
+    if _smaller_is_contained(a.raw_text, b.raw_text):
+        return True
+
+    return False
+
+
+def _smaller_is_contained(left_text: str, right_text: str) -> bool:
+    """작은(짧은) 글의 단어가 큰 글에 CONTAINMENT_THRESHOLD 이상 들어있으면 True.
+
+    큰 첨부파일이 본문 내용을 통째로 포함하는 흔한 경우를 잡는다. 오탐(서로 다른 두 공지의
+    우연한 단어 겹침)과 정보 손실을 막기 위해 두 조건을 함께 둔다:
+      - 작은 글이 MIN_TOKENS_FOR_CONTAINMENT 단어 이상일 때만 적용(짧은 안내문 제외)
+      - 작은 글에만 있는 날짜/금액(마감일·참가비 등)이 있으면 중복으로 보지 않음(손실 방지)
+    """
+    left_tokens = token_set(left_text)
+    right_tokens = token_set(right_text)
+    if not left_tokens or not right_tokens:
+        return False
+
+    if len(left_tokens) <= len(right_tokens):
+        small_text, small_tokens, big_text, big_tokens = left_text, left_tokens, right_text, right_tokens
+    else:
+        small_text, small_tokens, big_text, big_tokens = right_text, right_tokens, left_text, left_tokens
+
+    if len(small_tokens) < MIN_TOKENS_FOR_CONTAINMENT:
+        return False
+
+    containment = len(small_tokens & big_tokens) / len(small_tokens)
+    if containment < CONTAINMENT_THRESHOLD:
+        return False
+
+    # 작은 글에만 있는 핵심 정보(날짜·금액)가 있으면 → 합치면 손실 → 중복 아님
+    if _has_unique_critical_info(small_text, big_text):
+        return False
+
+    return True
+
+
+def _has_unique_critical_info(small_text: str, big_text: str) -> bool:
+    """small_text 의 날짜/금액 중, 그 숫자가 big_text 에 아예 없는 게 있으면 True.
+
+    본문에만 적힌 마감일·참가비 등이 통합 과정에서 사라지는 것을 막는 안전장치.
+    추출기마다 표기가 달라도(예: '4.15' vs '4월 15일') 숫자 기준으로 비교하므로,
+    같은 값이면 통과(중복 인정)하고 정말 빠진 값만 '본문 고유 정보'로 보아 보존한다.
+    """
+    big_numbers = set(re.findall(r"\d+", big_text.replace(",", "")))
+    for pattern in (_CRIT_DATE_RE, _CRIT_MONEY_RE):
+        for match in pattern.findall(small_text):
+            numbers = re.findall(r"\d+", match.replace(",", ""))
+            if numbers and any(number not in big_numbers for number in numbers):
+                return True
     return False
 
 
 def _best_source(sources: list[SourceExtraction]) -> SourceExtraction:
     """중복 그룹에서 대표 source 선정.
 
-    기준 (위에서 아래로):
-      1. TYPE_PRIORITY (파일 종류별 신뢰도)
-      2. raw_text 길이
+    핵심: 절대 '가장 긴(내용 많은) 글'을 버리지 않는다. 포함관계로 묶인 그룹
+    (예: 본문 ⊂ 첨부 HWP)에서 더 짧은 본문을 대표로 뽑으면 첨부의 추가 내용이
+    통째로 사라지기 때문이다. 그래서:
+      1. 가장 긴 글 길이의 90% 이상인 후보만 추린다(near_longest).
+      2. 본문(html_body)이 near_longest 안에 있으면 본문을 대표로 한다(= 본문과 첨부가
+         사실상 동등할 때 본문 우선). 본문이 stub 이라 near_longest 에 못 들면 자동으로
+         첨부가 대표가 되어 내용 손실을 막는다.
+      3. 본문이 없으면 TYPE_PRIORITY(파일 종류 신뢰도) → 길이 순으로 대표를 고른다.
     """
+    longest = max(len(source.raw_text) for source in sources)
+    near_longest = [
+        source for source in sources
+        if len(source.raw_text) >= longest * 0.9
+    ]
+    body = next((source for source in near_longest if source.source_type == "html_body"), None)
+    if body is not None:
+        return body
     return max(
-        sources,
+        near_longest,
         key=lambda source: (
             TYPE_PRIORITY.get(source.source_type, 0),
             len(source.raw_text),

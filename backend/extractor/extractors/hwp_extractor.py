@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import html
 import shutil
 import subprocess
 import re
+import sys
+import tempfile
 import zlib
 from pathlib import Path
 
+from extractor.markdown_tables import collapse_layout_tables, fix_table_structure
 from extractor.models import ExtractedText
 from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
 from extractor.extractors.image_gemini_extractor import extract_image_text
+
+
+_URL_RE = re.compile(r"(?:https?://|www\.)[A-Za-z0-9./:_?=&%#@~+\-]+")
 
 
 async def extract_hwp_text(
@@ -19,6 +26,17 @@ async def extract_hwp_text(
     work_dir: Path,
 ) -> ExtractedText:
     warnings: list[str] = []
+
+    markdown = _hwp_to_markdown(path, warnings)
+    if len(markdown.strip()) >= 40:  # hwp5html 로 표 구조·앞글자 보존 성공
+        return ExtractedText(
+            source=source_name,
+            method="hwp5html_markdown",
+            text=_append_hwp_hyperlinks(markdown, path),
+            status="success",
+            warnings=warnings,
+            metadata={"quality": _text_quality(markdown)},
+        )
 
     body_text = _try_hwp_ole_bodytext(path, warnings)
     filtered_body_text = _clean_hwp_text(body_text, aggressive=True)
@@ -68,6 +86,225 @@ async def extract_hwp_text(
     if any("encrypted" in item.lower() or "distribution" in item.lower() for item in warnings):
         status = "unsupported_hwp_protected"
     return ExtractedText(source=source_name, method="hwp_fallbacks", text="", status=status, warnings=warnings)
+
+
+def _hwp_to_markdown(path: Path, warnings: list[str]) -> str:
+    """hwp5html -> markdownify 로 표 구조·앞글자를 보존해 markdown 추출.
+
+    기존 OLE 바이너리 추출은 표를 평문으로 뭉개고 앞글자를 흘리므로(2026->026), 표(| |)와
+    글자를 보존하는 hwp5html 경로를 우선 시도한다. hwp5html/markdownify 미설치 환경에선 빈
+    문자열을 돌려 호출부가 기존 체인(OLE/hwp5txt/BinData OCR)으로 폴백하게 한다.
+    """
+    command = _hwp5html_command()
+    if command is None:
+        return ""
+    try:
+        import markdownify  # lazy import: 미설치 환경에선 이 경로만 건너뛰고 폴백
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"hwp5html_skip_no_markdownify: {type(exc).__name__}")
+        return ""
+    temp_dir = Path(tempfile.mkdtemp(prefix="hwp5html-"))
+    try:
+        completed = subprocess.run(
+            [*command, "--output", str(temp_dir), str(path)],
+            capture_output=True,
+            timeout=90,
+        )
+        xhtml = temp_dir / "index.xhtml"
+        if not xhtml.exists():
+            warnings.append(
+                f"hwp5html_failed: returncode={completed.returncode} "
+                f"stderr={completed.stderr.decode('utf-8', 'replace').strip()[:200]}"
+            )
+            return ""
+        xhtml_text = _unwrap_nested_tables(xhtml.read_text(encoding="utf-8", errors="replace"))
+        xhtml_text = _expand_table_spans(xhtml_text)  # 병합셀(rowspan/colspan)을 격자로 펼쳐 표 보존
+        md = markdownify.markdownify(xhtml_text, heading_style="ATX")
+        md = re.sub(r"(?m)^\s*xml version=.*$", "", md)   # xhtml 선언 leak 제거
+        md = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", md)       # 이미지 markdown junk 제거
+        md = re.sub(r"[ \t]+\n", "\n", md)
+        md = re.sub(r"\n{3,}", "\n\n", md)
+        return fix_table_structure(collapse_layout_tables(md.strip())).strip()
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"hwp5html_failed: {type(exc).__name__}: {exc}")
+        return ""
+
+
+def _unwrap_nested_tables(xhtml: str) -> str:
+    """레이아웃용 래퍼 표(셀 안에 또 다른 표가 든 바깥 표)를 펼쳐 안쪽 진짜 표를 최상위로 끌어올린다.
+
+    HWP 가정통신문은 문서 전체를 표 한 칸에 담는 '표 레이아웃'이 흔하다. 이때 markdown 은 표
+    중첩을 표현하지 못해 안쪽 데이터표가 한 셀 안에서 `| --- |` 로 직선화돼 깨진다(파이프 떡칠).
+    markdownify 전에 바깥 래퍼 표를 풀면 안쪽 표가 최상위 markdown 표로 깔끔히 변환된다.
+    bs4 미설치/파싱 실패 시 원본을 그대로 돌려 기존 동작을 유지한다(폴백 안전).
+    """
+    try:
+        from bs4 import BeautifulSoup  # markdownify 의 의존성이라 동일 환경에 존재
+    except Exception:  # noqa: BLE001 - bs4 없으면 펼치기만 건너뛴다.
+        return xhtml
+    try:
+        soup = BeautifulSoup(xhtml, "html.parser")
+    except Exception:  # noqa: BLE001
+        return xhtml
+
+    for _ in range(20):  # 다중 중첩 대비 안전 상한(무한루프 방지)
+        outer = next(
+            (table for table in soup.find_all("table") if table.find("table") is not None),
+            None,
+        )
+        if outer is None:
+            break
+        # 바깥 표의 '자기' 행·셀만 고른다(안쪽 표의 행·셀은 가장 가까운 table 조상이 달라 제외).
+        own_rows = [tr for tr in outer.find_all("tr") if tr.find_parent("table") is outer]
+        blocks = []
+        for row in own_rows:
+            for cell in [c for c in row.find_all(["td", "th"]) if c.find_parent("table") is outer]:
+                div = soup.new_tag("div")
+                for child in list(cell.children):
+                    div.append(child.extract())  # 안쪽 표째로 div 안으로 이동(한 단계 위로)
+                blocks.append(div)
+        if blocks:
+            outer.replace_with(*blocks)
+        else:
+            outer.decompose()
+    return str(soup)
+
+
+def _cell_span(cell: object, name: str) -> int:
+    try:
+        return max(1, int(cell.get(name, 1) or 1))  # type: ignore[attr-defined]
+    except (TypeError, ValueError):
+        return 1
+
+
+def _pending_at_or_after(pending: dict[int, int], col: int) -> bool:
+    return any(c >= col and rem > 0 for c, rem in pending.items())
+
+
+def _expand_one_table(soup: object, table: object) -> None:
+    """한 표의 rowspan/colspan 을 펼쳐 직사각형 격자 <table> 로 교체한다(병합 없으면 그대로)."""
+    rows = [tr for tr in table.find_all("tr") if tr.find_parent("table") is table]  # type: ignore[attr-defined]
+    if not rows:
+        return
+    grid: list[list[str]] = []
+    pending: dict[int, int] = {}  # col -> 아래로 남은 rowspan 행수(빈칸으로 채움)
+    has_span = False
+    for tr in rows:
+        cells = [c for c in tr.find_all(["td", "th"]) if c.find_parent("table") is table]
+        row: list[str] = []
+        col = ci = 0
+        while ci < len(cells) or _pending_at_or_after(pending, col):
+            if len(row) > 80:  # 병적 구조 무한루프 안전 상한
+                break
+            if pending.get(col, 0) > 0:  # 위 행 rowspan 이 이 칸을 차지 → 빈칸
+                row.append("")
+                pending[col] -= 1
+                col += 1
+                continue
+            if ci < len(cells):
+                cell = cells[ci]
+                ci += 1
+                text = " ".join(cell.get_text(" ", strip=True).split())
+                cs = _cell_span(cell, "colspan")
+                rs = _cell_span(cell, "rowspan")
+                if cs > 1 or rs > 1:
+                    has_span = True
+                for k in range(cs):  # colspan: 첫 칸에만 값, 나머지는 빈칸(값 중복·창작 없음)
+                    row.append(text if k == 0 else "")
+                    if rs > 1:
+                        pending[col] = rs - 1
+                    col += 1
+                continue
+            row.append("")  # 셀은 끝났지만 오른쪽에 rowspan 잔여 → 빈칸 전진
+            col += 1
+        grid.append(row)
+    if not has_span:
+        return  # 병합 없는 표는 건드리지 않는다(markdownify 가 알아서 처리)
+    width = max((len(r) for r in grid), default=0)
+    if width < 2:
+        return
+    new_table = soup.new_tag("table")  # type: ignore[attr-defined]
+    for ri, row in enumerate(grid):
+        tr_tag = soup.new_tag("tr")  # type: ignore[attr-defined]
+        for k in range(width):
+            text = row[k] if k < len(row) else ""
+            cell_tag = soup.new_tag("th" if ri == 0 else "td")  # type: ignore[attr-defined]
+            if text:
+                cell_tag.string = text
+            tr_tag.append(cell_tag)
+        new_table.append(tr_tag)
+    table.replace_with(new_table)  # type: ignore[attr-defined]
+
+
+def _expand_table_spans(xhtml: str) -> str:
+    """표의 병합셀(rowspan/colspan)을 펼쳐 직사각형 격자로 만든다(markdownify 전 단계).
+
+    HWP 표는 셀 병합이 흔한데 markdownify 는 이를 못 그려 표가 평문으로 뭉개진다(평촌중
+    '출석인정결석'). 병합을 미리 빈 셀로 펼쳐 완전한 격자를 만들면 깔끔한 markdown 표가 된다.
+    값은 첫 칸에만 두고 펼친 칸은 빈칸 → 내용 중복·창작 없이 충실 보존.
+    bs4 미설치/파싱 실패 시 원본 그대로(폴백 안전).
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:  # noqa: BLE001 - bs4 없으면 펼치기만 건너뛴다.
+        return xhtml
+    try:
+        soup = BeautifulSoup(xhtml, "html.parser")
+    except Exception:  # noqa: BLE001
+        return xhtml
+    for table in soup.find_all("table"):
+        try:
+            _expand_one_table(soup, table)
+        except Exception:  # noqa: BLE001 - 한 표 실패가 전체 변환을 막지 않게.
+            continue
+    return str(soup)
+
+
+def _hwp5html_command() -> list[str] | None:
+    """hwp5html 콘솔 스크립트 경로. (python -m hwp5.hwp5html 은 파일을 생성하지 않아 사용 불가.)"""
+    found = shutil.which("hwp5html")
+    if found:
+        return [found]
+    # pip 는 python 실행파일 옆 Scripts/bin 에 콘솔 스크립트를 설치한다.
+    bin_dir = Path(sys.executable).parent
+    for name in ("hwp5html.exe", "hwp5html"):
+        candidate = bin_dir / name
+        if candidate.exists():
+            return [str(candidate)]
+    return None
+
+
+def _hwp_link_urls(path: Path) -> list[str]:
+    """hwp5proc xml 에서 하이퍼링크 URL 추출 (PARA_TEXT 가 놓치는 링크 보강)."""
+    found = shutil.which("hwp5proc")
+    if found:
+        command = [found]
+    else:
+        bin_dir = Path(sys.executable).parent
+        candidate = next(
+            (bin_dir / n for n in ("hwp5proc.exe", "hwp5proc") if (bin_dir / n).exists()), None
+        )
+        if candidate is None:
+            return []
+        command = [str(candidate)]
+    try:
+        completed = subprocess.run([*command, "xml", str(path)], capture_output=True, timeout=60)
+        xml = html.unescape(completed.stdout.decode("utf-8", "replace"))
+        urls: list[str] = []
+        for match in _URL_RE.finditer(xml):
+            url = re.split(r"HWP[A-Z_]{4,}", match.group(0))[0].rstrip(".,)】] ")
+            if len(url) > 8 and url not in urls:
+                urls.append(url)
+        return urls
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _append_hwp_hyperlinks(markdown: str, path: Path) -> str:
+    missing = [url for url in _hwp_link_urls(path) if url not in markdown]
+    if missing:
+        markdown += "\n\n" + "\n".join(f"[관련링크] {url}" for url in missing)
+    return markdown
 
 
 def _try_hwp_ole_bodytext(path: Path, warnings: list[str]) -> str:

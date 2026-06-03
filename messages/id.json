@@ -102,6 +102,12 @@
     "meal_allergy_prefix": "⚠ Alergen:"
   },
   "notice_detail": {
+    "summary_title": "Ringkasan",
+    "body_title": "Teks utama",
+    "attachment_title": "Lampiran",
+    "attachment_complex": "Lampiran ini berformat rumit — silakan buka file asli di bawah.",
+    "preview": "Pratinjau",
+    "download": "Unduh",
     "summary_badge": "Ringkasan",
     "supplies_badge": "Perlengkapan",
     "action_badge": "Tugas",
@@ -113,6 +119,9 @@
     "deadline_passed": "Lewat {days} hari",
     "back_to_list": "Kembali ke daftar",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "Berkas asli",
+    "file_desc": "Pengumuman ini memiliki banyak tabel atau format sehingga konversi otomatis kurang akurat. Silakan buka berkas asli di bawah.",
     "intro_title": "Pemberitahuan Sekolah",
     "intro_subtitle": "Geser untuk detail →",
     "processing_title": "Sedang menganalisis",

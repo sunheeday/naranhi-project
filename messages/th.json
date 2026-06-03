@@ -102,6 +102,12 @@
     "meal_allergy_prefix": "⚠ สารก่อภูมิแพ้:"
   },
   "notice_detail": {
+    "summary_title": "สรุป",
+    "body_title": "เนื้อหาหลัก",
+    "attachment_title": "ไฟล์แนบ",
+    "attachment_complex": "ไฟล์แนบนี้มีรูปแบบซับซ้อน โปรดเปิดไฟล์ต้นฉบับด้านล่าง",
+    "preview": "ดูตัวอย่าง",
+    "download": "ดาวน์โหลด",
     "summary_badge": "สรุป",
     "supplies_badge": "อุปกรณ์",
     "action_badge": "งานที่ต้องทำ",
@@ -113,6 +119,9 @@
     "deadline_passed": "ผ่านมา {days} วัน",
     "back_to_list": "กลับไปรายการ",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "ไฟล์ต้นฉบับ",
+    "file_desc": "ประกาศนี้มีตารางหรือรูปแบบจำนวนมาก การแปลงอัตโนมัติจึงไม่ครบถ้วน โปรดเปิดไฟล์ต้นฉบับด้านล่าง",
     "intro_title": "ประกาศโรงเรียน",
     "intro_subtitle": "ปัดเพื่อดูรายละเอียด →",
     "processing_title": "กำลังวิเคราะห์",

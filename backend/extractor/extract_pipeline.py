@@ -6,10 +6,14 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# 다운로드한 첨부 파일을 외부(서비스)로 넘기는 콜백 — Storage 업로드 등. 추출기는 내용을 모른다.
+AttachmentSink = Callable[[str, "DownloadedFile"], Awaitable[None]]
 
 from dotenv import load_dotenv
 import yaml
@@ -74,7 +78,12 @@ async def run_cases(cases: list[CaseConfig], *, output_dir: Path = OUTPUT_DIR) -
     return results
 
 
-async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtractor | None = None) -> ExtractionResult:
+async def extract_case(
+    case: CaseConfig,
+    *,
+    gemini_client: GeminiDocumentExtractor | None = None,
+    on_attachment: AttachmentSink | None = None,
+) -> ExtractionResult:
     errors: list[str] = []
     budget = ExtractionBudget.from_env()
     owns_gemini_client = gemini_client is None
@@ -111,6 +120,7 @@ async def extract_case(case: CaseConfig, *, gemini_client: GeminiDocumentExtract
                     temp_dir=temp_dir,
                     gemini=gemini,
                     budget=budget,
+                    on_attachment=on_attachment,
                 )
                 sources.append(source)
 
@@ -168,6 +178,7 @@ async def _extract_source(
     temp_dir: Path,
     gemini: GeminiDocumentExtractor | None,
     budget: ExtractionBudget,
+    on_attachment: AttachmentSink | None = None,
 ) -> SourceExtraction:
     if candidate.source_type == "html_body":
         return _source_from_text(
@@ -238,6 +249,15 @@ async def _extract_source(
             )
     else:
         return _source_from_text(candidate, raw_text="", method="unknown", status="extract_failed", errors=["missing_attachment_ref"])
+
+    # 다운로드한 첨부 파일을 외부(서비스)로 넘긴다 — Storage 업로드용. 텍스트 추출 성공/중복 여부와
+    # 무관하게 '실제 파일'은 사용자가 다운로드할 수 있어야 하므로 여기서 한 번 넘긴다(임시디렉토리
+    # 정리 전). 콜백 실패는 추출을 막지 않는다.
+    if on_attachment is not None:
+        try:
+            await on_attachment(candidate.source_id, downloaded)
+        except Exception:  # noqa: BLE001 - 업로드 콜백 실패가 추출을 막지 않게.
+            pass
 
     file_type = detect_file_type(downloaded.path, downloaded.filename, downloaded.content_type)
     if not _expected_file_type_matches(candidate.source_type, file_type):

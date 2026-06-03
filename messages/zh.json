@@ -98,6 +98,12 @@
     "meal_allergy_prefix": "⚠ 过敏:"
   },
   "notice_detail": {
+    "summary_title": "摘要",
+    "body_title": "正文",
+    "attachment_title": "附件",
+    "attachment_complex": "该附件的表格与排版较复杂，请查看下方原始文件。",
+    "preview": "预览",
+    "download": "下载",
     "summary_badge": "核心摘要",
     "supplies_badge": "准备物品",
     "action_badge": "待办事项",
@@ -109,6 +115,9 @@
     "deadline_passed": "已过 {days} 天",
     "back_to_list": "返回列表",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "原始文件",
+    "file_desc": "这份通知含有较多表格或排版，自动转换不够准确。请直接查看下方的原始文件。",
     "intro_title": "家庭通信",
     "intro_subtitle": "向旁边滑动查看详情 →",
     "processing_title": "正在分析中",

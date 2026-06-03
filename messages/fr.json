@@ -102,6 +102,12 @@
     "meal_allergy_prefix": "⚠ Allergènes :"
   },
   "notice_detail": {
+    "summary_title": "Résumé",
+    "body_title": "Texte principal",
+    "attachment_title": "Pièce jointe",
+    "attachment_complex": "Cette pièce jointe a une mise en forme complexe — veuillez ouvrir le fichier original ci-dessous.",
+    "preview": "Aperçu",
+    "download": "Télécharger",
     "summary_badge": "Résumé",
     "supplies_badge": "Fournitures",
     "action_badge": "À faire",
@@ -113,6 +119,9 @@
     "deadline_passed": "{days} jours dépassés",
     "back_to_list": "Retour à la liste",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "Fichier original",
+    "file_desc": "Cet avis contient des tableaux ou une mise en page complexes qui n'ont pas été convertis correctement. Veuillez ouvrir le fichier original ci-dessous.",
     "intro_title": "Annonce scolaire",
     "intro_subtitle": "Glissez pour les détails →",
     "processing_title": "Analyse en cours",

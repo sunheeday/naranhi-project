@@ -60,11 +60,12 @@ function pickLocalized(content: unknown, locale: Locale): unknown {
   return content
 }
 
+// 팀 구조화 카드(해야할일/일정/준비물): notice_cards → 사용자 locale 적용 카드.
 function mapCards(rows: NoticeCardDto[], locale: Locale): NoticeCard[] {
   const mapped: NoticeCard[] = []
   for (const r of rows) {
     const localized = pickLocalized(r.content, locale)
-    let card = mapCommonCard(r.type, localized)
+    const card = mapCommonCard(r.type, localized)
     if (card) mapped.push(card)
   }
   return mapped
@@ -225,18 +226,65 @@ export default async function NoticePage({ params }: Props) {
     )
   }
 
-  const summary = detail.summary
-  const cardRows = detail.cards
+  const md = messages.notice_detail
 
-  const dataCards = mapCards(cardRows, locale)
-  const intro: NoticeCard = {
-    type: 'intro',
-    emoji: messages.notice_detail.intro_emoji,
-    title: messages.notice_detail.intro_title,
-    summary: summary ?? '',
-    hint: dataCards.length > 0 ? messages.notice_detail.swipe_hint : undefined,
+  // 카드 순서: 요약 → 구조화(해야할일/일정/준비물) → 본문/첨부 정제본 → 원본 파일.
+  const cards: NoticeCard[] = []
+
+  // 1) 맨 앞 요약 카드: '이 공지가 무엇인지' 자연어 요약(사용자 locale로 번역됨).
+  if (detail.hasSummary && detail.summary?.trim()) {
+    cards.push({
+      type: 'intro',
+      emoji: md.intro_emoji,
+      title: md.summary_title,
+      summary: detail.summary,
+    })
   }
-  const cards: NoticeCard[] = dataCards.length > 0 ? dataCards : [intro]
+
+  // 2) 팀 구조화 카드(notice_cards): 해야 할 일 / 일정 / 준비물.
+  cards.push(...mapCards(detail.cards, locale))
+
+  // 3) 소스별 카드: 본문 → 첨부…(정제본). 복잡한 첨부는 "원본 파일에서 보세요" 안내로 대체.
+  for (const source of detail.sourceCards) {
+    cards.push({
+      type: 'source',
+      emoji: source.kind === 'body' ? md.intro_emoji : md.file_emoji,
+      title: source.kind === 'body' ? md.body_title : source.filename || md.attachment_title,
+      content: source.content,
+      needsFile: source.needsFile,
+      complexNotice: md.attachment_complex,
+    })
+  }
+
+  // 4) 맨 끝 원본 파일 카드(첨부가 하나라도 있을 때): 우리 Storage 사본을 미리보기/다운로드.
+  if (detail.attachmentFiles.length > 0) {
+    cards.push({
+      type: 'file',
+      emoji: md.file_emoji,
+      title: md.file_title,
+      files: detail.attachmentFiles.map(file => ({
+        filename: file.filename,
+        publicUrl: file.publicUrl,
+        previewable: file.previewable,
+      })),
+      fileLabels: { preview: md.preview, download: md.download },
+    })
+  }
+
+  // 예외(요약·구조화·소스·첨부 모두 없음) 폴백.
+  if (cards.length === 0) {
+    cards.push({
+      type: 'intro',
+      emoji: md.intro_emoji,
+      title: md.intro_title,
+      summary: detail.summary ?? '',
+    })
+  }
+
+  // 카드가 2개 이상이면 스와이프 힌트 표시.
+  if (cards.length > 1) {
+    for (const card of cards) card.hint = md.swipe_hint
+  }
 
   return (
     <main className="flex flex-col min-h-screen">

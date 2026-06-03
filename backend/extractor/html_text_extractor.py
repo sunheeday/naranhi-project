@@ -17,6 +17,26 @@ PRECISE_SELECTORS = (
     ".bbsV_cont",       # 대구 dge / selectNtt CMS
 )
 
+# 정밀 selector 가 비어있을 때(본문이 이미지뿐이라 텍스트 0)의 텍스트 폴백 — 게시판 '본문 박스'
+# 컨테이너들. 페이지 전체(body)로 폴백하면 메뉴/네비게이션까지 긁히므로, 그 전에 이 박스부터 본다.
+# (.content/main 같은 너무 넓은 선택자는 제외 — nav 를 품을 수 있어 텍스트엔 안 쓴다.)
+FALLBACK_CONTENT_SELECTORS = (
+    ".subContent_body",
+    "#usm-content-body-id",
+    "table.usm-brd-vew",
+    "table.bbsView",
+    ".board_view",
+    ".view_cont",
+    ".bbs_view",
+    ".bbs_ViewA",
+    ".view-content",
+    ".board_view_cont",
+    ".BD_view_table",
+    ".board_view_table",
+    ".view_table",
+    ".detail_view",
+)
+
 # 이미지 추출용 광범위 컨테이너 (텍스트 추출엔 사용 안 함)
 CONTENT_SELECTORS = PRECISE_SELECTORS + (
     ".subContent_body",
@@ -100,6 +120,11 @@ NOISE_LINES = {
     "바로듣기",
     "듣기",
     "preview",
+    "인쇄",
+    "목록",
+    "이전글",
+    "다음글",
+    "글작성 정보인 작성자, 작성일, 조회수 등을 제공합니다.",
 }
 
 IMAGE_EXT_RE = re.compile(r"\.(png|jpe?g|webp|bmp)(?:[?#].*)?$", re.IGNORECASE)
@@ -151,7 +176,15 @@ def extract_html_text(html: str) -> str:
         if cleaned:
             return cleaned
 
-    # 4. body 전체 폴백
+    # 4. 게시판 '본문 박스' 폴백 — body 전체(메뉴/네비 포함)로 가기 전에 본문 컨테이너부터.
+    #    (정밀 selector 가 이미지뿐이라 비었던 공지에서 메뉴가 본문으로 새는 것을 막는다.)
+    for selector in FALLBACK_CONTENT_SELECTORS:
+        for tag in soup.select(selector):
+            text = _clean_text(tag.get_text("\n", strip=True))
+            if text:
+                return text
+
+    # 5. body 전체 폴백 (최후)
     body = soup.body or soup
     return _clean_text(body.get_text("\n", strip=True))
 

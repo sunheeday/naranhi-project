@@ -102,6 +102,12 @@
     "meal_allergy_prefix": "⚠ Аллергены:"
   },
   "notice_detail": {
+    "summary_title": "Сводка",
+    "body_title": "Основной текст",
+    "attachment_title": "Вложение",
+    "attachment_complex": "У этого вложения сложное форматирование — откройте оригинальный файл ниже.",
+    "preview": "Просмотр",
+    "download": "Скачать",
     "summary_badge": "Кратко",
     "supplies_badge": "Принадлежности",
     "action_badge": "Дела",
@@ -113,6 +119,9 @@
     "deadline_passed": "Прошло {days} дн.",
     "back_to_list": "К списку",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "Оригинальный файл",
+    "file_desc": "В этом уведомлении много таблиц или сложное форматирование, поэтому автоматическое преобразование неточно. Откройте оригинальный файл ниже.",
     "intro_title": "Школьное объявление",
     "intro_subtitle": "Проведите для деталей →",
     "processing_title": "Анализируется",

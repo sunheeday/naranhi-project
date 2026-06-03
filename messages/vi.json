@@ -100,6 +100,12 @@
     "meal_allergy_prefix": "⚠ Dị ứng:"
   },
   "notice_detail": {
+    "summary_title": "Tóm tắt",
+    "body_title": "Nội dung chính",
+    "attachment_title": "Tệp đính kèm",
+    "attachment_complex": "Tệp đính kèm này có định dạng phức tạp — vui lòng mở tệp gốc bên dưới.",
+    "preview": "Xem trước",
+    "download": "Tải xuống",
     "summary_badge": "Tóm tắt",
     "supplies_badge": "Đồ dùng",
     "action_badge": "Việc cần làm",
@@ -111,6 +117,9 @@
     "deadline_passed": "Đã quá {days} ngày",
     "back_to_list": "Quay lại danh sách",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "Tệp gốc",
+    "file_desc": "Thông báo này có nhiều bảng hoặc định dạng nên chuyển đổi tự động chưa chính xác. Vui lòng mở tệp gốc bên dưới.",
     "intro_title": "Thông báo trường học",
     "intro_subtitle": "Vuốt sang ngang để xem chi tiết →",
     "processing_title": "Đang phân tích",

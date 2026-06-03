@@ -104,6 +104,12 @@
     "meal_allergy_prefix": "⚠ 알레르기:"
   },
   "notice_detail": {
+    "summary_title": "요약",
+    "body_title": "본문",
+    "attachment_title": "첨부파일",
+    "attachment_complex": "이 자료는 표·서식이 복잡해 아래 원본 파일에서 직접 확인해 주세요.",
+    "preview": "미리보기",
+    "download": "다운로드",
     "summary_badge": "핵심 요약",
     "supplies_badge": "준비물",
     "action_badge": "해야 할 일",
@@ -115,6 +121,9 @@
     "deadline_passed": "{days}일 지남",
     "back_to_list": "목록으로",
     "intro_emoji": "📄",
+    "file_emoji": "📎",
+    "file_title": "원본 파일",
+    "file_desc": "이 가정통신문은 표·서식이 많아 자동 변환이 정확하지 않아요. 아래 원본 파일을 직접 확인해 주세요.",
     "intro_title": "가정통신문",
     "intro_subtitle": "옆으로 밀어서 자세히 보기 →",
     "processing_title": "분석 중이에요",
