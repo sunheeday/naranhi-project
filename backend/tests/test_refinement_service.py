@@ -6,12 +6,37 @@ import unittest
 from app.services.refinement_service import (
     _promote_section_headings,
     _squeeze_spaces,
+    _strip_board_meta,
     degenerate,
     light_clean,
     mask,
     refine,
     unmask,
 )
+
+
+class BoardMetaStripTests(unittest.TestCase):
+    def test_strips_board_metadata_lines(self) -> None:
+        src = "# 6월 진로 특강\n작성자 김**\n작성일 2026-05-28\n조회수 37\n댓글 0\n\n진짜 본문 내용입니다."
+        out = _strip_board_meta(src)
+        for junk in ("작성자", "작성일", "조회수", "댓글"):
+            self.assertNotIn(junk, out)
+        self.assertIn("# 6월 진로 특강", out)
+        self.assertIn("진짜 본문 내용입니다.", out)
+
+    def test_strips_multiline_metadata(self) -> None:
+        # 라벨/값이 줄로 분리된 형식(작성자⏎김**)도 제거한다.
+        src = "# 제목\n작성자\n김**\n작성일\n2026-05-28\n조회수\n38\n댓글\n0\n\n진짜 본문"
+        out = _strip_board_meta(src)
+        for junk in ("작성자", "김**", "조회수", "38", "댓글"):
+            self.assertNotIn(junk, out)
+        self.assertIn("# 제목", out)
+        self.assertIn("진짜 본문", out)
+
+    def test_keeps_sentence_starting_with_label_word(self) -> None:
+        # '작성자의 의견은…' 같은 실제 문장은 지우지 않는다(라벨 뒤 구분자 없음).
+        src = "작성자의 의견을 존중하여 진행합니다."
+        self.assertEqual(_strip_board_meta(src), src)
 
 
 class SectionHeadingTests(unittest.TestCase):

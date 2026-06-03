@@ -342,67 +342,118 @@ def build_extracted_content(
     return _jsonable(payload)
 
 
+# 본문을 이루는 소스(게시판 본문 + 본문 속 사진). 다운로드 가능한 '첨부 파일'과 구분한다.
+_BODY_SOURCE_TYPES = {"html_body", "inline_image"}
+
+
+def _order_index(source: Any) -> int:
+    meta = getattr(source, "metadata", {}) or {}
+    value = meta.get("order_index")
+    return value if isinstance(value, int) else 0
+
+
+def _body_sources(result: Any) -> list[Any]:
+    """본문 소스(게시판 본문 + 본문 속 사진)를 문서 순서대로. (사용자 모델: 본문=텍스트+사진)"""
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    included = list(getattr(result, "included_source_ids", []) or [])
+    sources = [
+        by_id[sid]
+        for sid in included
+        if sid in by_id and getattr(by_id[sid], "source_type", "") in _BODY_SOURCE_TYPES
+    ]
+    return sorted(sources, key=_order_index)
+
+
+def _primary_source_id(result: Any) -> str:
+    """본문 carrier = original_text(기존 호환·번역 대상) 및 본문 카드의 대표 소스.
+
+    html_body 가 있으면 그것, 없으면(사진만 있는 본문) 첫 본문 소스. 본문 소스가 전혀 없으면
+    첫 included(첨부만 있는 비정상 케이스).
+    """
+    body = _body_sources(result)
+    for source in body:
+        if getattr(source, "source_type", "") == "html_body":
+            return str(getattr(source, "source_id", ""))
+    if body:
+        return str(getattr(body[0], "source_id", ""))
+    included = list(getattr(result, "included_source_ids", []) or [])
+    return str(included[0]) if included else ""
+
+
+def _refinement_entry(refined: str, gate: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "refined_text": refined,
+        "needs_file": bool(gate.get("needs_file")),
+        "needs_file_reason": gate.get("reasons", []),
+        "quality_signals": gate.get("signals", {}),
+    }
+
+
 async def _refine_sources(
     result: Any, *, gemini_client: Any, notice_id: str
 ) -> tuple[dict[str, dict[str, Any]], int]:
-    """본문에 포함되는(included) 소스를 '각각 따로' 정제·게이트 판정한다.
+    """본문(게시판 본문+사진을 합쳐 하나)과 첨부 파일(각각)을 정제·게이트 판정한다.
 
-    사용자가 본문/첨부1/첨부2 를 각자 카드로 보므로, 합치지 않고 소스별로 정제한다(추출과 같은
-    Vertex 연결 재사용). 한 소스의 정제가 실패해도 그 소스 원문을 그대로 써서 공지를 잃지 않는다.
-    반환: ({source_id: {refined_text, needs_file, needs_file_reason, quality_signals}}, 총 gemini 호출수).
+    사용자 모델 = '본문(텍스트+사진)' + '첨부 파일'. 그래서 html_body 와 본문 속 inline_image 는
+    하나의 본문으로 합쳐 정제하고(사진 OCR이 본문에 자연히 포함), 다운로드 첨부만 따로 카드로 낸다.
+    한 묶음의 정제가 실패해도 원문을 그대로 써서 공지를 잃지 않는다.
+    반환: ({carrier_source_id: 정제결과}, 총 gemini 호출수).
     """
     from app.services.quality_gate import assess
     from app.services.refinement_service import refine
 
-    included = list(getattr(result, "included_source_ids", []) or [])
+    async def _refine_one(raw_text: str) -> tuple[str, dict[str, Any], int]:
+        try:
+            refined, tag, calls = await refine(raw_text, gemini=gemini_client)
+            return _scrub_text(refined), assess(refined, tag), calls
+        except Exception as exc:  # noqa: BLE001 - 정제 실패가 공지를 잃게 하지 않는다(원문 폴백).
+            LOGGER.warning(
+                "refine failed, using raw: notice_id=%s exception=%s", notice_id, sanitize_error(exc)
+            )
+            return _scrub_text(raw_text), assess(raw_text, "refine_error"), 0
+
     by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    included = list(getattr(result, "included_source_ids", []) or [])
     refinements: dict[str, dict[str, Any]] = {}
     total_calls = 0
+
+    # 본문: 게시판 본문 + 본문 속 사진(OCR)을 순서대로 합쳐 '하나의 본문'으로 정제.
+    body = _body_sources(result)
+    body_ids = {str(getattr(s, "source_id", "")) for s in body}
+    body_raw = "\n\n".join(
+        str(getattr(s, "raw_text", "") or "").strip()
+        for s in body
+        if str(getattr(s, "raw_text", "") or "").strip()
+    )
+    carrier_id = _primary_source_id(result)
+    if body_raw.strip() and carrier_id:
+        refined, gate, calls = await _refine_one(body_raw)
+        total_calls += calls
+        refinements[carrier_id] = _refinement_entry(refined, gate)
+        LOGGER.info(
+            "body refine: notice_id=%s body_sources=%s needs_file=%s chars=%s->%s",
+            notice_id, len(body), refinements[carrier_id]["needs_file"], len(body_raw), len(refined),
+        )
+
+    # 첨부 파일: 다운로드 소스는 각각 따로 정제(자기 카드).
     for source_id in included:
+        if source_id in body_ids:
+            continue
         source = by_id.get(source_id)
         if source is None:
             continue
         raw_text = str(getattr(source, "raw_text", "") or "")
         if not raw_text.strip():
             continue
-        try:
-            refined, tag, calls = await refine(raw_text, gemini=gemini_client)
-            total_calls += calls
-            gate = assess(refined, tag)
-        except Exception as exc:  # noqa: BLE001 - 한 소스 정제 실패가 공지를 잃게 하지 않는다.
-            LOGGER.warning(
-                "source refine failed, using raw: notice_id=%s source_id=%s exception=%s",
-                notice_id,
-                source_id,
-                sanitize_error(exc),
-            )
-            refined, gate = raw_text, assess(raw_text, "refine_error")
-        refinements[source_id] = {
-            "refined_text": _scrub_text(refined),
-            "needs_file": bool(gate.get("needs_file")),
-            "needs_file_reason": gate.get("reasons", []),
-            "quality_signals": gate.get("signals", {}),
-        }
+        refined, gate, calls = await _refine_one(raw_text)
+        total_calls += calls
+        refinements[source_id] = _refinement_entry(refined, gate)
         LOGGER.info(
-            "source refine done: notice_id=%s source_id=%s needs_file=%s chars=%s->%s",
-            notice_id,
-            source_id,
-            refinements[source_id]["needs_file"],
-            len(raw_text),
-            len(refined),
+            "attachment refine: notice_id=%s source_id=%s needs_file=%s chars=%s->%s",
+            notice_id, source_id, refinements[source_id]["needs_file"], len(raw_text), len(refined),
         )
+
     return refinements, total_calls
-
-
-def _primary_source_id(result: Any) -> str:
-    """original_text(기존 호환·번역 대상)의 대표 소스: 본문(html_body)이 included 면 본문, 아니면 첫 included."""
-    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
-    included = list(getattr(result, "included_source_ids", []) or [])
-    for source_id in included:
-        source = by_id.get(source_id)
-        if source is not None and getattr(source, "source_type", "") == "html_body":
-            return source_id
-    return included[0] if included else ""
 
 
 def _save_success(

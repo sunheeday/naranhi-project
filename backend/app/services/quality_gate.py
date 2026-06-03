@@ -4,11 +4,12 @@ needs_file=True 이면 앱은 본문 대신 "📎 원본 파일을 직접 확인
 복잡 행정양식·콜라주 포스터처럼 정제해도 구조가 죽은 세로 덤프가 되는 문서를 걸러,
 깨진 텍스트를 억지로 보여주는 대신 우아하게 파일로 넘긴다(graceful degradation).
 
-신호(하나라도 걸리면 needs_file):
-  ① 폴백        tag == "FALLBACK" (refine 이 degeneration 으로 결정본 대체 = LLM 포기)
-  ② 평탄화      제목(#)·표 없고 짧은 파편 줄이 FRAG_RATIO_TH 초과 (= 세로 덤프)
-  ③ 표 깨짐     동일셀이 반복되는 찌꺼기 표
-  ④ 저품질      extractor.quality.is_low_quality_text (빈문서/거의 한글 없음)
+판정은 '실제로 못 읽는' 신호로만 한다(하나라도 걸리면 needs_file):
+  ① 평탄화      제목(#)·표 없고 짧은 파편 줄이 FRAG_RATIO_TH 초과 (= 세로 덤프)
+  ② 중첩표 깨짐  콘텐츠 행 안에 구분선(| --- |)이 끼어 표가 직선화됨
+  ③ 저품질      extractor.quality.is_low_quality_text (빈문서/거의 한글 없음)
+주의: 'FALLBACK'(LLM 정제 실패)·'동일셀 반복'은 사유가 아니다(신호로만 기록). 폴백이라도 내용이
+멀쩡하면(사진 OCR) 그대로 보여주고, 같은 셀 반복도 정상('자습 자습 자습 자습')일 때가 많아서다.
 
 (파일럿 backend/outputs/quality_gate.py 의 검증된 assess 로직을 프로덕션 모듈로 포팅.)
 """
@@ -78,13 +79,13 @@ def assess(md: str, tag: str) -> dict[str, Any]:
     nested_table = _has_nested_table_soup(md)
     low = bool(is_low_quality_text(md))
 
+    # 주의: 'FALLBACK'(LLM 정제 실패)·'동일셀 반복' 자체는 needs_file 사유가 아니다.
+    #  - 폴백이라도 내용이 멀쩡(예: 사진 OCR)할 수 있고,
+    #  - 같은 셀 반복도 정상일 때가 많다(시험일정의 '자습 자습 자습 자습' 등).
+    # 그래서 '실제로 못 읽는' 신호 — 평탄화(세로덤프)·중첩표 직선화·저품질 — 으로만 판정한다.
     reasons: list[str] = []
-    if tag == "FALLBACK":
-        reasons.append("폴백(LLM 정제 실패)")
     if headings == 0 and real_tables == 0 and frag_ratio > FRAG_RATIO_TH:
         reasons.append(f"평탄화(제목0·표0·파편{int(frag_ratio * 100)}%)")
-    if repeat_junk:
-        reasons.append("표 동일셀 반복")
     if nested_table:
         reasons.append("표 중첩 깨짐")
     if low:

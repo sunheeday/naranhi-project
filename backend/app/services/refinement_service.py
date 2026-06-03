@@ -149,6 +149,38 @@ _SECTION_MARKER_RE = re.compile(r"^([◉□■▣◆●◇▪])\s*(\S.{0,38})$")
 # 종결어미/마침표로 끝나면 '문장'이므로 제목으로 올리지 않는다.
 _HEADING_STOP = (".", "?", "!", "다", "요", "함", "음", "임", "됨", "죠", "까", "오")
 
+# 게시판 UI 메타데이터 줄(공지 본문 아님). 라벨 뒤에 구분자(공백/콜론)+값이 있는 짧은 줄.
+_BOARD_META_RE = re.compile(
+    r"\s*(작성자|작성일|등록일|게시일|수정일|조회수|조회|추천|댓글|좋아요)(\s*[:：]|\s+)\s*\S"
+)
+# 라벨만 단독으로 있는 줄(값은 다음 줄에). 게시판이 라벨/값을 줄로 분리해 뽑는 경우.
+_BOARD_META_LABELS = frozenset(
+    {"작성자", "작성일", "등록일", "게시일", "수정일", "조회수", "조회", "추천", "댓글", "좋아요"}
+)
+
+
+def _strip_board_meta(text: str) -> str:
+    """게시판 메타데이터(작성자/작성일/조회수/댓글)를 제거한다 — 같은 줄/여러 줄 형식 모두.
+
+    공지 '본문'이 아니라 게시판 화면 정보라 불필요(특히 본문이 게시판 텍스트뿐일 때 이것만 남는
+    사고 방지). 라벨 뒤 구분자가 있는 짧은 줄(`작성자 김**`), 그리고 라벨만 있는 줄+다음 값 줄
+    (`작성자`⏎`김**`)을 지운다. '작성자의 의견은…'처럼 구분자 없는 실제 문장은 보존한다.
+    """
+    lines = text.split("\n")
+    kept: list[str] = []
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped in _BOARD_META_LABELS:  # 라벨만 있는 줄 -> 라벨 + 값(다음 줄) 함께 제거
+            i += 2
+            continue
+        if len(stripped) <= 40 and _BOARD_META_RE.match(lines[i]):  # 같은 줄형 `작성자 김**`
+            i += 1
+            continue
+        kept.append(lines[i])
+        i += 1
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+
 
 def _promote_section_headings(text: str) -> str:
     """'◉ 질병결석' 같은 섹션 표시줄을 결정론적으로 '### …' 제목으로 올린다(LLM 무관·항상 일정).
@@ -234,6 +266,7 @@ async def refine(raw_text: str, *, gemini: Any) -> tuple[str, str, int]:
     if missing:
         out += "\n\n## 관련 링크\n" + "\n".join(f"- {u}" for u in missing)
 
-    # 섹션 표시줄(◉ …)을 ### 제목으로 결정론적 승격 — LLM 변동과 무관하게 구조를 일정하게.
+    # 게시판 메타(작성자/조회수/댓글) 제거 → 섹션 표시줄(◉ …)을 ### 제목으로 승격(둘 다 결정론적).
+    out = _strip_board_meta(out)
     out = _promote_section_headings(out)
     return out, tag, calls[0]
