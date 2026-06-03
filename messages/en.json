@@ -100,6 +100,7 @@
     "meal_allergy_prefix": "⚠ Allergens:"
   },
   "notice_detail": {
+    "summary_title": "Summary",
     "body_title": "Main text",
     "attachment_title": "Attachment",
     "attachment_complex": "This attachment has complex formatting — please open the original file below.",

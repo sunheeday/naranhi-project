@@ -151,12 +151,14 @@ _HEADING_STOP = (".", "?", "!", "다", "요", "함", "음", "임", "됨", "죠",
 
 # 게시판 UI 메타데이터 줄(공지 본문 아님). 라벨 뒤에 구분자(공백/콜론)+값이 있는 짧은 줄.
 _BOARD_META_RE = re.compile(
-    r"\s*(작성자|작성일|등록일|게시일|수정일|조회수|조회|추천|댓글|좋아요)(\s*[:：]|\s+)\s*\S"
+    r"\s*(이름|성명|작성자|작성일|등록일|게시일|수정일|조회수|조회|추천|댓글|좋아요)(\s*[:：]|\s+)\s*\S"
 )
 # 라벨만 단독으로 있는 줄(값은 다음 줄에). 게시판이 라벨/값을 줄로 분리해 뽑는 경우.
 _BOARD_META_LABELS = frozenset(
-    {"작성자", "작성일", "등록일", "게시일", "수정일", "조회수", "조회", "추천", "댓글", "좋아요"}
+    {"이름", "성명", "작성자", "작성일", "등록일", "게시일", "수정일", "조회수", "조회", "추천", "댓글", "좋아요"}
 )
+# 목록형 메타("- 이름: 박**", "* 등록일: …")의 앞 불릿 — 제거 후 메타 판정.
+_BULLET_PREFIX_RE = re.compile(r"^[-*•·]\s+")
 
 
 def _strip_board_meta(text: str) -> str:
@@ -170,11 +172,12 @@ def _strip_board_meta(text: str) -> str:
     kept: list[str] = []
     i = 0
     while i < len(lines):
-        stripped = lines[i].strip()
-        if stripped in _BOARD_META_LABELS:  # 라벨만 있는 줄 -> 라벨 + 값(다음 줄) 함께 제거
+        # 앞 불릿(- * •)을 떼고 메타 판정 — '- 이름: 박**' 같은 목록형 메타도 잡는다.
+        bare = _BULLET_PREFIX_RE.sub("", lines[i].strip())
+        if bare in _BOARD_META_LABELS:  # 라벨만 있는 줄 -> 라벨 + 값(다음 줄) 함께 제거
             i += 2
             continue
-        if len(stripped) <= 40 and _BOARD_META_RE.match(lines[i]):  # 같은 줄형 `작성자 김**`
+        if len(bare) <= 40 and _BOARD_META_RE.match(bare):  # 같은 줄형 `작성자 김**` / `- 이름: 박**`
             i += 1
             continue
         kept.append(lines[i])

@@ -98,6 +98,7 @@
     "meal_allergy_prefix": "⚠ Alergen:"
   },
   "notice_detail": {
+    "summary_title": "Ringkasan",
     "body_title": "Teks utama",
     "attachment_title": "Lampiran",
     "attachment_complex": "Lampiran ini berformat rumit — silakan buka file asli di bawah.",

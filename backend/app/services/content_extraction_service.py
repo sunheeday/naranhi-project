@@ -261,8 +261,21 @@ class ContentExtractionService:
                 result, gemini_client=gemini_client, notice_id=notice_id
             )
             gemini_calls_used += refine_calls
+
+            # 요약 생성: 정제된 본문+첨부를 한 번 더 압축해 '이 공지가 무엇인지' 요약을 만들고
+            # original_text 에 저장한다(기존 번역 파이프라인이 그대로 요약을 번역). best-effort.
+            from app.services.summary_service import summarize
+
+            body_text, summary_attachments = _summary_inputs(result, refinements)
+            summary, summary_calls = await summarize(
+                title=str(notice.get("title") or ""),
+                body=body_text,
+                attachments=summary_attachments,
+                gemini=gemini_client,
+            )
+            gemini_calls_used += summary_calls
             try:
-                _save_success(notice, result, refinements, uploads)
+                _save_success(notice, result, refinements, uploads, summary)
             except Exception as exc:  # noqa: BLE001 - one bad save must not abort the whole batch.
                 return _save_failure(
                     notice,
@@ -491,21 +504,65 @@ async def _refine_sources(
     return refinements, total_calls
 
 
+def _summary_inputs(
+    result: Any, refinements: dict[str, dict[str, Any]]
+) -> tuple[str, list[dict[str, Any]]]:
+    """요약 입력 구성: 본문 정제본(body) + 첨부별 {source_id, name, text, needs_file}.
+
+    본문 carrier 의 refined_text 를 body 로, 나머지 included 첨부 소스를 문서 순서로 모은다.
+    """
+    carrier_id = _primary_source_id(result)
+    body_text = str((refinements.get(carrier_id) or {}).get("refined_text") or "")
+    body_ids = {str(getattr(s, "source_id", "")) for s in _body_sources(result)}
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+
+    attachments: list[dict[str, Any]] = []
+    for source_id in list(getattr(result, "included_source_ids", []) or []):
+        if source_id == carrier_id or source_id in body_ids:
+            continue
+        ref = refinements.get(source_id)
+        if ref is None:
+            continue
+        source = by_id.get(source_id)
+        attachments.append(
+            {
+                "source_id": source_id,
+                "name": str(getattr(source, "filename", "") or "") if source else "",
+                "text": str(ref.get("refined_text") or ""),
+                "needs_file": bool(ref.get("needs_file")),
+            }
+        )
+    return body_text, attachments
+
+
 def _save_success(
     notice: dict[str, Any],
     result: Any,
     refinements: dict[str, dict[str, Any]],
     uploads: dict[str, dict[str, Any]] | None = None,
+    summary: dict[str, Any] | None = None,
 ) -> None:
+    from app.services.summary_service import render_summary_markdown
+
     notice_id = str(notice["id"])
     extracted_content = build_extracted_content(result, refinements, uploads)
 
-    # 공지 레벨 original_text/needs_file(기존 프론트·번역 호환): 대표 소스(본문 우선) 기준.
+    # 공지 레벨 needs_file(기존 프론트·번역 호환): 대표 소스(본문 우선) 기준.
     primary = refinements.get(_primary_source_id(result), {})
-    original_text = primary.get("refined_text") or _scrub_text(str(getattr(result, "raw_text", "") or ""))
     extracted_content["needs_file"] = bool(primary.get("needs_file"))
     extracted_content["needs_file_reason"] = primary.get("needs_file_reason", [])
     extracted_content["quality_signals"] = primary.get("quality_signals", {})
+
+    # original_text = 렌더된 요약(있으면) → 기존 번역 파이프라인이 요약을 번역.
+    # 요약 구조 JSON 은 extracted_content.summary 에 보관(미래 첨부카드별 요약 재사용).
+    rendered_summary = render_summary_markdown(summary)
+    if summary:
+        extracted_content["summary"] = summary
+    original_text = (
+        rendered_summary
+        or primary.get("refined_text")
+        or _scrub_text(str(getattr(result, "raw_text", "") or ""))
+    )
 
     payload = {
         "status": "done",

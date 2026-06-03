@@ -38,6 +38,21 @@ class BoardMetaStripTests(unittest.TestCase):
         src = "작성자의 의견을 존중하여 진행합니다."
         self.assertEqual(_strip_board_meta(src), src)
 
+    def test_strips_bulleted_metadata(self) -> None:
+        # 목록형 메타('- 이름: 박**', '- 등록일: …')도 앞 불릿을 떼고 제거한다.
+        src = "# 다문화가정 안내\n\n- 이름: 박**\n- 등록일: 2026-05-29 15:47:01"
+        out = _strip_board_meta(src)
+        for junk in ("이름", "박**", "등록일", "2026-05-29"):
+            self.assertNotIn(junk, out)
+        self.assertIn("# 다문화가정 안내", out)
+
+    def test_keeps_bulleted_real_list_item(self) -> None:
+        # 라벨이 아닌 일반 목록 항목은 보존한다.
+        src = "- 신청 방법: 온라인 제출\n- 준비물: 신분증"
+        out = _strip_board_meta(src)
+        self.assertIn("신청 방법", out)
+        self.assertIn("준비물", out)
+
 
 class SectionHeadingTests(unittest.TestCase):
     def test_marker_line_promoted_to_heading(self) -> None:

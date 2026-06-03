@@ -98,6 +98,7 @@
     "meal_allergy_prefix": "⚠ Allergènes :"
   },
   "notice_detail": {
+    "summary_title": "Résumé",
     "body_title": "Texte principal",
     "attachment_title": "Pièce jointe",
     "attachment_complex": "Cette pièce jointe a une mise en forme complexe — veuillez ouvrir le fichier original ci-dessous.",

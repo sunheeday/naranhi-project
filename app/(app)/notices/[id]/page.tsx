@@ -92,6 +92,16 @@ export default async function NoticePage({ params }: Props) {
     })
   }
 
+  // 맨 앞 요약 카드: '이 공지가 무엇인지' 자연어 요약(사용자 locale로 번역됨).
+  if (detail.hasSummary && detail.summary?.trim()) {
+    cards.unshift({
+      type: 'intro',
+      emoji: md.intro_emoji,
+      title: md.summary_title,
+      summary: detail.summary,
+    })
+  }
+
   // 예외(소스·첨부 모두 없음) 폴백.
   if (cards.length === 0) {
     cards.push({

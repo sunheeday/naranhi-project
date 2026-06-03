@@ -41,6 +41,8 @@ export interface NoticeDetailDto {
   errorMessage: string | null
   createdAt: string
   summary: string | null
+  /** 요약(extracted_content.summary)이 생성돼 있는지 — 요약 카드 노출 여부 */
+  hasSummary: boolean
   /** 사용자 locale에 해당 번역이 캐시돼 있는지 (lazy 번역 트리거용) */
   hasLocaleTranslation: boolean
   summaryTranslations: Translations
@@ -116,8 +118,10 @@ export async function getNoticeDetail(
   const extracted = asJsonObject(notice.extracted_content)
   const needsFile = extracted?.needs_file === true
   const fileLinks = extractFileLinks(extracted)
-  const sourceCards = buildSourceCards(extracted, translations, locale)
+  const sourceCards = buildSourceCards(extracted)
   const attachmentFiles = buildAttachmentFiles(extracted)
+  const summaryObj = asJsonObject(extracted?.summary)
+  const hasSummary = Boolean(summaryObj && typeof summaryObj.body === 'string' && summaryObj.body.trim())
 
   return {
     id: notice.id,
@@ -125,6 +129,7 @@ export async function getNoticeDetail(
     errorMessage: notice.error_message,
     createdAt: notice.created_at,
     summary,
+    hasSummary,
     hasLocaleTranslation: locale === 'ko' ? Boolean(notice.original_text || notice.title) : !!translations[locale],
     summaryTranslations: translations,
     cards,
@@ -142,13 +147,30 @@ function isPreviewable(source: Record<string, unknown>): boolean {
   return fileType === 'pdf' || fileType === 'image'
 }
 
+/** 본문에서 제목(#)·게시판메타(이름/등록일/조회수…)·첨부파일목록(첨부N, *.hwp 등)을 걷어내고
+ *  실질 내용이 한 줄이라도 남는지. 없으면(제목·메타·첨부목록뿐이면) 본문 카드를 만들지 않는다. */
+function bodyHasContent(text: string): boolean {
+  const attachExt = /\.(hwp|hwpx|pdf|jpe?g|png|gif|docx?|xlsx?|pptx?|zip|hwt|txt)$/i
+  const attachRef = /^\[?첨부\s*\d|^첨부파일/
+  const metaLabel = /^(이름|성명|작성자|작성일|등록일|게시일|수정일|조회수|조회|추천|댓글|좋아요)\s*[:：]/
+  for (const raw of text.split('\n')) {
+    const s = raw.trim()
+    if (!s) continue
+    if (s.startsWith('#')) continue                  // 제목/소제목
+    const core = s.replace(/^[-*•·\s]+/, '').trim()  // 불릿 제거
+    if (!core) continue
+    if (metaLabel.test(core)) continue               // 게시판 메타
+    if (attachRef.test(core) || attachExt.test(core)) continue  // 첨부 파일 참조/목록
+    return true                                       // 실질 내용 발견
+  }
+  return false
+}
+
 /** extracted_content.sources[] → 정제된 소스(본문 carrier + 첨부)를 본문→첨부 순의 카드로.
  *  본문(게시판 본문 + 사진)은 백엔드에서 carrier 한 곳에 합쳐지므로, refined_text 가 있는 소스만
  *  카드가 된다(합쳐진 본문 외의 inline_image 는 refined_text 가 없어 자동 제외). */
 function buildSourceCards(
-  extracted: Record<string, unknown> | null,
-  translations: Translations,
-  locale: Locale
+  extracted: Record<string, unknown> | null
 ): NoticeSourceCard[] {
   if (!extracted) return []
   const sources = Array.isArray(extracted.sources) ? extracted.sources : []
@@ -161,8 +183,10 @@ function buildSourceCards(
     const sourceType = obj.source_type
     const isBody = sourceType === 'html_body' || sourceType === 'inline_image'
     const refined = obj.refined_text
-    // 본문은 번역본 우선(기존 번역 흐름 재사용), 첨부는 한국어 정제본(번역은 후속 단계).
-    const content = (isBody ? pickTranslation(translations, locale) ?? refined : refined) || ''
+    // 본문·첨부 카드는 한국어 정제본(원본). 번역되는 표층은 맨 앞 '요약' 카드 하나다(요약→original_text→번역).
+    const content = refined || ''
+    // 본문에 제목·게시판메타·첨부목록만 있고 실질 내용이 없으면 본문 카드 생략.
+    if (isBody && !bodyHasContent(content)) continue
     const meta = asJsonObject(obj.metadata)
     rows.push({
       kind: isBody ? 'body' : 'attachment',

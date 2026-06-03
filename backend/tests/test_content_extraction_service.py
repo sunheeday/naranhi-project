@@ -180,6 +180,37 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertEqual(extracted_content["needs_file_reason"], ["폴백(LLM 정제 실패)"])
         self.assertTrue(extracted_content["sources"][0]["needs_file"])
 
+    def test_save_success_stores_summary_and_renders_original_text(self) -> None:
+        client = MagicMock()
+        refinements = {
+            "source-1": {
+                "refined_text": "# 본문 정제본",
+                "needs_file": False,
+                "needs_file_reason": [],
+                "quality_signals": {"tag": "ok"},
+            }
+        }
+        summary = {
+            "body": "이 공지는 정산 안내입니다.",
+            "attachments": [
+                {"source_id": "source-1", "name": "notice.pdf", "summary": "정산 내역이 담겨 있습니다."}
+            ],
+        }
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            _save_success({"id": "notice-1", "title": "테스트 공지"}, FakeResult(), refinements, None, summary)
+
+        payload = client.table.return_value.update.call_args.args[0]
+        # original_text = 렌더된 요약(본문 정제본 대신).
+        self.assertIn("이 공지는 정산 안내입니다.", payload["original_text"])
+        self.assertIn("첨부 'notice.pdf'에는 정산 내역이 담겨 있습니다.", payload["original_text"])
+        self.assertNotEqual(payload["original_text"], "# 본문 정제본")
+        # 구조 JSON 은 extracted_content.summary 에 보관.
+        self.assertEqual(payload["extracted_content"]["summary"]["body"], "이 공지는 정산 안내입니다.")
+        self.assertEqual(
+            payload["extracted_content"]["summary"]["attachments"][0]["source_id"], "source-1"
+        )
+
     def test_primary_source_prefers_body(self) -> None:
         result = FakeResult(
             included_source_ids=["att", "body"],
