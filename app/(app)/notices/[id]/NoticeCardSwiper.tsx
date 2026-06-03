@@ -5,6 +5,7 @@ import useEmblaCarousel from 'embla-carousel-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
+import type { PluggableList } from 'unified'
 import type { CardType } from '@/types/database'
 
 export interface NoticeCardItem {
@@ -137,12 +138,41 @@ const markdownComponents: Components = {
   ),
 }
 
+/** 보편적인 미리보기(눈)·다운로드 아이콘 (Feather 스타일 인라인 SVG, currentColor 로 테마 적용). */
+function PreviewIcon() {
+  return (
+    <svg
+      width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+    >
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
 /** 정제된 markdown 본문(#, |표|, - 목록)을 실제 제목·표·목록으로 렌더한다.
  *  react-markdown 은 기본적으로 raw HTML 을 무시하므로 추출/LLM 내용이라도 XSS 안전. */
+// singleTilde:false — 범위 기호 '~'(p78~93)를 취소선으로 오인하지 않게(취소선은 '~~'만).
+const REMARK_PLUGINS: PluggableList = [[remarkGfm, { singleTilde: false }]]
+
 function MarkdownBody({ source }: { source: string }) {
   return (
     <div className="break-words">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={markdownComponents}>
         {source}
       </ReactMarkdown>
     </div>
@@ -238,18 +268,18 @@ function CardContent({ card, labels }: { card: NoticeCard; labels: CardLabels })
                     rel="noopener noreferrer"
                     aria-label={previewLabel}
                     title={previewLabel}
-                    className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-card text-text-secondary hover:bg-canvas transition-colors"
+                    className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-card text-text-secondary hover:bg-canvas hover:text-ink transition-colors"
                   >
-                    <span aria-hidden="true">👁️</span>
+                    <PreviewIcon />
                   </a>
                 )}
                 <a
                   href={`${file.publicUrl}?download=${encodeURIComponent(file.filename)}`}
                   aria-label={downloadLabel}
                   title={downloadLabel}
-                  className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-card text-text-secondary hover:bg-canvas transition-colors"
+                  className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-card text-text-secondary hover:bg-canvas hover:text-ink transition-colors"
                 >
-                  <span aria-hidden="true">⬇️</span>
+                  <DownloadIcon />
                 </a>
               </li>
             ))}

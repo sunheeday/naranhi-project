@@ -142,7 +142,9 @@ function isPreviewable(source: Record<string, unknown>): boolean {
   return fileType === 'pdf' || fileType === 'image'
 }
 
-/** extracted_content.sources[] → included(중복제거된) 소스를 본문→첨부 순의 카드로. */
+/** extracted_content.sources[] → 정제된 소스(본문 carrier + 첨부)를 본문→첨부 순의 카드로.
+ *  본문(게시판 본문 + 사진)은 백엔드에서 carrier 한 곳에 합쳐지므로, refined_text 가 있는 소스만
+ *  카드가 된다(합쳐진 본문 외의 inline_image 는 refined_text 가 없어 자동 제외). */
 function buildSourceCards(
   extracted: Record<string, unknown> | null,
   translations: Translations,
@@ -150,16 +152,15 @@ function buildSourceCards(
 ): NoticeSourceCard[] {
   if (!extracted) return []
   const sources = Array.isArray(extracted.sources) ? extracted.sources : []
-  const includedIds = new Set(
-    (Array.isArray(extracted.included_source_ids) ? extracted.included_source_ids : []).map(String)
-  )
   const rows: (NoticeSourceCard & { _isBody: boolean; _order: number })[] = []
   for (const source of sources) {
     const obj = asJsonObject(source)
     if (!obj) continue
-    if (!includedIds.has(String(obj.source_id ?? ''))) continue
-    const isBody = obj.source_type === 'html_body'
-    const refined = typeof obj.refined_text === 'string' ? obj.refined_text : ''
+    // 정제된 소스만 카드(본문 carrier + 첨부). 본문에 합쳐진 사진 등은 refined_text 가 없어 제외.
+    if (typeof obj.refined_text !== 'string') continue
+    const sourceType = obj.source_type
+    const isBody = sourceType === 'html_body' || sourceType === 'inline_image'
+    const refined = obj.refined_text
     // 본문은 번역본 우선(기존 번역 흐름 재사용), 첨부는 한국어 정제본(번역은 후속 단계).
     const content = (isBody ? pickTranslation(translations, locale) ?? refined : refined) || ''
     const meta = asJsonObject(obj.metadata)
