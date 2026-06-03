@@ -15,13 +15,14 @@ from app.services.content_extraction_service import (
     classify_extraction_error,
     _missing_translation_locales,
     _normalized_locale,
+    _primary_source_id,
+    _refine_sources,
     _save_success,
     _school_translation_locales,
     _is_successful_extraction,
     _failure_payload,
     _missing_supabase_config_names,
     _pick_claimable_notice,
-    _refine_original_text,
 )
 
 
@@ -124,23 +125,31 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
     def test_save_success_payload_uses_refined_text(self) -> None:
         client = MagicMock()
-        gate = {"needs_file": False, "reasons": [], "signals": {"tag": "ok"}}
+        refinements = {
+            "source-1": {
+                "refined_text": "# 정제된 본문입니다",
+                "needs_file": False,
+                "needs_file_reason": [],
+                "quality_signals": {"tag": "ok"},
+            }
+        }
 
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
             _save_success(
                 {"id": "notice-1", "summary_translations": {"en": "old"}},
                 FakeResult(),
-                "# 정제된 본문입니다",
-                gate,
+                refinements,
             )
 
         payload = client.table.return_value.update.call_args.args[0]
         self.assertEqual(payload["status"], "done")
-        # original_text 는 추출 날것(raw_text)이 아니라 정제본이어야 한다.
+        # original_text 는 추출 날것(raw_text)이 아니라 대표 소스의 정제본이어야 한다.
         self.assertEqual(payload["original_text"], "# 정제된 본문입니다")
         self.assertNotEqual(payload["original_text"], FakeResult().raw_text)
         self.assertIn("extracted_content", payload)
         self.assertFalse(payload["extracted_content"]["needs_file"])
+        # 소스별 정제본이 sources[] 에 들어가야 한다(프론트 카드용).
+        self.assertEqual(payload["extracted_content"]["sources"][0]["refined_text"], "# 정제된 본문입니다")
         for removed in (
             "summary_oneliner",
             "summary_translations",
@@ -153,33 +162,54 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
     def test_save_success_records_needs_file_flag(self) -> None:
         client = MagicMock()
-        gate = {"needs_file": True, "reasons": ["폴백(LLM 정제 실패)"], "signals": {"tag": "FALLBACK"}}
+        refinements = {
+            "source-1": {
+                "refined_text": "깨진 본문",
+                "needs_file": True,
+                "needs_file_reason": ["폴백(LLM 정제 실패)"],
+                "quality_signals": {"tag": "FALLBACK"},
+            }
+        }
 
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
-            _save_success({"id": "notice-1"}, FakeResult(), "깨진 본문", gate)
+            _save_success({"id": "notice-1"}, FakeResult(), refinements)
 
         extracted_content = client.table.return_value.update.call_args.args[0]["extracted_content"]
         self.assertTrue(extracted_content["needs_file"])
         self.assertEqual(extracted_content["needs_file_reason"], ["폴백(LLM 정제 실패)"])
+        self.assertTrue(extracted_content["sources"][0]["needs_file"])
 
-    def test_refine_original_text_falls_back_to_raw_on_failure(self) -> None:
+    def test_primary_source_prefers_body(self) -> None:
+        result = FakeResult(
+            included_source_ids=["att", "body"],
+            sources=[
+                FakeSource(source_id="att", source_type="attachment_pdf"),
+                FakeSource(source_id="body", source_type="html_body"),
+            ],
+        )
+        self.assertEqual(_primary_source_id(result), "body")
+
+    def test_build_extracted_content_merges_refined_text_per_source(self) -> None:
+        refinements = {"source-1": {"refined_text": "정제본", "needs_file": False, "needs_file_reason": []}}
+        payload = build_extracted_content(FakeResult(), refinements)
+        self.assertEqual(payload["sources"][0]["refined_text"], "정제본")
+        self.assertFalse(payload["sources"][0]["needs_file"])
+
+    def test_refine_sources_falls_back_to_raw_on_failure(self) -> None:
         class BoomGemini:
             async def generate_text(self, prompt, *, model=None):
                 raise RuntimeError("vertex unavailable")
 
         import asyncio
 
-        refined, calls, gate = asyncio.run(
-            _refine_original_text(
-                FakeResult(raw_text="원문 그대로 보존"),
-                gemini_client=BoomGemini(),
-                notice_id="notice-1",
-            )
+        result = FakeResult(sources=[FakeSource(raw_text="원문 그대로 보존")])
+        refinements, calls = asyncio.run(
+            _refine_sources(result, gemini_client=BoomGemini(), notice_id="notice-1")
         )
-        # 정제 실패 시에도 공지를 잃지 않도록 원문을 그대로 쓰고 호출수는 0.
-        self.assertEqual(refined, "원문 그대로 보존")
+        # 정제 실패 시에도 소스 원문을 그대로 쓰고 호출수는 0.
+        self.assertEqual(refinements["source-1"]["refined_text"], "원문 그대로 보존")
         self.assertEqual(calls, 0)
-        self.assertIn("needs_file", gate)  # 실패해도 게이트 결과는 함께 반환
+        self.assertIn("needs_file", refinements["source-1"])
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})

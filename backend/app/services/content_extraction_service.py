@@ -213,11 +213,28 @@ class ContentExtractionService:
         from extractor.extract_pipeline import extract_case
         from extractor.models import CaseConfig
 
+        # 추출 중 다운로드된 첨부 파일을 Supabase Storage 에 올린다(같은 바이트, 한 번만 다운로드).
+        uploads: dict[str, dict[str, Any]] = {}
+
+        async def _on_attachment(source_id: str, downloaded: Any) -> None:
+            from app.services.attachment_storage import upload_attachment
+
+            info = await upload_attachment(
+                notice_id=notice_id,
+                source_id=source_id,
+                path_on_disk=downloaded.path,
+                filename=downloaded.filename,
+                content_type=downloaded.content_type,
+            )
+            if info:
+                uploads[source_id] = info
+
         try:
             result = await asyncio.wait_for(
                 extract_case(
                     CaseConfig(id=notice_id, detail_url=detail_url, fetch_context=_fetch_context_from_notice(notice)),
                     gemini_client=gemini_client,
+                    on_attachment=_on_attachment,
                 ),
                 timeout=notice_timeout_seconds,
             )
@@ -240,12 +257,12 @@ class ContentExtractionService:
 
         gemini_calls_used = _gemini_calls_used(result)
         if _is_successful_extraction(result):
-            refined, refine_calls, gate = await _refine_original_text(
+            refinements, refine_calls = await _refine_sources(
                 result, gemini_client=gemini_client, notice_id=notice_id
             )
             gemini_calls_used += refine_calls
             try:
-                _save_success(notice, result, refined, gate)
+                _save_success(notice, result, refinements, uploads)
             except Exception as exc:  # noqa: BLE001 - one bad save must not abort the whole batch.
                 return _save_failure(
                     notice,
@@ -299,64 +316,114 @@ def _missing_supabase_config_names(settings: Any) -> list[str]:
     return missing
 
 
-def build_extracted_content(result: Any) -> dict[str, Any]:
+def build_extracted_content(
+    result: Any,
+    refinements: dict[str, dict[str, Any]] | None = None,
+    uploads: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    refinements = refinements or {}
+    uploads = uploads or {}
     payload = {
         "schema_version": EXTRACTED_CONTENT_SCHEMA_VERSION,
         "final_url": getattr(result, "final_url", ""),
         "content_kind": getattr(result, "content_kind", ""),
         "included_source_ids": getattr(result, "included_source_ids", []) or [],
-        "sources": [_source_summary(source) for source in getattr(result, "sources", []) or []],
+        "sources": [
+            _source_summary(
+                source,
+                refinements.get(str(getattr(source, "source_id", "")), {}),
+                uploads.get(str(getattr(source, "source_id", "")), {}),
+            )
+            for source in getattr(result, "sources", []) or []
+        ],
         "metadata": getattr(result, "metadata", {}) or {},
         "errors": getattr(result, "errors", []) or [],
     }
     return _jsonable(payload)
 
 
-async def _refine_original_text(
+async def _refine_sources(
     result: Any, *, gemini_client: Any, notice_id: str
-) -> tuple[str, int, dict[str, Any]]:
-    """추출 원문(raw_text)을 정제(마스킹·외국어 제거·구조 정리)해 original_text 용 본문을 만든다.
+) -> tuple[dict[str, dict[str, Any]], int]:
+    """본문에 포함되는(included) 소스를 '각각 따로' 정제·게이트 판정한다.
 
-    추출과 같은 Gemini(Vertex) 연결을 재사용한다. 정제가 실패하면 원문을 그대로 써서 공지가
-    비거나 유실되지 않게 한다(최소 폴백). 결과 품질을 게이트로 판정해 함께 돌려준다.
-    반환: (본문, 추가 gemini 호출수, 품질게이트 결과 dict).
+    사용자가 본문/첨부1/첨부2 를 각자 카드로 보므로, 합치지 않고 소스별로 정제한다(추출과 같은
+    Vertex 연결 재사용). 한 소스의 정제가 실패해도 그 소스 원문을 그대로 써서 공지를 잃지 않는다.
+    반환: ({source_id: {refined_text, needs_file, needs_file_reason, quality_signals}}, 총 gemini 호출수).
     """
     from app.services.quality_gate import assess
     from app.services.refinement_service import refine
 
-    raw_text = str(getattr(result, "raw_text", "") or "")
-    try:
-        refined, tag, calls = await refine(raw_text, gemini=gemini_client)
-        gate = assess(refined, tag)
+    included = list(getattr(result, "included_source_ids", []) or [])
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    refinements: dict[str, dict[str, Any]] = {}
+    total_calls = 0
+    for source_id in included:
+        source = by_id.get(source_id)
+        if source is None:
+            continue
+        raw_text = str(getattr(source, "raw_text", "") or "")
+        if not raw_text.strip():
+            continue
+        try:
+            refined, tag, calls = await refine(raw_text, gemini=gemini_client)
+            total_calls += calls
+            gate = assess(refined, tag)
+        except Exception as exc:  # noqa: BLE001 - 한 소스 정제 실패가 공지를 잃게 하지 않는다.
+            LOGGER.warning(
+                "source refine failed, using raw: notice_id=%s source_id=%s exception=%s",
+                notice_id,
+                source_id,
+                sanitize_error(exc),
+            )
+            refined, gate = raw_text, assess(raw_text, "refine_error")
+        refinements[source_id] = {
+            "refined_text": _scrub_text(refined),
+            "needs_file": bool(gate.get("needs_file")),
+            "needs_file_reason": gate.get("reasons", []),
+            "quality_signals": gate.get("signals", {}),
+        }
         LOGGER.info(
-            "refinement done: notice_id=%s tag=%s needs_file=%s chars=%s->%s gemini_calls=%s",
+            "source refine done: notice_id=%s source_id=%s needs_file=%s chars=%s->%s",
             notice_id,
-            tag,
-            gate["needs_file"],
+            source_id,
+            refinements[source_id]["needs_file"],
             len(raw_text),
             len(refined),
-            calls,
         )
-        return refined, calls, gate
-    except Exception as exc:  # noqa: BLE001 - refinement must never lose a notice; fall back to raw text.
-        LOGGER.warning(
-            "refinement failed, using raw text: notice_id=%s exception=%s",
-            notice_id,
-            sanitize_error(exc),
-        )
-        return raw_text, 0, assess(raw_text, "refine_error")
+    return refinements, total_calls
 
 
-def _save_success(notice: dict[str, Any], result: Any, refined: str, gate: dict[str, Any]) -> None:
+def _primary_source_id(result: Any) -> str:
+    """original_text(기존 호환·번역 대상)의 대표 소스: 본문(html_body)이 included 면 본문, 아니면 첫 included."""
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    included = list(getattr(result, "included_source_ids", []) or [])
+    for source_id in included:
+        source = by_id.get(source_id)
+        if source is not None and getattr(source, "source_type", "") == "html_body":
+            return source_id
+    return included[0] if included else ""
+
+
+def _save_success(
+    notice: dict[str, Any],
+    result: Any,
+    refinements: dict[str, dict[str, Any]],
+    uploads: dict[str, dict[str, Any]] | None = None,
+) -> None:
     notice_id = str(notice["id"])
-    extracted_content = build_extracted_content(result)
-    extracted_content["needs_file"] = bool(gate.get("needs_file"))
-    extracted_content["needs_file_reason"] = gate.get("reasons", [])
-    extracted_content["quality_signals"] = gate.get("signals", {})
+    extracted_content = build_extracted_content(result, refinements, uploads)
+
+    # 공지 레벨 original_text/needs_file(기존 프론트·번역 호환): 대표 소스(본문 우선) 기준.
+    primary = refinements.get(_primary_source_id(result), {})
+    original_text = primary.get("refined_text") or _scrub_text(str(getattr(result, "raw_text", "") or ""))
+    extracted_content["needs_file"] = bool(primary.get("needs_file"))
+    extracted_content["needs_file_reason"] = primary.get("needs_file_reason", [])
+    extracted_content["quality_signals"] = primary.get("quality_signals", {})
 
     payload = {
         "status": "done",
-        "original_text": _scrub_text(refined),
+        "original_text": _scrub_text(original_text),
         "extracted_content": extracted_content,
         "extraction_next_run_at": None,
         "extraction_error_code": None,
@@ -737,9 +804,13 @@ def _build_summary(
     )
 
 
-def _source_summary(source: Any) -> dict[str, Any]:
+def _source_summary(
+    source: Any,
+    refinement: dict[str, Any] | None = None,
+    upload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     raw_text = getattr(source, "raw_text", "") or ""
-    return {
+    summary: dict[str, Any] = {
         "source_id": getattr(source, "source_id", ""),
         "source_type": getattr(source, "source_type", ""),
         "source_role": getattr(source, "source_role", ""),
@@ -755,6 +826,16 @@ def _source_summary(source: Any) -> dict[str, Any]:
         "errors": getattr(source, "errors", []) or [],
         "raw_text_chars": len(raw_text),
     }
+    # 소스별 정제 결과(있으면) — 프론트가 본문/첨부를 각각 카드로 렌더한다.
+    if refinement:
+        summary["refined_text"] = refinement.get("refined_text", "")
+        summary["needs_file"] = bool(refinement.get("needs_file"))
+        summary["needs_file_reason"] = refinement.get("needs_file_reason", [])
+    # Storage 업로드 결과(있으면) — 프론트 파일카드의 미리보기/다운로드 URL.
+    if upload:
+        summary["storage_path"] = upload.get("storage_path", "")
+        summary["public_url"] = upload.get("public_url", "")
+    return summary
 
 
 def _result_haystack(result: Any) -> str:

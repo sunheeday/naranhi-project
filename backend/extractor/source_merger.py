@@ -188,15 +188,20 @@ def _best_source(sources: list[SourceExtraction]) -> SourceExtraction:
     핵심: 절대 '가장 긴(내용 많은) 글'을 버리지 않는다. 포함관계로 묶인 그룹
     (예: 본문 ⊂ 첨부 HWP)에서 더 짧은 본문을 대표로 뽑으면 첨부의 추가 내용이
     통째로 사라지기 때문이다. 그래서:
-      1. 가장 긴 글 길이의 90% 이상인 후보만 추린 뒤
-      2. 그 안에서 TYPE_PRIORITY(파일 종류 신뢰도) → 길이 순으로 대표를 고른다.
-    (길이가 비슷한 Jaccard 그룹에서는 기존처럼 우선순위 높은 추출기가 대표가 된다.)
+      1. 가장 긴 글 길이의 90% 이상인 후보만 추린다(near_longest).
+      2. 본문(html_body)이 near_longest 안에 있으면 본문을 대표로 한다(= 본문과 첨부가
+         사실상 동등할 때 본문 우선). 본문이 stub 이라 near_longest 에 못 들면 자동으로
+         첨부가 대표가 되어 내용 손실을 막는다.
+      3. 본문이 없으면 TYPE_PRIORITY(파일 종류 신뢰도) → 길이 순으로 대표를 고른다.
     """
     longest = max(len(source.raw_text) for source in sources)
     near_longest = [
         source for source in sources
         if len(source.raw_text) >= longest * 0.9
     ]
+    body = next((source for source in near_longest if source.source_type == "html_body"), None)
+    if body is not None:
+        return body
     return max(
         near_longest,
         key=lambda source: (
