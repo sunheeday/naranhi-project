@@ -9,8 +9,8 @@
 
 - **다룬 이슈:** `n01-bike-safety-checklist`의 en/ru/ar 직역체, `n02-field-trip-consent-fee`의 ru target fact extraction instability, human review 분기 제거, `n04-school-talent-show`의 ru/ar 제목 톤과 target fact extractor 규칙 보강, `n03-lunch-allergy-halal`의 unmapped critical ingredient 추정 번역 억제, dictionary-aware meal gate 및 per-notice ingredient dictionary 주입
 - **보류한 이슈:** 없음
-- **Change Set 수:** 5
-- **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`, `backend/app/translation/validators.py`, `scripts/run_iteration.py`, `scripts/translation_quality_driver.py`
+- **Change Set 수:** 6
+- **변경 파일:** `backend/app/translation/prompts.py`, `backend/app/translation/orchestrator.py`, `backend/app/services/notice_service.py`, `backend/app/translation/validators.py`, `scripts/run_iteration.py`, `scripts/translation_quality_driver.py`, `lib/neis.ts`, `backend/app/api/notices.py`
 - **재실행 결과:** `n01-bike-safety-checklist` 3개 언어 재실행 완료, `n02-field-trip-consent-fee` ru 재실행 완료, `n04-school-talent-show` ru/ar 재실행 완료, `n03-lunch-allergy-halal` en/ru/ar dictionary-aware pass 확인
 
 ## 2. Change Sets
@@ -188,6 +188,47 @@
     - v2 after fix: en `hard_fact=passed`, ru `hard_fact=passed`, ar `hard_fact=passed`; 세 언어 모두 `context_tone=passed`
 - **상태:** `applied`
 
+### Change Set #6 — Meal-label structured translation path + codex-team prompt validation
+
+- **해결하는 피드백:** 급식 화면에서 dish 이름이 한국어로 남고 알레르기만 번역되던 문제, `translate_meal_labels_prompt`가 실제로 meal UI use case를 제대로 잠그는지 검증 부재
+- **무엇을 바꿨는가:**
+  - 파일: `backend/app/translation/prompts.py`
+  - 파일: `backend/app/services/notice_service.py`
+  - 파일: `backend/app/api/notices.py`
+  - 파일: `lib/neis.ts`
+  - 파일: `backend/tests/test_meal_label_translation.py`
+  - 파일: `engineering/meal-label-prompt-validation.md`
+  - 변경 요약:
+    - `translate_meal_labels_prompt`를 meal-label 전용 structured prompt로 추가
+    - `/notices/translate-text`에 `translation_kind="meal_labels"` 경로 추가
+    - backend가 `id -> translation` JSON map을 직접 반환하도록 구현
+    - `lib/neis.ts`가 structured `translations` map을 우선 사용하도록 변경
+    - Codex-team 검증용 unit test와 prompt audit 문서 추가
+- **왜 이렇게 했는가:**
+  - notice 본문용 공통 프롬프트는 meal/ingredient 보수 규칙 때문에 dish label을 원문 유지할 가능성이 있었다.
+  - meal UI는 자연어 문단 번역이 아니라 짧은 항목별 label translation이므로, structured translation contract가 더 적합하다.
+  - parser 의존 fallback만으로는 `[[M001]]` 줄 형식 변동에 취약했다.
+- **기대 효과:**
+  - 급식 dish 이름 / 알레르기명 번역 일관성 상승
+  - parser format drift에 대한 내성 상승
+  - `translate_meal_labels_prompt`의 계약이 테스트로 고정됨
+- **회귀 리스크:**
+  - live Vertex 결과가 음식명을 과하게 설명적으로 풀어쓸 수 있음
+  - 러시아어/아랍어에서 compound dish naming이 UI 폭을 넘길 수 있음
+- **검증 방법:**
+  - `python3 -m py_compile backend/app/api/notices.py backend/app/services/notice_service.py backend/app/translation/prompts.py`
+  - `PYTHONPATH=backend python3 -m unittest backend/tests/test_meal_label_translation.py`
+  - `npm run typecheck`
+  - Codex-team audit memo: `engineering/meal-label-prompt-validation.md`
+  - live Vertex sample audit:
+    - round 1 exposed `Jjukkumi` / `джуккуми` / `Ккактуги` carryovers
+    - prompt hardening after audit removed transliteration residue
+    - final live sample:
+      - en: `Millet Rice`, `*Squid, Webfoot Octopus, and Long-arm Octopus Stir-fry`, `Diced Radish Kimchi (9)`
+      - ru: `Кимчи из редьки (9)`, `*Жареные кальмары и осьминоги`, but `Пшенной рис` remains awkward
+      - ar: `*مقلي الحبار والأخطبوط`, `كيمتشي الفجل المكعب (9)`, no transliteration residue
+- **상태:** `applied`
+
 ## 3. Deferred
 
 ## 4. Proposed for Next Iteration
@@ -221,8 +262,11 @@
 - `backend/app/translation/orchestrator.py` — Change Set #2 적용
 - `backend/app/translation/orchestrator.py` — Change Set #5 적용
 - `backend/app/services/notice_service.py` — Change Set #2 적용
+- `backend/app/services/notice_service.py` — Change Set #6 적용
 - `backend/app/translation/validators.py` — Change Set #4 적용
 - `backend/app/translation/validators.py` — Change Set #5 적용
+- `backend/app/api/notices.py` — Change Set #6 적용
+- `lib/neis.ts` — Change Set #6 적용
 - `scripts/run_iteration.py` — Change Set #5 적용
 - `scripts/translation_quality_driver.py` — Change Set #5 적용
 

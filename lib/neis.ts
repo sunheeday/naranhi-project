@@ -588,14 +588,29 @@ async function translateMealStringsViaPipeline(
     body: JSON.stringify({
       source_text: sourceText,
       target_language: locale,
+      translation_kind: 'meal_labels',
     }),
     cache: 'no-store',
   })
   if (!response.ok) return {}
 
   const body = await response.json() as {
+    translations?: Record<string, string> | null
     translation?: string | null
     pipeline_result?: { final_translation?: string | null } | null
+  }
+  if (body.translations && typeof body.translations === 'object') {
+    const direct: Record<string, string> = {}
+    texts.forEach((source, index) => {
+      const token = `M${String(index + 1).padStart(3, '0')}`
+      const translated = body.translations?.[token]
+      if (typeof translated === 'string' && translated.trim()) {
+        direct[source] = translated.trim()
+      }
+    })
+    if (Object.keys(direct).length > 0) {
+      return direct
+    }
   }
   const translatedText = body.pipeline_result?.final_translation ?? body.translation ?? ''
   return parseMealTranslationOutput(translatedText, texts)
