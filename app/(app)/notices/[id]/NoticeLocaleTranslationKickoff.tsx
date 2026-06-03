@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Locale } from '@/lib/i18n'
+import { upsertPendingNoticeTranslationBatch } from '@/lib/notice-translation-batch'
 
 interface Props {
   noticeId: string
@@ -46,6 +47,7 @@ export default function NoticeLocaleTranslationKickoff({ noticeId, locale }: Pro
 
   useEffect(() => {
     if (locale === 'ko') return
+    upsertPendingNoticeTranslationBatch(locale, [noticeId])
 
     const key = `naranhi:notice-translate:${locale}:${noticeId}`
     const previousAttempt = readAttemptState(key)

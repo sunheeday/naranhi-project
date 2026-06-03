@@ -27,6 +27,7 @@ class NoticeTranslateRequest(NoticeAnalyzeRequest):
 class TextTranslateRequest(BaseModel):
     source_text: str = Field(min_length=1)
     target_language: str = Field(default="en", min_length=2, max_length=16)
+    translation_kind: str | None = None
     approved_ingredient_dictionary: list[dict[str, object]] = Field(default_factory=list)
     approved_ingredient_dictionary_target: list[dict[str, object]] = Field(default_factory=list)
 
@@ -69,6 +70,7 @@ async def translate_text(
         return await service.translate_text(
             source_text=payload.source_text,
             target_language=payload.target_language,
+            translation_kind=payload.translation_kind,
             approved_ingredient_dictionary=payload.approved_ingredient_dictionary,
             approved_ingredient_dictionary_target=payload.approved_ingredient_dictionary_target,
         )

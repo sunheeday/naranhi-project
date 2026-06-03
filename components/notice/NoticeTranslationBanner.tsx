@@ -27,7 +27,6 @@ interface Props {
 
 type BannerMode = 'pending' | 'complete' | null
 
-const PENDING_BANNER_MS = 4000
 const COMPLETE_BANNER_MS = 7000
 const POLL_INTERVAL_MS = 5000
 
@@ -62,20 +61,10 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
       return
     }
     if (!batch.pendingBannerShownAt) {
-      setMode('pending')
       markPendingBannerShown(batch)
-      return
     }
-    setMode(null)
+    setMode('pending')
   }, [batch, locale])
-
-  useEffect(() => {
-    if (mode !== 'pending') return
-    const timer = window.setTimeout(() => {
-      setMode(current => (current === 'pending' ? null : current))
-    }, PENDING_BANNER_MS)
-    return () => window.clearTimeout(timer)
-  }, [mode])
 
   useEffect(() => {
     if (mode !== 'complete' || !batch) return
