@@ -1,0 +1,403 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "# 6월 둘째 주 급식 및 알레르기 안내\n\n학부모님께,\n\n6월 8일(월)부터 6월 12일(금)까지의 급식 주요 메뉴를 안내드립니다.\n\n- 6월 8일(월): 잡곡밥, 돼지고기김치찌개, 달걀말이, 오이무침\n- 6월 9일(화): 카레라이스, 닭다리구이, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 쇠고기미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴이 포함된 젤리\n\n알레르기 유발 식품: 우유, 달걀, 밀, 대두\n주의: 일부 소스에는 맛술이 포함될 수 있습니다.\n\n식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n문의: 영양교사 02-410-7782\n",
+  "final_translation": "Информация о питании и аллергенах на вторую неделю июня\n\nУважаемые родители!\n\nМы хотели бы проинформировать Вас о меню основного питания с понедельника, 8 июня, по пятницу, 12 июня.\n\n- Понедельник, 8 июня: Рис из нескольких злаков, Тушеная свинина с кимчи, Яичный рулет, Огуречный салат\n- Вторник, 9 июня: Карри с рисом, Запеченная куриная голень, Йогурт\n- Среда, 10 июня: Чачжанмён, Маринованная редька, Жареные пельмени\n- Четверг, 11 июня: Коричневый рис, Суп из говядины с морскими водорослями, Тушеный тофу, Кимчи\n- Пятница, 12 июня: Пибимпап, Яичный суп, Желе, содержащее желатин\n\nАллергенные продукты: Молоко, Яйцо, Пшеница, Соя\nВнимание: Некоторые соусы могут содержать кулинарное вино.\n\nМеню может быть изменено в зависимости от условий поставки ингредиентов.\n\nПо вопросам обращаться: Учитель-диетолог 02-410-7782",
+  "source_hard_facts": {
+    "document_type": "meal_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 9일(화)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 10일(수)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 11일(목)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "영양교사 02-410-7782",
+          "normalized": "Nutrition Teacher 02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "식단은 식재료 수급 상황에 따라 변경될 수 있습니다.",
+          "normalized": "The menu may change depending on ingredient supply conditions.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "주의: 일부 소스에는 맛술이 포함될 수 있습니다.",
+          "normalized": "Caution: Some sauces may contain cooking wine.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "잡곡밥",
+        "돼지고기김치찌개",
+        "달걀말이",
+        "오이무침",
+        "카레라이스",
+        "닭다리구이",
+        "요구르트",
+        "짜장면",
+        "단무지",
+        "군만두",
+        "현미밥",
+        "쇠고기미역국",
+        "두부조림",
+        "김치",
+        "비빔밥",
+        "계란국",
+        "젤라틴이 포함된 젤리"
+      ],
+      "ingredients_raw": [
+        "맛술",
+        "젤라틴"
+      ],
+      "allergens_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [
+      "The year for the dates (June 8th to June 12th) is not explicitly stated."
+    ],
+    "human_review_required": true,
+    "human_review_reason": "Missing year for dates. Allergy and ingredient information requires careful review and dictionary mapping.",
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "meal_menu",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "Учитель-диетолог"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "вторую неделю июня",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "с понедельника, 8 июня, по пятницу, 12 июня",
+          "normalized": "XXXX-06-08/XXXX-06-12",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Понедельник, 8 июня",
+          "normalized": "XXXX-06-08",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Вторник, 9 июня",
+          "normalized": "XXXX-06-09",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Среда, 10 июня",
+          "normalized": "XXXX-06-10",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Четверг, 11 июня",
+          "normalized": "XXXX-06-11",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Пятница, 12 июня",
+          "normalized": "XXXX-06-12",
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "Учитель-диетолог 02-410-7782",
+          "normalized": "02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [
+        {
+          "raw_text": "По вопросам обращаться: Учитель-диетолог",
+          "normalized": "Contact Teacher-dietitian for questions",
+          "confidence": 1.0
+        }
+      ],
+      "warnings": [
+        {
+          "raw_text": "Меню может быть изменено в зависимости от условий поставки ингредиентов.",
+          "normalized": "Menu may be changed depending on ingredient supply conditions.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "Рис из нескольких злаков",
+        "Тушеная свинина с кимчи",
+        "Яичный рулет",
+        "Огуречный салат",
+        "Карри с рисом",
+        "Запеченная куриная голень",
+        "Йогурт",
+        "Чачжанмён",
+        "Маринованная редька",
+        "Жареные пельмени",
+        "Коричневый рис",
+        "Суп из говядины с морскими водорослями",
+        "Тушеный тофу",
+        "Кимчи",
+        "Пибимпап",
+        "Яичный суп",
+        "Желе, содержащее желатин"
+      ],
+      "ingredients_raw": [
+        "кулинарное вино"
+      ],
+      "allergens_raw": [
+        "Молоко",
+        "Яйцо",
+        "Пшеница",
+        "Соя"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [
+      {
+        "raw_text": "맛술",
+        "ingredient_id": "ing_matsul",
+        "canonical_ko": "맛술",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      },
+      {
+        "raw_text": "젤라틴",
+        "ingredient_id": "ing_gelatin",
+        "canonical_ko": "젤라틴",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      }
+    ],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": true,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "6월 둘째 주 급식 및 알레르기 안내",
+    "summary_ko": "학부모님께,\n\n6월 둘째 주(6월 8일~6월 12일) 급식 메뉴 및 알레르기 유발 식품에 대한 안내입니다.\n\n- 6월 8일(월): 잡곡밥, 돼지고기김치찌개, 달걀말이, 오이무침\n- 6월 9일(화): 카레라이스, 닭다리구이, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 쇠고기미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴이 포함된 젤리\n\n알레르기 유발 식품: 우유, 달걀, 밀, 대두\n주의: 일부 소스에는 맛술이 포함될 수 있습니다.\n\n식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n문의: 영양교사 02-410-7782",
+    "summary_target_language": "Уважаемые родители!\n\nЭто информация о меню питания и аллергенах на вторую неделю июня (с 8 по 12 июня).\n\n- Понедельник, 8 июня: Рис из нескольких злаков, Тушеная свинина с кимчи, Яичный рулет, Огуречный салат\n- Вторник, 9 июня: Карри с рисом, Запеченная куриная голень, Йогурт\n- Среда, 10 июня: Чачжанмён, Маринованная редька, Жареные пельмени\n- Четверг, 11 июня: Коричневый рис, Суп из говядины с морскими водорослями, Тушеный тофу, Кимчи\n- Пятница, 12 июня: Пибимпап, Яичный суп, Желе, содержащее желатин\n\nАллергенные продукты: Молоко, Яйцо, Пшеница, Соя\nВнимание: Некоторые соусы могут содержать кулинарное вино.\n\nМеню может быть изменено в зависимости от условий поставки ингредиентов.\nПо вопросам обращаться: Учитель-диетолог 02-410-7782",
+    "document_type": "meal_notice",
+    "target_language": "ru",
+    "audience": "parents",
+    "important_dates": [
+      "6월 8일(월)",
+      "6월 9일(화)",
+      "6월 10일(수)",
+      "6월 11일(목)",
+      "6월 12일(금)"
+    ],
+    "deadlines": [],
+    "actions_required": [],
+    "has_meal_info": true,
+    "has_allergy_info": true,
+    "contains_critical_health_info": true,
+    "validation_status": "failed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [
+      "meal_notice",
+      "6월 8일(월)",
+      "6월 12일(금)",
+      "02-410-7782",
+      "parents"
+    ],
+    "validation_failure_reason": "Missing year for dates. Allergy and ingredient information requires careful review and dictionary mapping."
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Meal Service and Allergy Information for the Second Week of June\n\nDear Parents,\n\nWe would like to inform you of the main meal service menu from Monday, June 8th to Friday, June 12th.\n\n- Monday, June 8th: Multi-grain rice, Pork Kimchi Stew, Rolled Omelet, Cucumber Salad\n- Tuesday, June 9th: Curry Rice, Roasted Chicken Drumstick, Yogurt\n- Wednesday, June 10th: Jajangmyeon, Pickled Radish, Fried Dumplings\n- Thursday, June 11th: Brown rice, Beef Seaweed Soup, Braised Tofu, Kimchi\n- Friday, June 12th: Bibimbap, Egg Soup, Jelly containing ing_gelatin\n\nAllergenic Foods: Milk, Egg, Wheat, Soybean\nCaution: Some sauces may contain ing_matsul.\n\nThe menu is subject to change depending on ingredient supply conditions.\n\nInquiries: Nutrition Teacher 02-410-7782",
+      "preserved_placeholders": [
+        "ing_gelatin",
+        "ing_matsul"
+      ],
+      "translator_notes": [
+        "The year for the dates (June 8th to June 12th) is not explicitly stated in the source text.",
+        "Ingredient and allergen information has been mapped using an approved dictionary. Critical ingredients (ing_matsul, ing_gelatin) are noted."
+      ],
+      "possible_risks": [
+        "Missing year for dates.",
+        "Allergy and ingredient information requires careful review and dictionary mapping."
+      ]
+    },
+    "target": {
+      "target_translation": "Информация о питании и аллергенах на вторую неделю июня\n\nУважаемые родители!\n\nМы хотели бы проинформировать Вас о меню основного питания с понедельника, 8 июня, по пятницу, 12 июня.\n\n- Понедельник, 8 июня: Рис из нескольких злаков, Тушеная свинина с кимчи, Яичный рулет, Огуречный салат\n- Вторник, 9 июня: Карри с рисом, Запеченная куриная голень, Йогурт\n- Среда, 10 июня: Чачжанмён, Маринованная редька, Жареные пельмени\n- Четверг, 11 июня: Коричневый рис, Суп из говядины с морскими водорослями, Тушеный тофу, Кимчи\n- Пятница, 12 июня: Пибимпап, Яичный суп, Желе, содержащее желатин\n\nАллергенные продукты: Молоко, Яйцо, Пшеница, Соя\nВнимание: Некоторые соусы могут содержать кулинарное вино.\n\nМеню может быть изменено в зависимости от условий поставки ингредиентов.\n\nПо вопросам обращаться: Учитель-диетолог 02-410-7782",
+      "resolved_ingredients": [
+        {
+          "ingredient_id": "ing_gelatin",
+          "target_text": "желатин",
+          "source": "approved_dictionary"
+        },
+        {
+          "ingredient_id": "ing_matsul",
+          "target_text": "кулинарное вино",
+          "source": "approved_dictionary"
+        }
+      ],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "6월 둘째 주 식단 및 알레르기 정보\n\n학부모님께,\n\n6월 8일(월)부터 6월 12일(금)까지의 주간 급식 메뉴를 안내드립니다.\n\n- 6월 8일(월): 잡곡밥, 김치돼지찜, 계란말이, 오이샐러드\n- 6월 9일(화): 카레라이스, 오븐에 구운 닭다리, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 소고기 미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴 함유 젤리\n\n알레르기 유발 식품: 우유, 계란, 밀, 콩\n주의: 일부 소스에는 조리용 와인이 포함될 수 있습니다.\n\n식재료 수급 상황에 따라 메뉴는 변경될 수 있습니다.\n\n문의: 영양교사 02-410-7782",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The translation accurately preserves the context, tone, and all factual information from the original Korean notice. All dates, menu items, allergy information, warnings, and contact details are correctly translated. The tone remains official and polite, suitable for a school notice to parents. Minor variations in menu item descriptions (e.g., 'stew' vs. 'braise', 'seasoned side dish' vs. 'salad') are acceptable and do not impact clarity, safety, or administrative meaning. The back-translation confirms the fidelity of the target translation."
+    }
+  }
+}

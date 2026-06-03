@@ -3,23 +3,29 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const NAV_ITEMS = [
-  { href: '/', label: '홈', icon: HomeIcon },
-  { href: '/meals', label: '급식', icon: MealIcon },
-  { href: '/calendar', label: '캘린더', icon: CalendarIcon },
-  { href: '/settings', label: '설정', icon: SettingsIcon },
-]
+interface BottomNavLabels {
+  home: string
+  meals: string
+  calendar: string
+  settings: string
+}
 
-export default function BottomNav() {
+export default function BottomNav({ labels }: { labels: BottomNavLabels }) {
   const pathname = usePathname()
+  const navItems = [
+    { href: '/', label: labels.home, icon: HomeIcon },
+    { href: '/meals', label: labels.meals, icon: MealIcon },
+    { href: '/calendar', label: labels.calendar, icon: CalendarIcon },
+    { href: '/settings', label: labels.settings, icon: SettingsIcon },
+  ]
 
   return (
     <nav
-      aria-label="하단 탭 바"
+      aria-label="Bottom navigation"
       className="fixed bottom-0 inset-x-0 mx-auto w-full max-w-app bg-canvas border-t border-hairline-soft h-14 pb-safe flex items-center shadow-nav"
     >
       <ul className="flex w-full">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <li key={href} className="flex-1">

@@ -1,0 +1,375 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ru",
+  "source_text": "# 6월 둘째 주 급식 및 알레르기 안내\n\n학부모님께,\n\n6월 8일(월)부터 6월 12일(금)까지의 급식 주요 메뉴를 안내드립니다.\n\n- 6월 8일(월): 잡곡밥, 돼지고기김치찌개, 달걀말이, 오이무침\n- 6월 9일(화): 카레라이스, 닭다리구이, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 쇠고기미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴이 포함된 젤리\n\n알레르기 유발 식품: 우유, 달걀, 밀, 대두\n주의: 일부 소스에는 맛술이 포함될 수 있습니다.\n\n식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n문의: 영양교사 02-410-7782\n",
+  "final_translation": "Информация о питании и аллергенах на вторую неделю июня\n\nУважаемые родители!\n\nИнформируем Вас об основном меню питания с понедельника, 8 июня, по пятницу, 12 июня.\n\n- Понедельник, 8 июня: Рис из нескольких видов злаков, Тушеная свинина с кимчи, Яичный рулет, Заправленные огурцы\n- Вторник, 9 июня: Рис карри, Запеченная куриная голень, Йогурт\n- Среда, 10 июня: Чачжанмён, Маринованная редька, Жареные пельмени\n- Четверг, 11 июня: Бурый рис, Суп из говядины с морскими водорослями, Тушеный тофу, Кимчи\n- Пятница, 12 июня: Пибимпап, Яичный суп, Желе, содержащее желатин\n\nСодержит: 우유, 달걀, 밀, 대두\nВнимание: некоторые соусы могут содержать кулинарное вино.\n\nМеню может быть изменено в зависимости от наличия ингредиентов.\n\nПо вопросам обращаться: Учитель-диетолог 02-410-7782",
+  "source_hard_facts": {
+    "document_type": "meal_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 9일(화)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 10일(수)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 11일(목)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "영양교사 02-410-7782",
+          "normalized": "Nutrition Teacher 02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "식단은 식재료 수급 상황에 따라 변경될 수 있습니다.",
+          "normalized": "The menu may change depending on ingredient supply conditions.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "주의: 일부 소스에는 맛술이 포함될 수 있습니다.",
+          "normalized": "Caution: Some sauces may contain cooking wine.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "잡곡밥",
+        "돼지고기김치찌개",
+        "달걀말이",
+        "오이무침",
+        "카레라이스",
+        "닭다리구이",
+        "요구르트",
+        "짜장면",
+        "단무지",
+        "군만두",
+        "현미밥",
+        "쇠고기미역국",
+        "두부조림",
+        "김치",
+        "비빔밥",
+        "계란국",
+        "젤라틴이 포함된 젤리"
+      ],
+      "ingredients_raw": [
+        "맛술",
+        "젤라틴"
+      ],
+      "allergens_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [
+      "The year for the dates (June 8th to June 12th) is not explicitly stated."
+    ],
+    "human_review_required": true,
+    "human_review_reason": "Missing year for dates. Allergy and ingredient information requires careful review and dictionary mapping.",
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "meal_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "Учитель-диетолог"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "вторую неделю июня",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 0.7
+        },
+        {
+          "raw_text": "с понедельника, 8 июня",
+          "normalized": "2020-06-08",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        },
+        {
+          "raw_text": "по пятницу, 12 июня",
+          "normalized": "2020-06-12",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        },
+        {
+          "raw_text": "8 июня",
+          "normalized": "2020-06-08",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        },
+        {
+          "raw_text": "9 июня",
+          "normalized": "2020-06-09",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        },
+        {
+          "raw_text": "10 июня",
+          "normalized": "2020-06-10",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        },
+        {
+          "raw_text": "11 июня",
+          "normalized": "2020-06-11",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        },
+        {
+          "raw_text": "12 июня",
+          "normalized": "2020-06-12",
+          "inferred_year_required": true,
+          "confidence": 0.8
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "Учитель-диетолог 02-410-7782",
+          "normalized": "02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "Внимание: некоторые соусы могут содержать кулинарное вино.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "Меню может быть изменено в зависимости от наличия ингредиентов.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "Рис из нескольких видов злаков",
+        "Тушеная свинина с кимчи",
+        "Яичный рулет",
+        "Заправленные огурцы",
+        "Рис карри",
+        "Запеченная куриная голень",
+        "Йогурт",
+        "Чачжанмён",
+        "Маринованная редька",
+        "Жареные пельмени",
+        "Бурый рис",
+        "Суп из говядины с морскими водорослями",
+        "Тушеный тофу",
+        "Кимчи",
+        "Пибимпап",
+        "Яичный суп",
+        "Желе, содержащее желатин"
+      ],
+      "ingredients_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "allergens_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [
+      "The year for the dates (June 8-12) is not explicitly stated in the translation. It has been inferred as 2020 based on the day-of-week consistency (Monday-Friday)."
+    ],
+    "human_review_required": true,
+    "human_review_reason": "Year for dates is inferred. Korean ingredient/allergen tokens require dictionary mapping.",
+    "confidence": 0.9
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [
+      {
+        "raw_text": "맛술",
+        "ingredient_id": "ing_matsul",
+        "canonical_ko": "맛술",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      },
+      {
+        "raw_text": "젤라틴",
+        "ingredient_id": "ing_gelatin",
+        "canonical_ko": "젤라틴",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      }
+    ],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": true,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "failed",
+      "attempts": 1,
+      "issues": [
+        {
+          "field": "dates",
+          "source_value": "",
+          "translated_value": "2020-06-08, 2020-06-09, 2020-06-10, 2020-06-11, 2020-06-12",
+          "issue": "translated facts contain a new critical value",
+          "recommended_fix": "remove unsupported critical value unless it exists in source"
+        },
+        {
+          "field": "meal_and_allergy",
+          "source_value": "requires_dictionary_mapping=true",
+          "translated_value": "",
+          "issue": "meal or ingredient data requires approved dictionary mapping",
+          "recommended_fix": "route through ingredient identity mapping and preserve unmapped Korean ingredient tokens without guessing"
+        }
+      ]
+    },
+    "context_tone": {
+      "status": "skipped",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "validation_status": "failed",
+    "admin_review_reason": null,
+    "validation_failure_reason": "hard_fact_validation_failed"
+  },
+  "raw_steps": {
+    "hard_fact_validation": {
+      "verdict": "FAIL",
+      "severity": "high",
+      "mismatches": [
+        {
+          "field": "dates",
+          "source_value": "",
+          "translated_value": "2020-06-08, 2020-06-09, 2020-06-10, 2020-06-11, 2020-06-12",
+          "issue": "translated facts contain a new critical value",
+          "recommended_fix": "remove unsupported critical value unless it exists in source"
+        },
+        {
+          "field": "meal_and_allergy",
+          "source_value": "requires_dictionary_mapping=true",
+          "translated_value": "",
+          "issue": "meal or ingredient data requires approved dictionary mapping",
+          "recommended_fix": "route through ingredient identity mapping and preserve unmapped Korean ingredient tokens without guessing"
+        }
+      ],
+      "requires_human_review": false
+    },
+    "context_tone_validation": {
+      "status": "skipped",
+      "issues": []
+    }
+  }
+}

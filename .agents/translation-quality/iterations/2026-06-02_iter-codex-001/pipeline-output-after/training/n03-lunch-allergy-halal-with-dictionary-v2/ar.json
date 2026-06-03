@@ -1,0 +1,377 @@
+{
+  "status": "ready_to_save",
+  "source_language": "ko",
+  "target_language": "ar",
+  "source_text": "# 6월 둘째 주 급식 및 알레르기 안내\n\n학부모님께,\n\n6월 8일(월)부터 6월 12일(금)까지의 급식 주요 메뉴를 안내드립니다.\n\n- 6월 8일(월): 잡곡밥, 돼지고기김치찌개, 달걀말이, 오이무침\n- 6월 9일(화): 카레라이스, 닭다리구이, 요구르트\n- 6월 10일(수): 짜장면, 단무지, 군만두\n- 6월 11일(목): 현미밥, 쇠고기미역국, 두부조림, 김치\n- 6월 12일(금): 비빔밥, 계란국, 젤라틴이 포함된 젤리\n\n알레르기 유발 식품: 우유, 달걀, 밀, 대두\n주의: 일부 소스에는 맛술이 포함될 수 있습니다.\n\n식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n문의: 영양교사 02-410-7782\n",
+  "final_translation": "إشعار خدمة الوجبات ومعلومات الحساسية للأسبوع الثاني من يونيو\n\nحضرات أولياء الأمور الكرام،\n\nنود إبلاغكم بقائمة الوجبات الرئيسية المقدمة من يوم الاثنين الموافق 8 يونيو إلى يوم الجمعة الموافق 12 يونيو.\n\n- الاثنين، 8 يونيو: أرز متعدد الحبوب، حساء كيمتشي بلحم الخنزير، أومليت ملفوف، سلطة خيار\n- الثلاثاء، 9 يونيو: أرز بالكاري، فخذ دجاج مشوي، زبادي\n- الأربعاء، 10 يونيو: جاجانغميون، فجل مخلل، فطائر مقلية\n- الخميس، 11 يونيو: أرز أسمر، حساء لحم بقري بالأعشاب البحرية، توفو مطهو، كيمتشي\n- الجمعة، 12 يونيو: بيبيمباب، حساء بيض، جيلي يحتوي على جيلاتين\n\nالأطعمة المسببة للحساسية: حليب، بيض، قمح، فول الصويا\nتنبيه: قد تحتوي بعض الصلصات على نبيذ طبخ.\n\nقد تتغير قائمة الطعام حسب ظروف توفر المكونات.\n\nللاستفسارات: معلمة التغذية 02-410-7782",
+  "source_hard_facts": {
+    "document_type": "meal_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": null
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": true,
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 8일(월)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 9일(화)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 10일(수)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 11일(목)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "6월 12일(금)",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "영양교사 02-410-7782",
+          "normalized": "Nutrition Teacher 02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "식단은 식재료 수급 상황에 따라 변경될 수 있습니다.",
+          "normalized": "The menu may change depending on ingredient supply conditions.",
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "주의: 일부 소스에는 맛술이 포함될 수 있습니다.",
+          "normalized": "Caution: Some sauces may contain cooking wine.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "잡곡밥",
+        "돼지고기김치찌개",
+        "달걀말이",
+        "오이무침",
+        "카레라이스",
+        "닭다리구이",
+        "요구르트",
+        "짜장면",
+        "단무지",
+        "군만두",
+        "현미밥",
+        "쇠고기미역국",
+        "두부조림",
+        "김치",
+        "비빔밥",
+        "계란국",
+        "젤라틴이 포함된 젤리"
+      ],
+      "ingredients_raw": [
+        "맛술",
+        "젤라틴"
+      ],
+      "allergens_raw": [
+        "우유",
+        "달걀",
+        "밀",
+        "대두"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [
+      "The year for the dates (June 8th to June 12th) is not explicitly stated."
+    ],
+    "human_review_required": true,
+    "human_review_reason": "Missing year for dates. Allergy and ingredient information requires careful review and dictionary mapping.",
+    "confidence": 1.0
+  },
+  "target_hard_facts": {
+    "document_type": "meal_notice",
+    "sender": {
+      "school": null,
+      "organization": null,
+      "person_or_role": "معلمة التغذية"
+    },
+    "audience": {
+      "grade": null,
+      "class": null,
+      "students": null,
+      "parents": "حضرات أولياء الأمور الكرام",
+      "other": null
+    },
+    "hard_facts": {
+      "dates": [
+        {
+          "raw_text": "من يوم الاثنين الموافق 8 يونيو إلى يوم الجمعة الموافق 12 يونيو",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "الاثنين، 8 يونيو",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "الثلاثاء، 9 يونيو",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "الأربعاء، 10 يونيو",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "الخميس، 11 يونيو",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "الجمعة، 12 يونيو",
+          "normalized": null,
+          "inferred_year_required": true,
+          "confidence": 1.0
+        }
+      ],
+      "times": [],
+      "locations": [],
+      "materials": [],
+      "submissions": [],
+      "deadlines": [],
+      "fees": [],
+      "contacts": [
+        {
+          "raw_text": "معلمة التغذية 02-410-7782",
+          "normalized": "02-410-7782",
+          "confidence": 1.0
+        }
+      ],
+      "urls": [],
+      "grade_class_targets": [],
+      "actions_required": [],
+      "warnings": [
+        {
+          "raw_text": "قد تتغير قائمة الطعام حسب ظروف توفر المكونات.",
+          "normalized": null,
+          "confidence": 1.0
+        },
+        {
+          "raw_text": "تنبيه: قد تحتوي بعض الصلصات على نبيذ طبخ.",
+          "normalized": null,
+          "confidence": 1.0
+        }
+      ]
+    },
+    "meal_and_allergy": {
+      "has_meal_info": true,
+      "menu_items_raw": [
+        "أرز متعدد الحبوب، حساء كيمتشي بلحم الخنزير، أومليت ملفوف، سلطة خيار",
+        "أرز بالكاري، فخذ دجاج مشوي، زبادي",
+        "جاجانغميون، فجل مخلل، فطائر مقلية",
+        "أرز أسمر، حساء لحم بقري بالأعشاب البحرية، توفو مطهو، كيمتشي",
+        "بيبيمباب، حساء بيض، جيلي يحتوي على جيلاتين"
+      ],
+      "ingredients_raw": [
+        "جيلاتين",
+        "نبيذ طبخ"
+      ],
+      "allergens_raw": [
+        "حليب",
+        "بيض",
+        "قمح",
+        "فول الصويا"
+      ],
+      "requires_dictionary_mapping": true
+    },
+    "tone_profile": {
+      "formality": "official_school_notice",
+      "politeness": "polite",
+      "urgency": "normal",
+      "should_preserve_honorific_tone": true
+    },
+    "ambiguities": [],
+    "human_review_required": false,
+    "human_review_reason": null,
+    "confidence": 1.0
+  },
+  "ingredient_identity_map": {
+    "mapped_ingredients": [
+      {
+        "raw_text": "맛술",
+        "ingredient_id": "ing_matsul",
+        "canonical_ko": "맛술",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      },
+      {
+        "raw_text": "젤라틴",
+        "ingredient_id": "ing_gelatin",
+        "canonical_ko": "젤라틴",
+        "match_type": "exact",
+        "risk_level": "critical",
+        "confidence": 1.0
+      }
+    ],
+    "unmapped_ingredients": [],
+    "critical_flags": {
+      "contains_allergen": false,
+      "contains_religious_restriction_item": true,
+      "contains_unmapped_critical_item": false
+    },
+    "human_review_required": false,
+    "human_review_reason": null
+  },
+  "validation": {
+    "hard_fact": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    },
+    "context_tone": {
+      "status": "passed",
+      "attempts": 0,
+      "issues": []
+    }
+  },
+  "admin_review": {
+    "required": false,
+    "reason": null,
+    "priority": "normal"
+  },
+  "metadata": {
+    "title": "6월 둘째 주 급식 및 알레르기 안내",
+    "summary_ko": "6월 둘째 주(6월 8일~6월 12일) 급식 주요 메뉴 및 알레르기 유발 식품을 안내드립니다.\n\n- 주요 메뉴: 잡곡밥, 돼지고기김치찌개, 카레라이스, 짜장면, 비빔밥 등\n- 알레르기 유발 식품: 우유, 달걀, 밀, 대두\n- 주의: 일부 소스에 맛술이 포함될 수 있으며, 식단은 식재료 수급 상황에 따라 변경될 수 있습니다.\n- 문의: 영양교사 02-410-7782",
+    "summary_target_language": "نقدم لكم قائمة الوجبات الرئيسية ومعلومات مسببات الحساسية للأسبوع الثاني من يونيو (8 يونيو - 12 يونيو).\n\n- الوجبات الرئيسية: أرز متعدد الحبوب، حساء كيمتشي بلحم الخنزير، أرز بالكاري، جاجانغميون، بيبيمباب، وغيرها.\n- الأطعمة المسببة للحساسية: حليب، بيض، قمح، فول الصويا.\n- تنبيه: قد تحتوي بعض الصلصات على نبيذ طبخ، وقد تتغير قائمة الطعام حسب توفر المكونات.\n- للاستفسارات: معلمة التغذية 02-410-7782",
+    "document_type": "meal_notice",
+    "target_language": "ar",
+    "audience": "parents",
+    "important_dates": [
+      "6월 8일(월)",
+      "6월 12일(금)",
+      "6월 8일(월)",
+      "6월 9일(화)",
+      "6월 10일(수)",
+      "6월 11일(목)",
+      "6월 12일(금)"
+    ],
+    "deadlines": [],
+    "actions_required": [],
+    "has_meal_info": true,
+    "has_allergy_info": true,
+    "contains_critical_health_info": true,
+    "validation_status": "passed",
+    "hard_fact_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "context_tone_validation": {
+      "status": "passed",
+      "attempt_count": 0
+    },
+    "cache_key_candidates": [
+      "6월 둘째 주 급식"
+    ],
+    "validation_failure_reason": null
+  },
+  "raw_steps": {
+    "pivot": {
+      "pivot_translation_en": "Meal Service and Allergy Information for the Second Week of June\n\nDear Parents,\n\nWe would like to inform you of the main meal service menu from Monday, June 8th to Friday, June 12th.\n\n- Monday, June 8th: Multi-grain rice, Pork Kimchi Stew, Rolled Omelet, Cucumber Salad\n- Tuesday, June 9th: Curry Rice, Roasted Chicken Drumstick, Yogurt\n- Wednesday, June 10th: Jajangmyeon, Pickled Radish, Fried Dumplings\n- Thursday, June 11th: Brown rice, Beef Seaweed Soup, Braised Tofu, Kimchi\n- Friday, June 12th: Bibimbap, Egg Soup, Jelly containing ing_gelatin\n\nAllergenic Foods: Milk, Egg, Wheat, Soybean\nCaution: Some sauces may contain ing_matsul.\n\nThe menu may change depending on ingredient supply conditions.\n\nInquiries: Nutrition Teacher 02-410-7782",
+      "preserved_placeholders": [
+        "ing_gelatin",
+        "ing_matsul"
+      ],
+      "translator_notes": [],
+      "possible_risks": []
+    },
+    "target": {
+      "target_translation": "إشعار خدمة الوجبات ومعلومات الحساسية للأسبوع الثاني من يونيو\n\nحضرات أولياء الأمور الكرام،\n\nنود إبلاغكم بقائمة الوجبات الرئيسية المقدمة من يوم الاثنين الموافق 8 يونيو إلى يوم الجمعة الموافق 12 يونيو.\n\n- الاثنين، 8 يونيو: أرز متعدد الحبوب، حساء كيمتشي بلحم الخنزير، أومليت ملفوف، سلطة خيار\n- الثلاثاء، 9 يونيو: أرز بالكاري، فخذ دجاج مشوي، زبادي\n- الأربعاء، 10 يونيو: جاجانغميون، فجل مخلل، فطائر مقلية\n- الخميس، 11 يونيو: أرز أسمر، حساء لحم بقري بالأعشاب البحرية، توفو مطهو، كيمتشي\n- الجمعة، 12 يونيو: بيبيمباب، حساء بيض، جيلي يحتوي على جيلاتين\n\nالأطعمة المسببة للحساسية: حليب، بيض، قمح، فول الصويا\nتنبيه: قد تحتوي بعض الصلصات على نبيذ طبخ.\n\nقد تتغير قائمة الطعام حسب ظروف توفر المكونات.\n\nللاستفسارات: معلمة التغذية 02-410-7782",
+      "resolved_ingredients": [
+        {
+          "ingredient_id": "ing_gelatin",
+          "target_text": "جيلاتين",
+          "source": "approved_dictionary"
+        },
+        {
+          "ingredient_id": "ing_matsul",
+          "target_text": "نبيذ طبخ",
+          "source": "approved_dictionary"
+        }
+      ],
+      "unresolved_ingredients": [],
+      "translator_notes": [],
+      "human_review_required": false,
+      "human_review_reason": null
+    },
+    "back_translation": {
+      "back_translation_ko": "6월 둘째 주 식사 서비스 및 알레르기 정보 안내\n\n존경하는 학부모님께,\n\n저희는 6월 8일 월요일부터 6월 12일 금요일까지 제공되는 주요 식사 메뉴를 알려드리고자 합니다.\n\n- 6월 8일 월요일: 잡곡밥, 돼지고기 김치찌개, 양배추 오믈렛, 오이 샐러드\n- 6월 9일 화요일: 카레밥, 구운 닭다리, 요구르트\n- 6월 10일 수요일: 짜장면, 절인 무, 튀긴 만두\n- 6월 11일 목요일: 현미밥, 소고기 미역국, 조림 두부, 김치\n- 6월 12일 금요일: 비빔밥, 계란국, 젤라틴 함유 젤리\n\n알레르기 유발 식품: 우유, 계란, 밀, 콩\n주의: 일부 소스에는 요리용 와인이 포함될 수 있습니다.\n\n메뉴는 재료 수급 상황에 따라 변경될 수 있습니다.\n\n문의: 영양교사 02-410-7782",
+      "notes": []
+    },
+    "context_tone_validation": {
+      "verdict": "PASS",
+      "context_score": 5.0,
+      "tone_score": 5.0,
+      "clarity_score": 5.0,
+      "issues": [],
+      "overall_comment": "The Arabic translation accurately preserves all factual information, dates, times, locations, materials, fees, deadlines, contacts, URLs, account numbers, grade/class targets, and required actions. The official and polite tone of the original Korean notice is maintained. The translation clearly conveys what parents or students need to know. Meal and allergy information is handled correctly, with specific items like '맛술' (cooking wine) and '젤라틴' (gelatin) translated appropriately. The back-translation had a minor semantic difference for '달걀말이' (rolled omelet) and '오이무침' (seasoned cucumber), but the Arabic target translation for these items was accurate ('أومليت ملفوف' for rolled omelet) or contextually appropriate ('سلطة خيار' for seasoned cucumber). No critical issues were found in the target translation."
+    }
+  }
+}
