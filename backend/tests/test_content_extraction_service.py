@@ -9,6 +9,7 @@ from postgrest.exceptions import APIError
 
 from app.services.content_extraction_service import (
     EXTRACTED_CONTENT_SCHEMA_VERSION,
+    _attachment_too_long,
     _auto_translate_notice_locales,
     _claim_notice,
     build_extracted_content,
@@ -210,6 +211,35 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertEqual(refinements["source-1"]["refined_text"], "원문 그대로 보존")
         self.assertEqual(calls, 0)
         self.assertIn("needs_file", refinements["source-1"])
+
+    def test_attachment_too_long_by_pages_and_length(self) -> None:
+        self.assertTrue(_attachment_too_long(FakeSource(metadata={"page_count": 25})))
+        self.assertFalse(_attachment_too_long(FakeSource(metadata={"page_count": 10})))
+        self.assertTrue(_attachment_too_long(FakeSource(raw_text="가" * 20001, metadata={})))
+        self.assertFalse(_attachment_too_long(FakeSource(raw_text="짧은 첨부", metadata={})))
+
+    def test_refine_sources_skips_long_attachment(self) -> None:
+        # 20페이지 초과 첨부는 정제하지 않고(refined_text="") needs_file=True 로 원본 안내.
+        class FakeGemini:
+            async def generate_text(self, prompt, *, model=None):
+                return "정제된 본문"
+
+        import asyncio
+
+        result = FakeResult(
+            included_source_ids=["body", "att"],
+            sources=[
+                FakeSource(source_id="body", source_type="html_body", raw_text="본문 내용입니다"),
+                FakeSource(source_id="att", source_type="attachment_pdf", raw_text="x" * 100,
+                           metadata={"page_count": 30}),
+            ],
+        )
+        refinements, _ = asyncio.run(
+            _refine_sources(result, gemini_client=FakeGemini(), notice_id="n")
+        )
+        self.assertTrue(refinements["att"]["needs_file"])
+        self.assertEqual(refinements["att"]["refined_text"], "")
+        self.assertIn("body", refinements)  # 본문은 정상 정제됨
 
     def test_classifies_budget_exhausted(self) -> None:
         result = FakeResult(status="partial_success", metadata={"budget_exhausted": True})

@@ -68,6 +68,11 @@ async def extract_pdf_text(
     min_text_chars: int = 80,
 ) -> ExtractedText:
     try:
+        page_count = _page_count(path)
+    except Exception:  # noqa: BLE001
+        page_count = 0
+
+    try:
         text = _extract_selectable_text(path)
     except Exception as exc:
         text = ""
@@ -83,7 +88,7 @@ async def extract_pdf_text(
             method="pdf_pymupdf",
             text=text,
             status="success",
-            metadata={"selectable_text_chars": len(text)},
+            metadata={"selectable_text_chars": len(text), "page_count": page_count},
         )
 
     if gemini is None:
@@ -93,10 +98,13 @@ async def extract_pdf_text(
             text=text,
             status="empty_or_unreadable",
             warnings=["PDF selectable text is too short and Gemini is not configured."],
-            metadata={"selectable_error": selectable_error, "selectable_text_chars": len(text)},
+            metadata={
+                "selectable_error": selectable_error,
+                "selectable_text_chars": len(text),
+                "page_count": page_count,
+            },
         )
 
-    page_count = _page_count(path)
     if budget is not None:
         page_decision = budget.allow_pdf_pages(source_id or source_name, page_count)
         if not page_decision.ok:

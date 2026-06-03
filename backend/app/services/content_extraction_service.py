@@ -380,6 +380,28 @@ def _primary_source_id(result: Any) -> str:
     return str(included[0]) if included else ""
 
 
+# 첨부가 이보다 많은 페이지(또는 그에 준하는 분량)면 정제하지 않고 원본 파일로 안내(needs_file).
+MAX_ATTACHMENT_PAGES = 20
+_TOO_LONG_CHARS = 20000  # 페이지수 없는 형식(HWP/HWPX 등) 폴백: 20페이지 ≈ 2만자
+
+
+def _source_page_count(source: Any) -> int | None:
+    meta = getattr(source, "metadata", {}) or {}
+    pages = meta.get("page_count")
+    return pages if isinstance(pages, int) and pages > 0 else None
+
+
+def _attachment_too_long(source: Any) -> bool:
+    """첨부가 너무 길어(20페이지 초과) 정제 대신 원본 파일로 안내해야 하는지.
+
+    PDF 는 정확한 페이지수로, 페이지수가 없는 형식(HWP/HWPX 등)은 글자수 대략값으로 판단한다.
+    """
+    pages = _source_page_count(source)
+    if pages is not None and pages > MAX_ATTACHMENT_PAGES:
+        return True
+    return len(str(getattr(source, "raw_text", "") or "")) > _TOO_LONG_CHARS
+
+
 def _refinement_entry(refined: str, gate: dict[str, Any]) -> dict[str, Any]:
     return {
         "refined_text": refined,
@@ -444,6 +466,19 @@ async def _refine_sources(
             continue
         raw_text = str(getattr(source, "raw_text", "") or "")
         if not raw_text.strip():
+            continue
+        if _attachment_too_long(source):  # 20페이지 초과 → 정제 안 함, 원본 파일로 안내
+            pages = _source_page_count(source)
+            refinements[source_id] = {
+                "refined_text": "",
+                "needs_file": True,
+                "needs_file_reason": [f"분량 많음({pages}쪽) — 원본 파일 확인" if pages else "분량 많음 — 원본 파일 확인"],
+                "quality_signals": {"tag": "too_long", "page_count": pages},
+            }
+            LOGGER.info(
+                "attachment too long, skip refine: notice_id=%s source_id=%s pages=%s chars=%s",
+                notice_id, source_id, pages, len(raw_text),
+            )
             continue
         refined, gate, calls = await _refine_one(raw_text)
         total_calls += calls
