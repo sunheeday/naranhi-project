@@ -180,7 +180,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertEqual(extracted_content["needs_file_reason"], ["폴백(LLM 정제 실패)"])
         self.assertTrue(extracted_content["sources"][0]["needs_file"])
 
-    def test_save_success_stores_summary_and_renders_original_text(self) -> None:
+    def test_save_success_full_body_to_original_text_summary_to_extracted(self) -> None:
         client = MagicMock()
         refinements = {
             "source-1": {
@@ -201,15 +201,14 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
             _save_success({"id": "notice-1", "title": "테스트 공지"}, FakeResult(), refinements, None, summary)
 
         payload = client.table.return_value.update.call_args.args[0]
-        # original_text = 렌더된 요약(본문 정제본 대신).
-        self.assertIn("이 공지는 정산 안내입니다.", payload["original_text"])
-        self.assertIn("첨부 'notice.pdf'에는 정산 내역이 담겨 있습니다.", payload["original_text"])
-        self.assertNotEqual(payload["original_text"], "# 본문 정제본")
-        # 구조 JSON 은 extracted_content.summary 에 보관.
-        self.assertEqual(payload["extracted_content"]["summary"]["body"], "이 공지는 정산 안내입니다.")
-        self.assertEqual(
-            payload["extracted_content"]["summary"]["attachments"][0]["source_id"], "source-1"
-        )
+        # original_text = 풀 본문(정제본) — 요약이 아니라 팀 구조화 파이프라인 입력용.
+        self.assertEqual(payload["original_text"], "# 본문 정제본")
+        # 요약은 extracted_content.summary 에 (구조 JSON + 렌더 텍스트).
+        ec_summary = payload["extracted_content"]["summary"]
+        self.assertEqual(ec_summary["body"], "이 공지는 정산 안내입니다.")
+        self.assertEqual(ec_summary["attachments"][0]["source_id"], "source-1")
+        self.assertIn("이 공지는 정산 안내입니다.", ec_summary["rendered"])
+        self.assertIn("첨부 'notice.pdf'에는 정산 내역이 담겨 있습니다.", ec_summary["rendered"])
 
     def test_primary_source_prefers_body(self) -> None:
         result = FakeResult(

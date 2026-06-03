@@ -113,15 +113,16 @@ export async function getNoticeDetail(
       translations[row.target_language] = row.translated_text
     }
   }
-  const summary = pickTranslation(translations, locale) ?? notice.title ?? null
-
   const extracted = asJsonObject(notice.extracted_content)
   const needsFile = extracted?.needs_file === true
   const fileLinks = extractFileLinks(extracted)
-  const sourceCards = buildSourceCards(extracted)
+  const sourceCards = buildSourceCards(extracted, locale)
   const attachmentFiles = buildAttachmentFiles(extracted)
   const summaryObj = asJsonObject(extracted?.summary)
   const hasSummary = Boolean(summaryObj && typeof summaryObj.body === 'string' && summaryObj.body.trim())
+  // 요약 텍스트 = extracted_content.summary 의 렌더 텍스트(ko) + 번역(다른 언어).
+  // original_text 는 이제 '풀 본문'(팀 구조화/번역 입력)이라 요약은 여기서 따로 읽는다.
+  const summary = pickTranslation(summaryTextMap(summaryObj), locale) ?? notice.title ?? null
 
   return {
     id: notice.id,
@@ -170,7 +171,8 @@ function bodyHasContent(text: string): boolean {
  *  본문(게시판 본문 + 사진)은 백엔드에서 carrier 한 곳에 합쳐지므로, refined_text 가 있는 소스만
  *  카드가 된다(합쳐진 본문 외의 inline_image 는 refined_text 가 없어 자동 제외). */
 function buildSourceCards(
-  extracted: Record<string, unknown> | null
+  extracted: Record<string, unknown> | null,
+  locale: Locale
 ): NoticeSourceCard[] {
   if (!extracted) return []
   const sources = Array.isArray(extracted.sources) ? extracted.sources : []
@@ -183,10 +185,11 @@ function buildSourceCards(
     const sourceType = obj.source_type
     const isBody = sourceType === 'html_body' || sourceType === 'inline_image'
     const refined = obj.refined_text
-    // 본문·첨부 카드는 한국어 정제본(원본). 번역되는 표층은 맨 앞 '요약' 카드 하나다(요약→original_text→번역).
-    const content = refined || ''
-    // 본문에 제목·게시판메타·첨부목록만 있고 실질 내용이 없으면 본문 카드 생략.
-    if (isBody && !bodyHasContent(content)) continue
+    // 빈 본문 판정은 한국어 정제본 기준(제목·메타·첨부목록 패턴이 한국어라서).
+    if (isBody && !bodyHasContent(refined)) continue
+    // 표시 본문 = 소스별 번역(있으면) → 없으면 한국어 정제본.
+    const localized = asJsonObject(obj.translations)?.[locale]
+    const content = (typeof localized === 'string' && localized.trim() ? localized : refined) || ''
     const meta = asJsonObject(obj.metadata)
     rows.push({
       kind: isBody ? 'body' : 'attachment',
@@ -201,6 +204,21 @@ function buildSourceCards(
   }
   rows.sort((a, b) => (a._isBody === b._isBody ? a._order - b._order : a._isBody ? -1 : 1))
   return rows.map(({ _isBody, _order, ...card }) => card)
+}
+
+/** 요약 카드 텍스트 맵: ko=summary.rendered, 그 외=summary.translations[lang].
+ *  pickTranslation 으로 사용자 locale → ko fallback 선택한다. */
+function summaryTextMap(summary: Record<string, unknown> | null): Translations {
+  const map: Translations = {}
+  if (!summary) return map
+  if (typeof summary.rendered === 'string') map.ko = summary.rendered
+  const i18n = asJsonObject(summary.translations)
+  if (i18n) {
+    for (const [k, v] of Object.entries(i18n)) {
+      if (typeof v === 'string') map[k] = v
+    }
+  }
+  return map
 }
 
 /** extracted_content.sources[] → public_url 있는 첨부 파일들(중복 URL 제거). */

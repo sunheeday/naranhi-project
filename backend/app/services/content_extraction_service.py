@@ -535,6 +535,26 @@ def _summary_inputs(
     return body_text, attachments
 
 
+def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
+    """본문 정제본 + 첨부 정제본들을 합쳐 '풀 본문'을 만든다.
+
+    팀 번역·구조화 파이프라인(translate_notice → notice_cards/schedules)의 입력이 되며,
+    요약이 아니라 전체 내용에서 카드·일정이 추출되도록 한다. 첨부는 '## 첨부: 파일명'
+    헤더로 구분해 이어붙인다.
+    """
+    body, attachments = _summary_inputs(result, refinements)
+    parts: list[str] = []
+    if body.strip():
+        parts.append(body.strip())
+    for att in attachments:
+        text = str(att.get("text") or "").strip()
+        if not text:
+            continue
+        name = str(att.get("name") or "").strip() or "첨부"
+        parts.append(f"## 첨부: {name}\n\n{text}")
+    return "\n\n".join(parts).strip()
+
+
 def _save_success(
     notice: dict[str, Any],
     result: Any,
@@ -553,13 +573,13 @@ def _save_success(
     extracted_content["needs_file_reason"] = primary.get("needs_file_reason", [])
     extracted_content["quality_signals"] = primary.get("quality_signals", {})
 
-    # original_text = 렌더된 요약(있으면) → 기존 번역 파이프라인이 요약을 번역.
-    # 요약 구조 JSON 은 extracted_content.summary 에 보관(미래 첨부카드별 요약 재사용).
-    rendered_summary = render_summary_markdown(summary)
+    # original_text = 정제된 풀 본문(본문+첨부 합본) → 팀 번역·구조화 파이프라인이 여기서
+    # 구조화 카드(해야할일/일정/준비물)·일정·해야할일/소식 분류를 풀 내용 기준으로 추출한다.
+    # 요약은 별도로 extracted_content.summary 에 보관(렌더 텍스트 포함, 프론트 요약 카드용).
     if summary:
-        extracted_content["summary"] = summary
+        extracted_content["summary"] = {**summary, "rendered": render_summary_markdown(summary)}
     original_text = (
-        rendered_summary
+        _full_body_text(result, refinements)
         or primary.get("refined_text")
         or _scrub_text(str(getattr(result, "raw_text", "") or ""))
     )
