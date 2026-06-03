@@ -163,11 +163,15 @@ def _extract_selectable_text(path: Path) -> str:
 
     - blocks 모드: 페이지 위→아래, 왼쪽→오른쪽 위치 순으로 정렬해 표/캘릿아웃의
       셀이 짝지어 나오도록 한다.
-    - 노이즈 필터: 단독 페이지 번호와 기호만 있는 줄을 제거한다.
+    - 노이즈 필터: 진짜 페이지 번호(위/아래 여백에 단독으로 놓인 짧은 숫자 블록)와
+      기호만 있는 줄을 제거한다. 표의 숫자 셀(24·120·116 등)은 라벨과 한 블록에
+      묶이거나 본문 영역에 있으므로 페이지번호로 오인·삭제하지 않고 보존한다.
     """
     pages: list[str] = []
     with fitz.open(path) as document:
         for page in document:
+            page_height = page.rect.height
+            margin = page_height * 0.06
             blocks = page.get_text("blocks")
             text_blocks = sorted(
                 [b for b in blocks if b[6] == 0],
@@ -175,12 +179,16 @@ def _extract_selectable_text(path: Path) -> str:
             )
             clean_lines: list[str] = []
             for block in text_blocks:
-                for raw_line in block[4].splitlines():
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    if _PAGE_NUMBER_RE.match(line):
-                        continue
+                block_lines = [ln.strip() for ln in block[4].splitlines() if ln.strip()]
+                if not block_lines:
+                    continue
+                # 페이지 번호: 블록 전체가 짧은 단독 숫자 하나이고 위/아래 여백에
+                # 있을 때만 제거. (표 셀 숫자는 라벨과 같은 블록이거나 본문 영역이라
+                # 여기서 걸리지 않아 보존됨)
+                in_margin = block[3] <= margin or block[1] >= page_height - margin
+                if len(block_lines) == 1 and in_margin and _PAGE_NUMBER_RE.match(block_lines[0]):
+                    continue
+                for line in block_lines:
                     if _SYMBOL_ONLY_RE.match(line):
                         continue
                     if _is_decorative_line(line):
