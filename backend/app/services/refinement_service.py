@@ -205,6 +205,45 @@ def _promote_section_headings(text: str) -> str:
     return "\n".join(out)
 
 
+# 깨진 markdown 링크 교정용. 정제 과정에서 URL 주변 한글이 링크 안으로 빨려 들어가
+# `[…한글…](https://…한글…)` 처럼 깨지는 사고가 있어, URL/텍스트가 비정상이면 링크 문법을 푼다.
+_MD_LINK_RE = re.compile(r"\[([^\]]*?)\]\(\s*([^)]*?)\s*\)")
+_HANGUL_RE = re.compile(r"[가-힣㄰-㆏]")
+_LINK_BAD_CHARS = frozenset("→←↔[]<>「」『』※\"'｜|")
+
+
+def _valid_link_url(url: str) -> bool:
+    """markdown 링크의 URL 이 사람이 만든 실제 링크처럼 정상인지 판정."""
+    url = url.strip()
+    if not url or len(url) > 2000:
+        return False
+    if any(ch.isspace() for ch in url) or _HANGUL_RE.search(url):
+        return False
+    if any(ch in _LINK_BAD_CHARS for ch in url):
+        return False
+    return url.startswith(("http://", "https://", "mailto:", "tel:", "www.", "/", "#"))
+
+
+def sanitize_markdown_links(text: str) -> str:
+    """깨진 markdown 링크를 사람이 읽는 텍스트로 되돌린다(정상 링크는 그대로 보존).
+
+    URL 에 공백·한글·화살표 등 URL 에 올 수 없는 문자가 섞였거나, 링크 텍스트에 줄바꿈/대괄호가
+    들어간 경우(정제 LLM 이 URL 주변 한글을 빨아들여 깨뜨린 경우)는 `[..](..)` 문법을 풀어
+    읽을 수 있는 텍스트만 남긴다. 이미지(`![](..)`)는 `!` 가 매치 밖이라 영향받지 않는다.
+    """
+    if "](" not in text:
+        return text
+
+    def _repl(match: re.Match[str]) -> str:
+        label, url = match.group(1), match.group(2)
+        if _valid_link_url(url) and "\n" not in label and "[" not in label:
+            return match.group(0)
+        cleaned = re.sub(r"\s*#{1,6}\s*", " ", re.sub(r"\s+", " ", label)).strip()
+        return cleaned or url.strip()
+
+    return _MD_LINK_RE.sub(_repl, text)
+
+
 PROMPT = f"""너는 학교 가정통신문 '본문 정리기'다. 아래는 문서에서 자동 추출된 markdown이다.
 
 [가장 중요한 규칙 — 마스킹 토큰]
@@ -272,4 +311,5 @@ async def refine(raw_text: str, *, gemini: Any) -> tuple[str, str, int]:
     # 게시판 메타(작성자/조회수/댓글) 제거 → 섹션 표시줄(◉ …)을 ### 제목으로 승격(둘 다 결정론적).
     out = _strip_board_meta(out)
     out = _promote_section_headings(out)
+    out = sanitize_markdown_links(out)  # 깨진 링크 문법 교정(정상 링크는 보존)
     return out, tag, calls[0]

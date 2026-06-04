@@ -11,6 +11,7 @@ from app.services.refinement_service import (
     light_clean,
     mask,
     refine,
+    sanitize_markdown_links,
     unmask,
 )
 
@@ -215,6 +216,45 @@ class SqueezeSpacesTests(unittest.TestCase):
         self.assertEqual(tag, "ok")
         self.assertNotRegex(out, r" {3,}")        # 3칸+ 연속 공백이 남지 않는다
         self.assertIn("중요 내용입니다.", out)      # 폭탄이 무손실로 줄어든다
+
+
+class SanitizeMarkdownLinksTests(unittest.TestCase):
+    def test_keeps_valid_link(self) -> None:
+        src = "자세한 내용은 [신청서](https://ko.surveymonkey.com/r/L3VGCQB)에서 확인하세요."
+        self.assertEqual(sanitize_markdown_links(src), src)
+
+    def test_keeps_image_syntax(self) -> None:
+        src = "![대피소 안내](https://example.edu/i.png)"
+        self.assertEqual(sanitize_markdown_links(src), src)
+
+    def test_unwraps_korean_tail_url(self) -> None:
+        # URL 에 화살표·한글이 섞이면(정제가 깨뜨린 링크) 링크 문법을 풀어 텍스트만 남긴다.
+        src = "가족센터([www.familynet.or.kr→지역센터](https://www.familynet.or.kr→지역센터) 안내)"
+        out = sanitize_markdown_links(src)
+        self.assertNotIn("](http", out)              # 가짜 링크 문법이 사라진다
+        self.assertIn("www.familynet.or.kr", out)    # 읽을 수 있는 텍스트는 남는다
+
+    def test_unwraps_link_text_with_newline(self) -> None:
+        # 링크 텍스트에 줄바꿈/머리표(##)가 섞인 깨진 링크도 풀어서 한 줄 텍스트로.
+        src = "센터([주소\n\n##](https://example.kr) 끝)"
+        out = sanitize_markdown_links(src)
+        self.assertNotIn("](http", out)
+        self.assertNotIn("\n\n##](", out)
+
+    def test_noop_when_no_link(self) -> None:
+        src = "# 제목\n\n| 학번 | 이름 |\n|---|---|\n| 1 | 김 |"
+        self.assertEqual(sanitize_markdown_links(src), src)
+
+    def test_refine_fallback_applies_sanitizer(self) -> None:
+        # refine 의 FALLBACK 경로(LLM 망가짐)에서도 깨진 링크가 정리되는지 — 종단 검증.
+        class _BombGemini:
+            async def generate_text(self, prompt: str) -> str:
+                return "깨짐" + " " * 40 + "본문"  # 30칸+ 폭탄 -> degenerate -> light_clean 폴백
+
+        src = "가족센터([www.familynet.or.kr→지역센터](https://www.familynet.or.kr→지역센터)) 안내"
+        out, tag, _ = asyncio.run(refine(src, gemini=_BombGemini()))
+        self.assertEqual(tag, "FALLBACK")
+        self.assertNotIn("](http", out)
 
 
 if __name__ == "__main__":

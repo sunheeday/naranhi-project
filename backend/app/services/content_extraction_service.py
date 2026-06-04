@@ -370,6 +370,31 @@ def build_extracted_content(
 # 본문을 이루는 소스(게시판 본문 + 본문 속 사진). 다운로드 가능한 '첨부 파일'과 구분한다.
 _BODY_SOURCE_TYPES = {"html_body", "inline_image"}
 
+# 본문 '텍스트'에 인라인 사진 OCR 을 합칠 최소 품질. 이보다 낮으면(깨진 지도/스크린샷 OCR 등)
+# 깨끗한 문서 첨부가 따로 있을 때 본문 텍스트에서 제외한다(사진 자체는 '본문 사진'으로 보여줌).
+INLINE_OCR_BODY_MIN_QUALITY = 60.0
+# 텍스트를 신뢰할 수 있는 문서 첨부(본문 사진 OCR 이 깨져도 같은 내용을 깨끗하게 싣는다).
+_DOC_ATTACHMENT_TYPES = {"attachment_pdf", "attachment_hwp", "attachment_hwpx", "attachment_xlsx"}
+
+
+def _has_clean_doc_attachment(result: Any) -> bool:
+    """included 에 텍스트가 충분한 문서 첨부(PDF/HWP/HWPX/XLSX)가 있는지.
+
+    있으면 본문 속 사진(inline_image)의 OCR 이 깨져도 그 첨부가 같은 내용을 깨끗하게 싣고 있으므로,
+    품질 낮은 사진 OCR 을 본문 텍스트에서 빼도 정보가 사라지지 않는다(사진은 '본문 사진'으로 보여줌).
+    """
+    by_id = {str(getattr(s, "source_id", "")): s for s in getattr(result, "sources", []) or []}
+    for sid in list(getattr(result, "included_source_ids", []) or []):
+        source = by_id.get(str(sid))
+        if source is None:
+            continue
+        if (
+            getattr(source, "source_type", "") in _DOC_ATTACHMENT_TYPES
+            and len(str(getattr(source, "raw_text", "") or "").strip()) >= 200
+        ):
+            return True
+    return False
+
 
 def _order_index(source: Any) -> int:
     meta = getattr(source, "metadata", {}) or {}
@@ -467,12 +492,30 @@ async def _refine_sources(
     # 본문: 게시판 본문 + 본문 속 사진(OCR)을 순서대로 합쳐 '하나의 본문'으로 정제.
     body = _body_sources(result)
     body_ids = {str(getattr(s, "source_id", "")) for s in body}
-    body_raw = "\n\n".join(
-        str(getattr(s, "raw_text", "") or "").strip()
-        for s in body
-        if str(getattr(s, "raw_text", "") or "").strip()
-    )
     carrier_id = _primary_source_id(result)
+    # 깨끗한 문서 첨부(PDF/HWP 등)가 있으면, 품질 낮은 인라인 사진 OCR(깨진 지도/스크린샷 등)은
+    # 본문 '텍스트'에서 제외해 본문 오염을 막는다. 단 carrier(대표 본문)는 절대 빼지 않는다
+    # (본문이 통째로 비는 사고 방지). 빠진 사진도 따로 '본문 사진'으로 합쳐 보여주므로 원본 확인 가능.
+    has_clean_doc = _has_clean_doc_attachment(result)
+    body_chunks: list[str] = []
+    for source in body:
+        raw = str(getattr(source, "raw_text", "") or "").strip()
+        if not raw:
+            continue
+        sid = str(getattr(source, "source_id", ""))
+        if (
+            has_clean_doc
+            and sid != carrier_id
+            and getattr(source, "source_type", "") == "inline_image"
+            and float(getattr(source, "quality_score", 0) or 0) < INLINE_OCR_BODY_MIN_QUALITY
+        ):
+            LOGGER.info(
+                "drop low-quality inline OCR from body: notice_id=%s source_id=%s score=%s",
+                notice_id, sid, getattr(source, "quality_score", 0),
+            )
+            continue
+        body_chunks.append(raw)
+    body_raw = "\n\n".join(body_chunks)
     if body_raw.strip() and carrier_id:
         refined, gate, calls = await _refine_one(body_raw)
         total_calls += calls
@@ -599,6 +642,10 @@ def _stitch_images_vertically(images: list[bytes]) -> bytes | None:
     return out.getvalue()
 
 
+# 본문 사진을 1장으로 합칠 때의 최대 장수(과대 PNG·메모리 폭주 방지).
+_MAX_BODY_IMAGES = 12
+
+
 async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tuple[str, bytes]]) -> str:
     """본문 사진들(여러 장)을 세로 PNG 1장으로 합쳐 Storage 에 올리고 public_url 반환(없으면 '')."""
     if not inline_images:
@@ -608,7 +655,14 @@ async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tu
         match = re.search(r"(\d+)\s*$", item[0])
         return int(match.group(1)) if match else 0
 
-    ordered = [data for _, data in sorted(inline_images, key=_order)]
+    ordered_items = sorted(inline_images, key=_order)
+    if len(ordered_items) > _MAX_BODY_IMAGES:  # 상한 적용: 너무 많은 사진은 과대 PNG 방지를 위해 자른다
+        LOGGER.info(
+            "body images capped: notice_id=%s total=%s cap=%s",
+            notice_id, len(ordered_items), _MAX_BODY_IMAGES,
+        )
+        ordered_items = ordered_items[:_MAX_BODY_IMAGES]
+    ordered = [data for _, data in ordered_items]
     combined = await asyncio.to_thread(_stitch_images_vertically, ordered)
     if not combined:
         return ""

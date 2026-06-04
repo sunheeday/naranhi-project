@@ -193,12 +193,31 @@ async def _extract_source(
     if candidate.source_type == "inline_image":
         ocr_decision = _inline_image_ocr_decision(candidate, html_text=html_text, budget=budget)
         if not ocr_decision["ok"]:
+            reason = str(ocr_decision["reason"])
+            # OCR 은 건너뛰더라도 '노이즈(로고/배너/추적픽셀)'가 아니면 이미지 자체는 수집한다.
+            # → 본문이 사진뿐인 공지(예: 수두 안내)도 '본문 사진'으로 합쳐 화면에 보여줄 수 있다.
+            # Gemini 호출은 없고, 다운로드/콜백 실패는 추출을 막지 않는다(best-effort).
+            if (
+                reason != "inline_image_noise_filter"
+                and on_attachment is not None
+                and candidate.inline_ref is not None
+            ):
+                try:
+                    collected = await download_attachment(
+                        candidate.inline_ref,
+                        output_dir=temp_dir / "downloads",
+                        max_file_size_mb=_max_file_size_mb(),
+                        referer=fetched_final_url,
+                    )
+                    await on_attachment(candidate.source_id, collected)
+                except Exception:  # noqa: BLE001 - 수집 실패가 추출을 막지 않게.
+                    pass
             return _source_from_text(
                 candidate,
                 raw_text="",
                 method="skipped",
                 status=str(ocr_decision["status"]),
-                errors=[str(ocr_decision["reason"])],
+                errors=[reason],
                 metadata={"ocr_inline_images": os.getenv("OCR_INLINE_IMAGES", "auto")},
             )
         if candidate.inline_ref is None:
