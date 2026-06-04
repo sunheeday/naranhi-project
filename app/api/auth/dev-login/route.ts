@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 import { safeNextPath } from '@/lib/auth/redirect'
+import { isValidLocale } from '@/lib/i18n'
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === 'production' || process.env.DEV_LOGIN_ENABLED !== 'true') {
@@ -39,6 +40,23 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {
     return NextResponse.json({ ok: false, error: 'dev_login_failed' }, { status: 401 })
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('locale')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (isValidLocale(profile?.locale)) {
+      response.cookies.set('locale', profile.locale, {
+        path: '/',
+        maxAge: 31_536_000,
+        sameSite: 'lax',
+      })
+    }
   }
 
   return response
