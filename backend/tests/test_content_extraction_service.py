@@ -14,6 +14,8 @@ from app.services.content_extraction_service import (
     _claim_notice,
     build_extracted_content,
     classify_extraction_error,
+    _combine_and_upload_body_images,
+    _has_clean_doc_attachment,
     _missing_translation_locales,
     _normalized_locale,
     _primary_source_id,
@@ -567,6 +569,97 @@ class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
             await translate_sources_for_locale(self.FakeService(), "notice-1", "ko")
         client.table.return_value.update.assert_not_called()
+
+
+class CombineBodyImagesCapTests(unittest.IsolatedAsyncioTestCase):
+    async def test_caps_number_of_stitched_images(self) -> None:
+        captured: dict[str, int] = {}
+
+        def _fake_stitch(images: list[bytes]) -> bytes:
+            captured["count"] = len(images)
+            return b"PNG-BYTES"
+
+        async def _fake_upload(**kwargs: object) -> dict[str, str]:
+            return {"public_url": "https://store/body.png"}
+
+        many = [(f"inline_image_{i}", b"x") for i in range(1, 20)]  # 19장
+        with patch("app.services.content_extraction_service._stitch_images_vertically", _fake_stitch), patch(
+            "app.services.attachment_storage.upload_bytes", _fake_upload
+        ):
+            url = await _combine_and_upload_body_images("notice-1", many)
+        self.assertEqual(url, "https://store/body.png")
+        self.assertEqual(captured["count"], 12)  # 상한(12장)까지만 합쳐진다
+
+    async def test_empty_returns_blank(self) -> None:
+        self.assertEqual(await _combine_and_upload_body_images("notice-1", []), "")
+
+
+class HasCleanDocAttachmentTests(unittest.TestCase):
+    def test_true_with_text_bearing_pdf(self) -> None:
+        result = FakeResult(
+            included_source_ids=["attachment_pdf_1"],
+            sources=[FakeSource(source_id="attachment_pdf_1", source_type="attachment_pdf", raw_text="내용 " * 80)],
+        )
+        self.assertTrue(_has_clean_doc_attachment(result))
+
+    def test_false_when_doc_text_too_short(self) -> None:
+        result = FakeResult(
+            included_source_ids=["attachment_pdf_1"],
+            sources=[FakeSource(source_id="attachment_pdf_1", source_type="attachment_pdf", raw_text="짧은 첨부")],
+        )
+        self.assertFalse(_has_clean_doc_attachment(result))
+
+    def test_false_for_inline_image_only(self) -> None:
+        # 본문 사진만 있는 공지(문서 첨부 없음) -> 사진 OCR 이 유일한 본문일 수 있으므로 False.
+        result = FakeResult(
+            included_source_ids=["inline_image_1"],
+            sources=[FakeSource(source_id="inline_image_1", source_type="inline_image", raw_text="x" * 400)],
+        )
+        self.assertFalse(_has_clean_doc_attachment(result))
+
+
+class RefineBodyInlineFilterTests(unittest.IsolatedAsyncioTestCase):
+    """본문 사진 OCR 품질에 따른 본문 텍스트 포함/제외 (#3 깨진 OCR 본문 오염 방지)."""
+
+    @staticmethod
+    def _passthrough_refine():
+        async def _refine(raw_text, *, gemini):  # refined == raw (정제 LLM 우회, 본문 구성만 검증)
+            return raw_text, "ok", 1
+        return _refine
+
+    def _result(self, *, with_clean_pdf: bool, inline_quality: float) -> FakeResult:
+        sources = [
+            FakeSource(source_id="html_body_1", source_type="html_body",
+                       raw_text="# 민방위 훈련 안내", quality_score=64.0, metadata={"order_index": 0}),
+            FakeSource(source_id="inline_image_2", source_type="inline_image",
+                       raw_text="서울홍구 4표로 67 도보 핑크 53m", quality_score=inline_quality,
+                       metadata={"order_index": 2}),
+        ]
+        included = ["html_body_1", "inline_image_2"]
+        if with_clean_pdf:
+            sources.append(FakeSource(source_id="attachment_pdf_1", source_type="attachment_pdf",
+                                      raw_text="훈련 안내 본문 " * 60, quality_score=80.0,
+                                      metadata={"order_index": 3}))
+            included = ["attachment_pdf_1", "html_body_1", "inline_image_2"]
+        return FakeResult(included_source_ids=included, sources=sources)
+
+    async def _body_text(self, result: FakeResult) -> str:
+        with patch("app.services.refinement_service.refine", self._passthrough_refine()):
+            refinements, _ = await _refine_sources(result, gemini_client=MagicMock(), notice_id="n1")
+        return str(refinements[_primary_source_id(result)]["refined_text"])
+
+    async def test_drops_garbled_inline_ocr_when_clean_doc_present(self) -> None:
+        body = await self._body_text(self._result(with_clean_pdf=True, inline_quality=52.0))
+        self.assertIn("민방위 훈련 안내", body)
+        self.assertNotIn("서울홍구", body)  # 깨진 지도 OCR 은 본문 텍스트에서 빠진다
+
+    async def test_keeps_inline_ocr_when_no_clean_doc(self) -> None:
+        body = await self._body_text(self._result(with_clean_pdf=False, inline_quality=52.0))
+        self.assertIn("서울홍구", body)  # 첨부가 없으면 사진 OCR 이 유일한 본문 -> 보존
+
+    async def test_keeps_high_quality_inline_ocr(self) -> None:
+        body = await self._body_text(self._result(with_clean_pdf=True, inline_quality=77.0))
+        self.assertIn("서울홍구", body)  # 품질 충분하면 깨끗한 첨부가 있어도 본문에 포함
 
 
 if __name__ == "__main__":
