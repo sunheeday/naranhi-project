@@ -19,6 +19,7 @@ from app.services.content_extraction_service import (
     _primary_source_id,
     _refine_sources,
     _save_success,
+    translate_sources_for_locale,
     _school_translation_locales,
     _is_successful_extraction,
     _failure_payload,
@@ -486,6 +487,42 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertIsNone(_normalized_locale("ko"))
         self.assertIsNone(_normalized_locale("bad locale"))
         self.assertEqual(_normalized_locale("VI"), "vi")
+
+
+class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):
+    """요약·본문·첨부를 팀 translate_text 재사용해 번역·저장(이미 있는 언어는 건너뜀)."""
+
+    class FakeService:
+        async def translate_text(self, *, source_text: str, target_language: str) -> dict[str, object]:
+            return {"translation": f"[{target_language}] {source_text}"}
+
+    async def test_translates_summary_and_sources_skips_cached(self) -> None:
+        client = MagicMock()
+        extracted = {
+            "summary": {"rendered": "요약문", "points": []},
+            "sources": [
+                {"source_id": "s1", "refined_text": "본문 정제본"},
+                {"source_id": "s2", "refined_text": "첨부 정제본", "translations": {"en": "이미있음"}},
+            ],
+        }
+        (
+            client.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data
+        ) = {"extracted_content": extracted}
+
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            await translate_sources_for_locale(self.FakeService(), "notice-1", "en")
+
+        saved = client.table.return_value.update.call_args.args[0]["extracted_content"]
+        self.assertEqual(saved["summary"]["translations"]["en"], "[en] 요약문")
+        self.assertEqual(saved["sources"][0]["translations"]["en"], "[en] 본문 정제본")
+        # 이미 en 번역 있는 소스는 그대로(재번역 안 함)
+        self.assertEqual(saved["sources"][1]["translations"]["en"], "이미있음")
+
+    async def test_ko_does_nothing(self) -> None:
+        client = MagicMock()
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            await translate_sources_for_locale(self.FakeService(), "notice-1", "ko")
+        client.table.return_value.update.assert_not_called()
 
 
 if __name__ == "__main__":
