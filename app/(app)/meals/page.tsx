@@ -70,7 +70,7 @@ export default async function MealsPage({ searchParams }: Props) {
   let errorMessage: string | null = null
   let childLabel = ''
 
-  if (isUiPreviewEnabled()) {
+  if (await isUiPreviewEnabled()) {
     dayEntries = await previewMealEntries(monday, locale)
     childLabel = '나란히초등학교 3-2'
   } else {

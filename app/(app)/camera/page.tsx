@@ -64,7 +64,7 @@ export default async function CameraPage() {
   let childId = 'preview-child'
   let childLabel = ''
 
-  if (isUiPreviewEnabled()) {
+  if (await isUiPreviewEnabled()) {
     childLabel = '나란히초등학교 3-2'
   } else {
     const supabase = await createSupabaseServerClient()

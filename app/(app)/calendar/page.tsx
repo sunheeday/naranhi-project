@@ -83,7 +83,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   let timetableErrorMessage: string | null = null
   let childLabel = ''
 
-  if (isUiPreviewEnabled()) {
+  if (await isUiPreviewEnabled()) {
     events = previewEvents(year, month)
     timetableDays = previewTimetableEntries(monday)
     childLabel = '나란히초등학교 3-2'

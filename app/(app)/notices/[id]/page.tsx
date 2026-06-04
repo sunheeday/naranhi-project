@@ -159,7 +159,7 @@ export default async function NoticePage({ params }: Props) {
   )
 
   // UI 프리뷰: DB 없이 샘플 카드뉴스를 바로 보여준다.
-  if (isUiPreviewEnabled()) {
+  if (await isUiPreviewEnabled()) {
     const previewCards = previewNoticeCards(id)
     if (id === 'preview-schedule') {
       // 분석 중 화면을 demonstrate (홈에서 '분석 중' 배지로 노출되는 공지)

@@ -1,9 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isUiPreviewEnabled } from './lib/ui-preview'
 import { appendNextParam } from './lib/auth/redirect'
 
 const PUBLIC_PATHS = [
+  '/demo',
   '/login',
   '/auth/callback',
   '/api/auth/dev-login',
@@ -13,7 +13,10 @@ const PUBLIC_PATHS = [
 ]
 
 export async function middleware(request: NextRequest) {
-  if (isUiPreviewEnabled()) {
+  const isPreview = process.env.NEXT_PUBLIC_UI_PREVIEW === 'true'
+    || request.cookies.get('ui_preview')?.value === 'true'
+
+  if (isPreview) {
     return NextResponse.next({ request })
   }
 

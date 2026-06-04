@@ -248,7 +248,7 @@ export default async function HomePage() {
   let schoolCrawlerState: SchoolCrawlerState | null = null
   let hasProcessingNotices = false
 
-  if (isUiPreviewEnabled()) {
+  if (await isUiPreviewEnabled()) {
     childInfo = previewChildInfo()
     notices = previewNotices()
   } else {

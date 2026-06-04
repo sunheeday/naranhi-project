@@ -23,7 +23,9 @@ export default async function SettingsPage() {
     class_no: number | null
   } | null = null
 
-  if (isUiPreviewEnabled()) {
+  const isPreview = await isUiPreviewEnabled()
+
+  if (isPreview) {
     child = {
       id: 'preview-child',
       school_name: '나란히초등학교',
@@ -78,7 +80,7 @@ export default async function SettingsPage() {
 
         <hr className="border-border" />
 
-        {child && !isUiPreviewEnabled() && (
+        {child && !isPreview && (
           <>
             <SchoolReselect
               childId={child.id}
@@ -111,7 +113,16 @@ export default async function SettingsPage() {
         )}
 
         <section>
-          <LogoutButton label={messages.settings.logout} />
+          {isPreview ? (
+            <a
+              href="/demo/exit"
+              className="flex items-center justify-center w-full h-12 rounded-btn border border-border bg-surface text-text-primary text-base font-semibold"
+            >
+              데모 종료
+            </a>
+          ) : (
+            <LogoutButton label={messages.settings.logout} />
+          )}
         </section>
 
         <p className="text-xs text-text-disabled text-center mt-4">
