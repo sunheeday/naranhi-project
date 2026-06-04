@@ -215,9 +215,18 @@ class ContentExtractionService:
 
         # 추출 중 다운로드된 첨부 파일을 Supabase Storage 에 올린다(같은 바이트, 한 번만 다운로드).
         uploads: dict[str, dict[str, Any]] = {}
+        inline_images: list[tuple[str, bytes]] = []  # 본문 사진들 — 1장(세로 PNG)으로 합쳐 저장
 
         async def _on_attachment(source_id: str, downloaded: Any) -> None:
             from app.services.attachment_storage import upload_attachment
+
+            # 본문 사진(inline image)은 개별 저장하지 않고 바이트만 모은다(나중에 1장으로 합침).
+            if source_id.startswith("inline_image"):
+                try:
+                    inline_images.append((source_id, Path(downloaded.path).read_bytes()))
+                except Exception:  # noqa: BLE001
+                    pass
+                return
 
             info = await upload_attachment(
                 notice_id=notice_id,
@@ -274,8 +283,11 @@ class ContentExtractionService:
                 gemini=gemini_client,
             )
             gemini_calls_used += summary_calls
+
+            # 본문 사진들을 세로로 이은 PNG 1장으로 합쳐 Storage 에 저장(첨부란에서 미리보기/다운로드).
+            body_image = await _combine_and_upload_body_images(notice_id, inline_images)
             try:
-                _save_success(notice, result, refinements, uploads, summary)
+                _save_success(notice, result, refinements, uploads, summary, body_image)
             except Exception as exc:  # noqa: BLE001 - one bad save must not abort the whole batch.
                 return _save_failure(
                     notice,
@@ -555,17 +567,82 @@ def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
     return "\n\n".join(parts).strip()
 
 
+def _stitch_images_vertically(images: list[bytes]) -> bytes | None:
+    """여러 이미지 바이트를 같은 폭으로 맞춰 세로로 이어 붙인 PNG 1장(바이트)로 반환."""
+    import io
+
+    from PIL import Image
+
+    pil: list[Any] = []
+    for data in images:
+        try:
+            pil.append(Image.open(io.BytesIO(data)).convert("RGB"))
+        except Exception:  # noqa: BLE001 - 깨진 이미지는 건너뜀
+            continue
+    if not pil:
+        return None
+    width = min(max(im.width for im in pil), 1600)  # 폭 통일 + 과대 방지
+    resized = []
+    for im in pil:
+        if im.width != width:
+            new_h = max(1, round(im.height * width / im.width))
+            im = im.resize((width, new_h))
+        resized.append(im)
+    total_h = sum(im.height for im in resized)
+    combined = Image.new("RGB", (width, total_h), "white")
+    y = 0
+    for im in resized:
+        combined.paste(im, (0, y))
+        y += im.height
+    out = io.BytesIO()
+    combined.save(out, format="PNG")
+    return out.getvalue()
+
+
+async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tuple[str, bytes]]) -> str:
+    """본문 사진들(여러 장)을 세로 PNG 1장으로 합쳐 Storage 에 올리고 public_url 반환(없으면 '')."""
+    if not inline_images:
+        return ""
+
+    def _order(item: tuple[str, bytes]) -> int:
+        match = re.search(r"(\d+)\s*$", item[0])
+        return int(match.group(1)) if match else 0
+
+    ordered = [data for _, data in sorted(inline_images, key=_order)]
+    combined = await asyncio.to_thread(_stitch_images_vertically, ordered)
+    if not combined:
+        return ""
+    from app.services.attachment_storage import upload_bytes
+
+    info = await upload_bytes(
+        notice_id=notice_id, name="body-images", data=combined, content_type="image/png", ext=".png"
+    )
+    return info["public_url"] if info else ""
+
+
 def _save_success(
     notice: dict[str, Any],
     result: Any,
     refinements: dict[str, dict[str, Any]],
     uploads: dict[str, dict[str, Any]] | None = None,
     summary: dict[str, Any] | None = None,
+    body_image_url: str = "",
 ) -> None:
     from app.services.summary_service import render_summary_markdown
 
     notice_id = str(notice["id"])
     extracted_content = build_extracted_content(result, refinements, uploads)
+
+    # 본문 사진들을 합친 1장(PNG)을 합성 소스로 추가 → 프론트 '원본 파일' 카드에서 미리보기/다운로드.
+    if body_image_url:
+        extracted_content.setdefault("sources", []).append({
+            "source_id": "body_images_combined",
+            "source_type": "attachment_image",
+            "source_role": "body_images",
+            "filename": "본문 사진.png",
+            "public_url": body_image_url,
+            "metadata": {"file_type": "image"},
+        })
 
     # 공지 레벨 needs_file(기존 프론트·번역 호환): 대표 소스(본문 우선) 기준.
     primary = refinements.get(_primary_source_id(result), {})

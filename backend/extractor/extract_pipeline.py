@@ -210,6 +210,12 @@ async def _extract_source(
                 max_file_size_mb=_max_file_size_mb(),
                 referer=fetched_final_url,
             )
+            # 본문 사진을 서비스로 넘겨 수집(여러 장을 1장으로 합쳐 저장). OCR 성공/실패와 무관하게.
+            if on_attachment is not None:
+                try:
+                    await on_attachment(candidate.source_id, downloaded)
+                except Exception:  # noqa: BLE001 - 수집 실패가 추출을 막지 않게.
+                    pass
             if gemini is None:
                 raise RuntimeError("Gemini API key is required for image OCR.")
             extracted = await extract_image_text(
