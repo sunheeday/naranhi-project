@@ -88,7 +88,7 @@ async def translate_notice(
     service: NoticeService = Depends(get_notice_service),
 ) -> dict[str, object]:
     try:
-        return await service.translate_notice(
+        result = await service.translate_notice(
             notice_id=notice_id,
             target_language=payload.target_language,
             source_text=payload.source_text,
@@ -100,3 +100,14 @@ async def translate_notice(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
         ) from error
+
+    # 구조화 카드뿐 아니라 요약·본문·첨부도 같은 번역 함수(translate_text)로 채운다(표시용).
+    # best-effort — 실패해도 번역 응답엔 영향 없다.
+    try:
+        from app.services.content_extraction_service import translate_sources_for_locale
+
+        await translate_sources_for_locale(service, notice_id, payload.target_language)
+    except Exception:  # noqa: BLE001 - 소스 번역 실패가 응답을 깨지 않는다.
+        pass
+
+    return result

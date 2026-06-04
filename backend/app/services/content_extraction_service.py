@@ -622,6 +622,8 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
                 notice_id=notice_id,
                 target_language=locale,
             )
+            # 요약·본문·첨부도 같은 번역 함수(translate_text)로 채운다(표시용).
+            await translate_sources_for_locale(service, notice_id, locale)
         except Exception as exc:  # noqa: BLE001 - translation backfill must not fail extraction.
             LOGGER.warning(
                 "auto translation failed: notice_id=%s school_id=%s locale=%s error=%s",
@@ -630,6 +632,61 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
                 locale,
                 sanitize_error(exc),
             )
+
+
+async def translate_sources_for_locale(service: Any, notice_id: str, target_language: str) -> None:
+    """요약·본문·첨부 정제본을 팀 translate_text(기존 번역 함수)로 번역해 extracted_content 에 저장.
+
+    번역 로직은 팀 것을 그대로 재사용한다 — 우리는 요약/소스 텍스트를 넣어 호출하고 결과를
+    translations 슬롯에 담을 뿐(새 번역 코드 0). 이미 번역된 언어는 건너뛴다(캐시).
+    프론트는 summary.translations / sources[].translations 를 읽어 부모 언어로 표시한다.
+    """
+    if not target_language or target_language == "ko":
+        return
+
+    sb = get_supabase_client()
+    row = sb.table("notices").select("extracted_content").eq("id", notice_id).single().execute().data
+    extracted = (row or {}).get("extracted_content") or {}
+    summary = extracted.get("summary") if isinstance(extracted.get("summary"), dict) else None
+    sources = extracted.get("sources") if isinstance(extracted.get("sources"), list) else []
+
+    async def _translate(text: str) -> str:
+        try:
+            result = await service.translate_text(source_text=text, target_language=target_language)
+        except Exception as exc:  # noqa: BLE001 - 소스 번역 실패가 전체 번역을 깨지 않는다.
+            LOGGER.warning(
+                "source translate failed: notice_id=%s lang=%s error=%s",
+                notice_id, target_language, sanitize_error(exc),
+            )
+            return ""
+        translated = result.get("translation") if isinstance(result, dict) else None
+        return translated.strip() if isinstance(translated, str) and translated.strip() else ""
+
+    changed = False
+    if summary and isinstance(summary.get("rendered"), str) and summary["rendered"].strip():
+        existing = summary.get("translations") if isinstance(summary.get("translations"), dict) else {}
+        if target_language not in existing:
+            translated = await _translate(summary["rendered"])
+            if translated:
+                summary.setdefault("translations", {})[target_language] = translated
+                changed = True
+
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        text = src.get("refined_text")
+        if not (isinstance(text, str) and text.strip()):
+            continue
+        existing = src.get("translations") if isinstance(src.get("translations"), dict) else {}
+        if target_language in existing:
+            continue
+        translated = await _translate(text)
+        if translated:
+            src.setdefault("translations", {})[target_language] = translated
+            changed = True
+
+    if changed:
+        sb.table("notices").update({"extracted_content": extracted}).eq("id", notice_id).execute()
 
 
 def _school_translation_locales(school_id: str) -> list[str]:
