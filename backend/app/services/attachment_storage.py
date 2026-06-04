@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import re
 from typing import Any
@@ -60,6 +61,37 @@ def _upload_sync(*, notice_id: str, path_on_disk: Any, filename: str, content_ty
     # get_public_url 이 끝에 '?' 를 붙여서 정리(프론트가 ?download= 를 깔끔히 덧붙이도록).
     public_url = storage.get_public_url(object_path).rstrip("?")
     return {"storage_path": object_path, "public_url": public_url}
+
+
+def _upload_bytes_sync(*, notice_id: str, name: str, data: bytes, content_type: str, ext: str) -> dict[str, str]:
+    client = get_supabase_client()
+    digest = hashlib.sha256(data).hexdigest()[:16]
+    object_path = f"{notice_id}/{name}-{digest}{ext}"
+    storage = client.storage.from_(BUCKET)
+    storage.upload(
+        object_path,
+        data,
+        {"content-type": content_type or "application/octet-stream", "upsert": "true"},
+    )
+    public_url = storage.get_public_url(object_path).rstrip("?")
+    return {"storage_path": object_path, "public_url": public_url}
+
+
+async def upload_bytes(
+    *, notice_id: str, name: str, data: bytes, content_type: str = "image/png", ext: str = ".png"
+) -> dict[str, str] | None:
+    """생성한 바이트(예: 본문 사진들을 합친 PNG)를 공개 버킷에 업로드. 실패 시 None."""
+    global _bucket_ready
+    try:
+        if not _bucket_ready:
+            await asyncio.to_thread(ensure_bucket)
+            _bucket_ready = True
+        return await asyncio.to_thread(
+            _upload_bytes_sync, notice_id=notice_id, name=name, data=data, content_type=content_type, ext=ext
+        )
+    except Exception as exc:  # noqa: BLE001 - 업로드 실패가 공지 처리를 막지 않게.
+        LOGGER.warning("bytes upload failed: notice_id=%s name=%s error=%s", notice_id, name, sanitize_error(exc))
+        return None
 
 
 _bucket_ready = False

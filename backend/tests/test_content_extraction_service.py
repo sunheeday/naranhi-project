@@ -19,6 +19,7 @@ from app.services.content_extraction_service import (
     _primary_source_id,
     _refine_sources,
     _save_success,
+    _stitch_images_vertically,
     translate_sources_for_locale,
     _school_translation_locales,
     _is_successful_extraction,
@@ -487,6 +488,49 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         self.assertIsNone(_normalized_locale("ko"))
         self.assertIsNone(_normalized_locale("bad locale"))
         self.assertEqual(_normalized_locale("VI"), "vi")
+
+
+class BodyImagesTests(unittest.TestCase):
+    """본문 사진 여러 장을 세로 PNG 1장으로 합치고, 합성 소스로 첨부란에 노출."""
+
+    @staticmethod
+    def _png(w: int, h: int) -> bytes:
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (w, h), "white").save(buf, "PNG")
+        return buf.getvalue()
+
+    def test_stitch_unifies_width_and_stacks_height(self) -> None:
+        import io
+
+        from PIL import Image
+
+        out = _stitch_images_vertically([self._png(400, 300), self._png(800, 200)])
+        assert out is not None
+        res = Image.open(io.BytesIO(out))
+        # 폭 800 통일 → 400×300 은 800×600 으로, 합산 높이 600+200=800
+        self.assertEqual(res.size, (800, 800))
+
+    def test_stitch_empty_returns_none(self) -> None:
+        self.assertIsNone(_stitch_images_vertically([]))
+
+    def test_save_success_adds_body_image_synthetic_source(self) -> None:
+        client = MagicMock()
+        refinements = {
+            "source-1": {"refined_text": "# 본문", "needs_file": False, "needs_file_reason": [], "quality_signals": {}}
+        }
+        with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
+            _save_success(
+                {"id": "n1", "title": "t"}, FakeResult(), refinements, None, None, "https://x/body-images.png"
+            )
+        sources = client.table.return_value.update.call_args.args[0]["extracted_content"]["sources"]
+        body = [s for s in sources if s.get("source_id") == "body_images_combined"]
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["public_url"], "https://x/body-images.png")
+        self.assertEqual(body[0]["metadata"]["file_type"], "image")
 
 
 class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):
