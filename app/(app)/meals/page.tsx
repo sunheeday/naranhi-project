@@ -4,11 +4,22 @@ import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import { getCachedOrFetchMealsForRange, translateMealCollectionsForLocale, type Meal } from '@/lib/neis'
+import { annotateMealCollections, normalizeRestrictions, DIETARY_FLAGS, type DietaryFlag } from '@/lib/dietary'
 import BrandHeader from '@/components/brand/BrandHeader'
 import MealWeekView, { type DayEntry } from './MealWeekView'
 
 interface Props {
   searchParams: Promise<{ week?: string }>
+}
+
+/** dietary flag 라벨 한국어 폴백 (messages에 키 없을 때). */
+const DIETARY_FLAG_FALLBACK: Record<DietaryFlag, string> = {
+  pork: '돼지고기',
+  beef: '쇠고기',
+  alcohol: '알코올',
+  meat: '육류',
+  fish_seafood: '어패류',
+  shellfish: '갑각류·조개',
 }
 
 /**
@@ -80,7 +91,7 @@ export default async function MealsPage({ searchParams }: Props) {
 
     const { data: child } = await supabase
       .from('children')
-      .select('id, school_name, grade, class_no, neis_office_code, neis_school_code')
+      .select('id, school_name, grade, class_no, neis_office_code, neis_school_code, dietary_restrictions')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -101,12 +112,15 @@ export default async function MealsPage({ searchParams }: Props) {
           monday,
           friday,
         )
+        const restrictions = normalizeRestrictions(child.dietary_restrictions)
         const rawMealsByDay: Meal[][] = []
         for (let i = 0; i < 5; i++) {
           const iso = addDaysIso(monday, i)
           rawMealsByDay.push(map.get(iso) ?? [])
         }
-        const translatedMealsByDay = await translateMealCollectionsForLocale(rawMealsByDay, locale)
+        // 금기 탐지는 번역 전 한국어 메뉴 이름 기준으로 수행한다.
+        const annotatedMealsByDay = annotateMealCollections(rawMealsByDay, restrictions)
+        const translatedMealsByDay = await translateMealCollectionsForLocale(annotatedMealsByDay, locale)
         const days: DayEntry[] = []
         for (let i = 0; i < 5; i++) {
           const iso = addDaysIso(monday, i)
@@ -129,6 +143,10 @@ export default async function MealsPage({ searchParams }: Props) {
   }
 
   const m = messages.meals ?? {}
+  const dietaryMessages = m.dietary ?? {}
+  const dietaryLabels = Object.fromEntries(
+    DIETARY_FLAGS.map(flag => [flag, dietaryMessages[flag] ?? DIETARY_FLAG_FALLBACK[flag]]),
+  ) as Record<DietaryFlag, string>
   const labels = {
     weekday: messages.calendar.weekdays as string[],
     prev_week: m.prev_week ?? '이전 주',
@@ -139,6 +157,8 @@ export default async function MealsPage({ searchParams }: Props) {
     lunch: messages.home.meal_lunch ?? '중식',
     dinner: messages.home.meal_dinner ?? '석식',
     allergy_prefix: messages.home.meal_allergy_prefix ?? '⚠ 알레르기:',
+    dietary_prefix: dietaryMessages.prefix ?? '🚫 주의:',
+    dietary: dietaryLabels,
     range: m.range ?? '{startMonth}/{startDay} – {endMonth}/{endDay}',
     today_label: m.today ?? '오늘',
   }
@@ -220,7 +240,9 @@ async function previewMealEntries(monday: string, locale: Locale): Promise<DayEn
     }],
   ]
 
-  const translatedMenus = await translateMealCollectionsForLocale(menus, locale)
+  // 미리보기에서 기능이 보이도록 대표 금기(채식)로 주석 처리.
+  const annotated = annotateMealCollections(menus, ['vegetarian'])
+  const translatedMenus = await translateMealCollectionsForLocale(annotated, locale)
 
   return translatedMenus.map((meals, index) => ({
     isoDate: addDaysIso(monday, index),

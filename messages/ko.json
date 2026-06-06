@@ -34,7 +34,16 @@
     "unsupported": "학교 코드가 등록되지 않았어요. 설정에서 학교를 다시 선택해 주세요.",
     "error": "급식 정보를 불러오지 못했어요.",
     "timetable_error": "수업 정보를 불러오지 못했어요.",
-    "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요."
+    "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요.",
+    "dietary": {
+      "prefix": "🚫 주의:",
+      "pork": "돼지고기",
+      "beef": "쇠고기",
+      "alcohol": "알코올",
+      "meat": "육류",
+      "fish_seafood": "어패류",
+      "shellfish": "갑각류·조개"
+    }
   },
   "login": {
     "title": "나란히",
@@ -142,7 +151,15 @@
     "event_tab": "일정",
     "timetable_tab": "수업",
     "month_year": "{year}년 {month}월",
-    "weekdays": ["일", "월", "화", "수", "목", "금", "토"],
+    "weekdays": [
+      "일",
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토"
+    ],
     "prev_month": "이전 달",
     "next_month": "다음 달",
     "prev_week": "이전 주",
@@ -226,5 +243,35 @@
     "auth_required": "로그인이 필요합니다.",
     "not_found": "페이지를 찾을 수 없습니다.",
     "offline": "오프라인 상태입니다. 일부 기능이 제한됩니다."
+  },
+  "dietary": {
+    "section_title": "종교·식이 금기",
+    "hint": "급식에서 주의할 음식을 표시해 드려요. (선택)",
+    "edit": "식이 금기 수정",
+    "saving": "저장 중...",
+    "saved": "저장되었어요.",
+    "none_selected": "선택 안 함",
+    "options": {
+      "halal": {
+        "name": "할랄 (이슬람)",
+        "desc": "돼지고기·알코올"
+      },
+      "no_pork": {
+        "name": "돼지고기 제외",
+        "desc": "돼지고기가 든 음식"
+      },
+      "no_beef": {
+        "name": "쇠고기 제외",
+        "desc": "쇠고기가 든 음식"
+      },
+      "vegetarian": {
+        "name": "채식",
+        "desc": "육류·어패류"
+      },
+      "kosher": {
+        "name": "코셔 (유대교)",
+        "desc": "돼지·갑각류·조개"
+      }
+    }
   }
 }

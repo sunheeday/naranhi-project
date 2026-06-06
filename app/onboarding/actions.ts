@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
+import { normalizeRestrictions } from '@/lib/dietary'
 import { backfillSchedulesForChild } from '@/lib/schedule-backfill'
 import {
   schoolNeedsInitialCrawl,
@@ -19,6 +20,7 @@ export interface SaveChildInput {
   grade: number
   classNo: number
   childName: string
+  dietaryRestrictions?: string[]
   locale: Locale
 }
 
@@ -149,6 +151,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     neis_school_code: schoolCode,
     grade: input.grade,
     class_no: input.classNo,
+    dietary_restrictions: normalizeRestrictions(input.dietaryRestrictions),
   }).select('id').single()
 
   if (error || !child) {

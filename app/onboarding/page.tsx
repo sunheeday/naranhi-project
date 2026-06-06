@@ -8,5 +8,5 @@ export default async function OnboardingPage() {
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
-  return <OnboardingFlow messages={messages.onboarding} locale={locale} />
+  return <OnboardingFlow messages={messages.onboarding} dietaryLabels={messages.dietary} locale={locale} />
 }

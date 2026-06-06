@@ -29,6 +29,8 @@ export interface MealDish {
   name: string
   allergens: number[]  // 1~19 알레르기 코드
   allergenLabels?: string[]
+  /** 종교/식이 금기 위반 사유 (lib/dietary.ts DietaryFlag). 번역 전 한국어 이름 기준으로 부여. */
+  dietaryFlags?: string[]
 }
 
 export interface Meal {

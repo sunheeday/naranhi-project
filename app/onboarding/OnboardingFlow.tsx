@@ -5,7 +5,9 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { Locale } from '@/lib/i18n'
+import type { DietaryRestriction } from '@/lib/dietary'
 import CharacterImage from '@/components/brand/CharacterImage'
+import DietarySelector, { type DietarySelectorLabels } from '@/components/dietary/DietarySelector'
 import { saveChildAndProfile } from './actions'
 import SchoolSearchInput, { type SchoolPick } from './SchoolSearchInput'
 
@@ -47,16 +49,18 @@ interface OnboardingMessages {
 
 interface Props {
   messages: OnboardingMessages
+  dietaryLabels: DietarySelectorLabels
   locale: Locale
 }
 
 const CLASSES = Array.from({ length: 15 }, (_, i) => i + 1)
 
-export default function OnboardingFlow({ messages, locale }: Props) {
+export default function OnboardingFlow({ messages, dietaryLabels, locale }: Props) {
   const [step, setStep] = useState(1)
   const [school, setSchool] = useState<SchoolPick | null>(null)
   const [step1Error, setStep1Error] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [dietary, setDietary] = useState<DietaryRestriction[]>([])
   const [isPending, startTransition] = useTransition()
 
   const totalSteps = 2
@@ -92,6 +96,7 @@ export default function OnboardingFlow({ messages, locale }: Props) {
           grade: data.grade,
           classNo: data.classNo,
           childName: data.childName,
+          dietaryRestrictions: dietary,
           locale,
         })
       } catch (e) {
@@ -198,6 +203,8 @@ export default function OnboardingFlow({ messages, locale }: Props) {
               </p>
             )}
           </div>
+
+          <DietarySelector value={dietary} onChange={setDietary} labels={dietaryLabels} />
 
           {serverError && (
             <p role="alert" className="text-sm text-red-500 px-1">{serverError}</p>
