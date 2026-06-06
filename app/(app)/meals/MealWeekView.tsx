@@ -44,6 +44,8 @@ interface Labels {
   lunch: string
   dinner: string
   allergy_prefix: string
+  dietary_prefix: string
+  dietary: Record<string, string> // flag key → 라벨
   range: string                   // "{startMonth}/{startDay} – {endMonth}/{endDay}"
   today_label: string
 }
@@ -158,7 +160,7 @@ function MealDayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; 
         <>
           <ul className="flex flex-col gap-1">
             {primary.dishes.map((dish, i) => (
-              <DishRow key={i} dish={dish} allergyPrefix={labels.allergy_prefix} />
+              <DishRow key={i} dish={dish} labels={labels} />
             ))}
           </ul>
           {primary.calories && (
@@ -170,18 +172,27 @@ function MealDayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; 
   )
 }
 
-function DishRow({ dish, allergyPrefix }: { dish: MealDish; allergyPrefix: string }) {
+function DishRow({ dish, labels }: { dish: MealDish; labels: Labels }) {
   const hasAllergy = dish.allergens.length > 0
   const allergyNames = (dish.allergenLabels && dish.allergenLabels.length > 0
     ? dish.allergenLabels
     : dish.allergens.map(n => ALLERGEN_NAMES[n] ?? `#${n}`)
   ).join(', ')
+
+  const dietaryFlags = dish.dietaryFlags ?? []
+  const dietaryNames = dietaryFlags.map(f => labels.dietary[f] ?? f).join(', ')
+
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span className="text-sm text-text-primary">{dish.name}</span>
       {hasAllergy && (
         <span className="text-[11px] text-card-action font-semibold">
-          {allergyPrefix} {allergyNames}
+          {labels.allergy_prefix} {allergyNames}
+        </span>
+      )}
+      {dietaryFlags.length > 0 && (
+        <span className="text-[11px] text-red-600 font-semibold">
+          {labels.dietary_prefix} {dietaryNames}
         </span>
       )}
     </li>

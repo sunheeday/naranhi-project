@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { normalizeRestrictions } from '@/lib/dietary'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -148,4 +149,21 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
 
 function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
   return error.code === '23505' || (error.message ?? '').includes('duplicate key value')
+}
+
+export async function updateChildDietary(childId: string, restrictions: string[]): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('로그인이 필요합니다.')
+
+  const { error } = await supabase
+    .from('children')
+    .update({ dietary_restrictions: normalizeRestrictions(restrictions) })
+    .eq('id', childId)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(`식이 금기 저장 실패: ${error.message}`)
+
+  revalidatePath('/meals')
+  revalidatePath('/settings')
 }

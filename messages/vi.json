@@ -34,7 +34,16 @@
     "unsupported": "Chưa đăng ký mã trường. Vui lòng chọn lại trường trong cài đặt.",
     "error": "Không thể tải thông tin bữa ăn.",
     "timetable_error": "Không thể tải thông tin lớp học.",
-    "timetable_unsupported": "Không thể hiển thị lớp học vì khối/lớp hoặc loại trường không khớp."
+    "timetable_unsupported": "Không thể hiển thị lớp học vì khối/lớp hoặc loại trường không khớp.",
+    "dietary": {
+      "prefix": "🚫 Tránh:",
+      "pork": "Thịt lợn",
+      "beef": "Thịt bò",
+      "alcohol": "Rượu/cồn",
+      "meat": "Thịt",
+      "fish_seafood": "Cá/Hải sản",
+      "shellfish": "Động vật có vỏ"
+    }
   },
   "login": {
     "title": "나란히",
@@ -138,7 +147,15 @@
     "event_tab": "Lịch",
     "timetable_tab": "Lớp học",
     "month_year": "Tháng {month}/{year}",
-    "weekdays": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "weekdays": [
+      "CN",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7"
+    ],
     "prev_month": "Tháng trước",
     "next_month": "Tháng sau",
     "prev_week": "Tuần trước",
@@ -197,5 +214,35 @@
     "auth_required": "Yêu cầu đăng nhập.",
     "not_found": "Không tìm thấy trang.",
     "offline": "Bạn đang ngoại tuyến. Một số tính năng bị hạn chế."
+  },
+  "dietary": {
+    "section_title": "Hạn chế tôn giáo/ăn uống",
+    "hint": "Chúng tôi sẽ đánh dấu món cần tránh trong bữa ăn ở trường. (Tùy chọn)",
+    "edit": "Sửa hạn chế",
+    "saving": "Đang lưu...",
+    "saved": "Đã lưu.",
+    "none_selected": "Không chọn",
+    "options": {
+      "halal": {
+        "name": "Halal (Hồi giáo)",
+        "desc": "Thịt lợn, rượu"
+      },
+      "no_pork": {
+        "name": "Không thịt lợn",
+        "desc": "Món có thịt lợn"
+      },
+      "no_beef": {
+        "name": "Không thịt bò",
+        "desc": "Món có thịt bò"
+      },
+      "vegetarian": {
+        "name": "Ăn chay",
+        "desc": "Thịt, cá và hải sản"
+      },
+      "kosher": {
+        "name": "Kosher (Do Thái giáo)",
+        "desc": "Thịt lợn, hải sản có vỏ"
+      }
+    }
   }
 }

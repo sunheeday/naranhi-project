@@ -34,7 +34,16 @@
     "unsupported": "未注册学校代码。请在设置中重新选择学校。",
     "error": "无法获取午餐信息。",
     "timetable_error": "无法获取课程信息。",
-    "timetable_unsupported": "年级/班级或学校类型不匹配，无法显示课程信息。"
+    "timetable_unsupported": "年级/班级或学校类型不匹配，无法显示课程信息。",
+    "dietary": {
+      "prefix": "🚫 注意：",
+      "pork": "猪肉",
+      "beef": "牛肉",
+      "alcohol": "酒精",
+      "meat": "肉类",
+      "fish_seafood": "鱼贝类",
+      "shellfish": "甲壳·贝类"
+    }
   },
   "login": {
     "title": "나란히",
@@ -136,7 +145,15 @@
     "event_tab": "日程",
     "timetable_tab": "课程",
     "month_year": "{year}年{month}月",
-    "weekdays": ["日", "一", "二", "三", "四", "五", "六"],
+    "weekdays": [
+      "日",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六"
+    ],
     "prev_month": "上个月",
     "next_month": "下个月",
     "prev_week": "上一周",
@@ -195,5 +212,35 @@
     "auth_required": "需要登录。",
     "not_found": "找不到该页面。",
     "offline": "您处于离线状态，部分功能受限。"
+  },
+  "dietary": {
+    "section_title": "宗教/饮食禁忌",
+    "hint": "我们会在校餐中标出需要注意的食物。（可选）",
+    "edit": "修改饮食禁忌",
+    "saving": "保存中...",
+    "saved": "已保存。",
+    "none_selected": "未选择",
+    "options": {
+      "halal": {
+        "name": "清真（伊斯兰）",
+        "desc": "猪肉、酒精"
+      },
+      "no_pork": {
+        "name": "不吃猪肉",
+        "desc": "含猪肉的食物"
+      },
+      "no_beef": {
+        "name": "不吃牛肉",
+        "desc": "含牛肉的食物"
+      },
+      "vegetarian": {
+        "name": "素食",
+        "desc": "肉类、鱼贝类"
+      },
+      "kosher": {
+        "name": "洁食（犹太教）",
+        "desc": "猪肉、甲壳贝类"
+      }
+    }
   }
 }

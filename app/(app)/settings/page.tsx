@@ -8,6 +8,7 @@ import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
 import LogoutButton from './LogoutButton'
 import SchoolReselect from './SchoolReselect'
+import DietaryEditor from './DietaryEditor'
 
 export default async function SettingsPage() {
   const cookieStore = await cookies()
@@ -21,6 +22,7 @@ export default async function SettingsPage() {
     neis_school_code: string | null
     grade: number
     class_no: number | null
+    dietary_restrictions: string[]
   } | null = null
 
   const isPreview = await isUiPreviewEnabled()
@@ -32,6 +34,7 @@ export default async function SettingsPage() {
       neis_school_code: 'PREVIEW',
       grade: 1,
       class_no: 1,
+      dietary_restrictions: ['halal'],
     }
   } else {
     const supabase = await createSupabaseServerClient()
@@ -40,7 +43,7 @@ export default async function SettingsPage() {
 
     const result = await supabase
       .from('children')
-      .select('id, school_name, neis_school_code, grade, class_no')
+      .select('id, school_name, neis_school_code, grade, class_no, dietary_restrictions')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -106,6 +109,23 @@ export default async function SettingsPage() {
                 class_label: messages.onboarding.step2_class ?? '{class}반',
                 grade_placeholder: '학년 선택',
                 class_placeholder: '반 입력',
+              }}
+            />
+            <hr className="border-border" />
+
+            <DietaryEditor
+              childId={child.id}
+              initial={child.dietary_restrictions ?? []}
+              labels={{
+                section_title: messages.dietary.section_title,
+                hint: messages.dietary.hint,
+                options: messages.dietary.options,
+                edit: messages.dietary.edit,
+                saving: messages.dietary.saving,
+                saved: messages.dietary.saved,
+                none_selected: messages.dietary.none_selected,
+                save: messages.common.save,
+                cancel: messages.common.cancel,
               }}
             />
             <hr className="border-border" />

@@ -34,7 +34,16 @@
     "unsupported": "School code not registered. Please reselect your school in Settings.",
     "error": "Could not load meal information.",
     "timetable_error": "Could not load class information.",
-    "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match."
+    "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match.",
+    "dietary": {
+      "prefix": "🚫 Avoid:",
+      "pork": "Pork",
+      "beef": "Beef",
+      "alcohol": "Alcohol",
+      "meat": "Meat",
+      "fish_seafood": "Fish/Seafood",
+      "shellfish": "Shellfish"
+    }
   },
   "login": {
     "title": "Naranhi",
@@ -142,7 +151,15 @@
     "event_tab": "Events",
     "timetable_tab": "Classes",
     "month_year": "{month}/{year}",
-    "weekdays": ["S", "M", "T", "W", "T", "F", "S"],
+    "weekdays": [
+      "S",
+      "M",
+      "T",
+      "W",
+      "T",
+      "F",
+      "S"
+    ],
     "prev_month": "Previous month",
     "next_month": "Next month",
     "prev_week": "Previous week",
@@ -226,5 +243,35 @@
     "auth_required": "Sign-in required.",
     "not_found": "Page not found.",
     "offline": "You are offline. Some features may be limited."
+  },
+  "dietary": {
+    "section_title": "Religious/dietary restrictions",
+    "hint": "We'll flag foods to avoid in the school meals. (Optional)",
+    "edit": "Edit restrictions",
+    "saving": "Saving...",
+    "saved": "Saved.",
+    "none_selected": "None",
+    "options": {
+      "halal": {
+        "name": "Halal (Islam)",
+        "desc": "Pork, alcohol"
+      },
+      "no_pork": {
+        "name": "No pork",
+        "desc": "Foods containing pork"
+      },
+      "no_beef": {
+        "name": "No beef",
+        "desc": "Foods containing beef"
+      },
+      "vegetarian": {
+        "name": "Vegetarian",
+        "desc": "Meat, fish & seafood"
+      },
+      "kosher": {
+        "name": "Kosher (Judaism)",
+        "desc": "Pork, shellfish"
+      }
+    }
   }
 }

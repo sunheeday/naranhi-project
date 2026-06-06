@@ -103,6 +103,7 @@ export interface Database {
           class_no: number | null
           neis_office_code: string | null
           neis_school_code: string | null
+          dietary_restrictions: string[]
           created_at: string
         }
         Insert: {
@@ -115,6 +116,7 @@ export interface Database {
           class_no?: number | null
           neis_office_code?: string | null
           neis_school_code?: string | null
+          dietary_restrictions?: string[]
           created_at?: string
         }
         Update: {
@@ -125,6 +127,7 @@ export interface Database {
           class_no?: number | null
           neis_office_code?: string | null
           neis_school_code?: string | null
+          dietary_restrictions?: string[]
         }
         Relationships: []
       }

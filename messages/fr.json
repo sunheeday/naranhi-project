@@ -34,7 +34,16 @@
     "unsupported": "Code de l'école non enregistré. Veuillez resélectionner l'école dans les paramètres.",
     "error": "Impossible de charger les informations sur les repas.",
     "timetable_error": "Impossible de charger les informations de cours.",
-    "timetable_unsupported": "Les cours ne peuvent pas être affichés car la classe ou le type d'école ne correspond pas."
+    "timetable_unsupported": "Les cours ne peuvent pas être affichés car la classe ou le type d'école ne correspond pas.",
+    "dietary": {
+      "prefix": "🚫 À éviter :",
+      "pork": "Porc",
+      "beef": "Bœuf",
+      "alcohol": "Alcool",
+      "meat": "Viande",
+      "fish_seafood": "Poisson/Fruits de mer",
+      "shellfish": "Crustacés/Coquillages"
+    }
   },
   "login": {
     "title": "Naranhi",
@@ -140,7 +149,15 @@
     "event_tab": "Planning",
     "timetable_tab": "Cours",
     "month_year": "{month}/{year}",
-    "weekdays": ["D", "L", "M", "M", "J", "V", "S"],
+    "weekdays": [
+      "D",
+      "L",
+      "M",
+      "M",
+      "J",
+      "V",
+      "S"
+    ],
     "prev_month": "Mois précédent",
     "next_month": "Mois suivant",
     "prev_week": "Semaine précédente",
@@ -199,5 +216,35 @@
     "auth_required": "Connexion requise.",
     "not_found": "Page introuvable.",
     "offline": "Vous êtes hors ligne. Certaines fonctions peuvent être limitées."
+  },
+  "dietary": {
+    "section_title": "Restrictions religieuses/alimentaires",
+    "hint": "Nous signalerons les aliments à éviter dans les repas scolaires. (Facultatif)",
+    "edit": "Modifier les restrictions",
+    "saving": "Enregistrement...",
+    "saved": "Enregistré.",
+    "none_selected": "Aucun",
+    "options": {
+      "halal": {
+        "name": "Halal (Islam)",
+        "desc": "Porc, alcool"
+      },
+      "no_pork": {
+        "name": "Sans porc",
+        "desc": "Aliments contenant du porc"
+      },
+      "no_beef": {
+        "name": "Sans bœuf",
+        "desc": "Aliments contenant du bœuf"
+      },
+      "vegetarian": {
+        "name": "Végétarien",
+        "desc": "Viande, poisson et fruits de mer"
+      },
+      "kosher": {
+        "name": "Casher (Judaïsme)",
+        "desc": "Porc, crustacés"
+      }
+    }
   }
 }
