@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { maybeInjectDemoSchoolResult } from '@/lib/demo-school'
 import { searchSchools } from '@/lib/neis'
 
 export const runtime = 'nodejs'
@@ -19,9 +20,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const results = await searchSchools(query)
-    return NextResponse.json({ results })
+    return NextResponse.json({ results: maybeInjectDemoSchoolResult(query, results) })
   } catch (e) {
     console.error('[api/schools/search] failed:', e instanceof Error ? e.message : e)
-    return NextResponse.json({ results: [], error: '학교 검색에 실패했어요.' }, { status: 500 })
+    return NextResponse.json({ results: maybeInjectDemoSchoolResult(query, []), error: '학교 검색에 실패했어요.' }, { status: 500 })
   }
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import {
   schoolNeedsInitialCrawl,
@@ -32,6 +33,11 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
   const homepageUrl = input.schoolHomepageUrl?.trim() || null
   const grade = Number(input.grade)
   const classNo = Number(input.classNo)
+  const isDemoSchool = isDemoSchoolSelection({
+    schoolName,
+    neisOfficeCode: officeCode,
+    neisSchoolCode: schoolCode,
+  })
 
   if (!schoolName || !officeCode || !schoolCode) {
     throw new Error('학교를 검색하여 다시 선택해 주세요.')
@@ -121,6 +127,11 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
 
   if (!school) {
     throw new Error('학교 정보 저장 실패')
+  }
+
+  if (isDemoSchool) {
+    await ensureDemoSchoolSeed(serviceClient, school.id)
+    shouldTriggerCrawl = false
   }
 
   // 본인 자녀인지 검증 후 업데이트 (RLS도 막지만 명시적으로)
