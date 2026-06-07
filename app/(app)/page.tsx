@@ -19,6 +19,7 @@ interface NoticeRow {
   status: NoticeStatus
   title: string | null
   due_date: string | null
+  extracted_content: Json | null
   ai_translations: { [locale: string]: string }
   crawl_result: Json
   created_at: string
@@ -94,6 +95,15 @@ function jsonString(value: Json | undefined): string | null {
   return typeof value === 'string' && value.trim() ? value : null
 }
 
+function summaryTranslationFirstLine(extracted: Json | null | undefined, locale: Locale): string | null {
+  const extractedObj = jsonObject(extracted)
+  const summary = jsonObject(extractedObj.summary)
+  const translations = jsonObject(summary.translations)
+  const localized = jsonString(translations[locale])
+  if (!localized) return null
+  return localized.split('\n')[0].trim().slice(0, 60) || null
+}
+
 function noticeSortTime(row: NoticeRow): number {
   const crawl = jsonObject(row.crawl_result)
   const checkedAt = jsonString(crawl.crawl_checked_at)
@@ -124,10 +134,14 @@ function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
   const localized = t[locale]?.trim()
   if (localized) return localized.split('\n')[0].slice(0, 40)
 
-  // 2순위: 한국어 title (Gemini가 만든 짧은 제목, 한국어)
+  // 2순위: extracted_content.summary.translations 의 locale 요약 첫 줄
+  const localizedSummaryTitle = summaryTranslationFirstLine(row.extracted_content, locale)
+  if (localizedSummaryTitle) return localizedSummaryTitle
+
+  // 3순위: 한국어 title (Gemini가 만든 짧은 제목, 한국어)
   if (row.title && row.title.trim()) return row.title.trim().slice(0, 60)
 
-  // 3순위: ko summary 첫 줄
+  // 4순위: ko summary 첫 줄
   const ko = (t.ko ?? '').trim()
   return ko.split('\n')[0].slice(0, 40) || m.fallback_title
 }
@@ -277,7 +291,7 @@ export default async function HomePage() {
     const schoolRowsPromise = child.school_id
       ? supabase
           .from('notices')
-          .select('id, status, title, due_date, crawl_result, created_at')
+          .select('id, status, title, due_date, extracted_content, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('status', 'done')
           .order('created_at', { ascending: false })

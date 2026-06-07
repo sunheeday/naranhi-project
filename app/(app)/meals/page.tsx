@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import {
-  getDemoMealSourceCodes,
+  ensureDemoSchoolSeed,
+  getSeededDemoMealsForRange,
   isDemoSchoolSelection,
 } from '@/lib/demo-school'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
@@ -93,20 +94,43 @@ export default async function MealsPage({ searchParams }: Props) {
       neisOfficeCode: child.neis_office_code,
       neisSchoolCode: child.neis_school_code,
     })
-    if (!child.neis_office_code || !child.neis_school_code) {
+    if (isDemoSchool) {
+      const serviceClient = await createSupabaseServiceClient()
+      try {
+        if (child.school_id) {
+          await ensureDemoSchoolSeed(serviceClient, child.school_id)
+        }
+        const map = await getSeededDemoMealsForRange(serviceClient, monday, friday)
+        const days: DayEntry[] = []
+        let hasAnyMeals = false
+        for (let i = 0; i < 5; i++) {
+          const iso = addDaysIso(monday, i)
+          const rows = map.get(iso) ?? []
+          const meals = rows.map(row => ({
+            mealType: row.meal_type,
+            mealTypeName: row.meal_type_name,
+            dishes: Array.isArray(row.dishes) ? (row.dishes as unknown as Meal['dishes']) : [],
+            calories: row.calories,
+            nutrients: Array.isArray(row.nutrients) ? (row.nutrients as Meal['nutrients']) : null,
+            origins: Array.isArray(row.origins) ? (row.origins as Meal['origins']) : null,
+          }))
+          if (meals.length > 0) hasAnyMeals = true
+          days.push({ isoDate: iso, meals })
+        }
+        dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
+      } catch (e) {
+        console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
+        dayEntries = await previewMealEntries(monday, locale)
+      }
+    } else if (!child.neis_office_code || !child.neis_school_code) {
       unsupported = true
     } else {
       try {
         const serviceClient = await createSupabaseServiceClient()
-        const mealSource = isDemoSchool
-          ? await getDemoMealSourceCodes(serviceClient)
-          : null
-        const officeCode = mealSource?.officeCode ?? child.neis_office_code
-        const schoolCode = mealSource?.schoolCode ?? child.neis_school_code
         const map = await getCachedOrFetchMealsForRange(
           serviceClient,
-          officeCode,
-          schoolCode,
+          child.neis_office_code,
+          child.neis_school_code,
           monday,
           friday,
         )
@@ -126,16 +150,12 @@ export default async function MealsPage({ searchParams }: Props) {
         dayEntries = days
       } catch (e) {
         console.error('[meals] fetch failed:', e instanceof Error ? e.message : e)
-        if (isDemoSchool) {
-          dayEntries = await previewMealEntries(monday, locale)
-        } else {
-          errorMessage = messages.meals?.error ?? '급식 정보를 불러오지 못했어요.'
-          const days: DayEntry[] = []
-          for (let i = 0; i < 5; i++) {
-            days.push({ isoDate: addDaysIso(monday, i), meals: [] as Meal[] })
-          }
-          dayEntries = days
+        errorMessage = messages.meals?.error ?? '급식 정보를 불러오지 못했어요.'
+        const days: DayEntry[] = []
+        for (let i = 0; i < 5; i++) {
+          days.push({ isoDate: addDaysIso(monday, i), meals: [] as Meal[] })
         }
+        dayEntries = days
       }
     }
   }

@@ -65,10 +65,14 @@ interface Props {
 export default function MealWeekView({ weekStartIso, days, locale, labels }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const shouldDeferMeals = locale !== 'ko' && days.some(day => day.meals.length > 0)
   const [isNavigating, setIsNavigating] = useState(false)
-  const [displayDays, setDisplayDays] = useState(days)
-  const [isTranslating, setIsTranslating] = useState(locale !== 'ko' && days.some(day => day.meals.length > 0))
-  const [translationError, setTranslationError] = useState<string | null>(null)
+  const requestKey = `${locale}:${days.map(day => day.isoDate).join(',')}`
+  const [translationState, setTranslationState] = useState<{
+    key: string
+    days: DayEntry[] | null
+    error: string | null
+  }>({ key: '', days: null, error: null })
 
   useEffect(() => {
     if (locale === 'ko' || days.every(day => day.meals.length === 0)) {
@@ -91,23 +95,29 @@ export default function MealWeekView({ weekStartIso, days, locale, labels }: Pro
         const body = await response.json().catch(() => null)
         if (!response.ok || cancelled || !body?.ok || !Array.isArray(body.collections)) {
           if (!cancelled) {
-            setTranslationError(labels.translation_error)
+            setTranslationState({
+              key: requestKey,
+              days: null,
+              error: labels.translation_error,
+            })
           }
           return
         }
-        setDisplayDays(
-          days.map((day, index) => ({
+        setTranslationState({
+          key: requestKey,
+          days: days.map((day, index) => ({
             ...day,
             meals: Array.isArray(body.collections[index]) ? body.collections[index] : day.meals,
           })),
-        )
+          error: null,
+        })
       } catch {
         if (!cancelled) {
-          setTranslationError(labels.translation_error)
-        }
-      } finally {
-        if (!cancelled) {
-          setIsTranslating(false)
+          setTranslationState({
+            key: requestKey,
+            days: null,
+            error: labels.translation_error,
+          })
         }
       }
     }
@@ -116,7 +126,16 @@ export default function MealWeekView({ weekStartIso, days, locale, labels }: Pro
     return () => {
       cancelled = true
     }
-  }, [days, labels.translation_error, locale])
+  }, [days, labels.translation_error, locale, requestKey])
+
+  const isCurrentTranslationResolved = translationState.key === requestKey
+  const displayDays = shouldDeferMeals
+    ? (isCurrentTranslationResolved && translationState.days
+        ? translationState.days
+        : days.map(day => ({ ...day, meals: [] })))
+    : days
+  const isTranslating = shouldDeferMeals && !isCurrentTranslationResolved
+  const translationError = isCurrentTranslationResolved ? translationState.error : null
 
   function shiftWeek(deltaDays: number) {
     const next = shiftIsoByDays(weekStartIso, deltaDays)
@@ -205,15 +224,31 @@ export default function MealWeekView({ weekStartIso, days, locale, labels }: Pro
 
       {/* 일자별 카드 */}
       <div className="flex flex-col gap-4 px-6 pt-4 pb-24">
-        {displayDays.map(d => (
-          <MealDayCard key={d.isoDate} day={d} labels={labels} isToday={d.isoDate === todayIso} />
+        {displayDays.map((d, index) => (
+          <MealDayCard
+            key={d.isoDate}
+            day={d}
+            labels={labels}
+            isToday={d.isoDate === todayIso}
+            pending={isTranslating && days[index]?.meals.length > 0}
+          />
         ))}
       </div>
     </div>
   )
 }
 
-function MealDayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; isToday: boolean }) {
+function MealDayCard({
+  day,
+  labels,
+  isToday,
+  pending,
+}: {
+  day: DayEntry
+  labels: Labels
+  isToday: boolean
+  pending: boolean
+}) {
   const { m, d, weekday } = isoToParts(day.isoDate)
   const weekdayIdx = weekday  // 0=일
   const md = `${m}/${d}`
@@ -248,7 +283,9 @@ function MealDayCard({ day, labels, isToday }: { day: DayEntry; labels: Labels; 
         )}
       </div>
 
-      {!primary ? (
+      {pending ? (
+        <p className="text-sm text-text-secondary">{labels.translation_pending_body}</p>
+      ) : !primary ? (
         <p className="text-sm text-text-secondary">{labels.no_meal}</p>
       ) : (
         <>

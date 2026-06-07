@@ -205,7 +205,13 @@ class NoticeService:
         approved_ingredient_dictionary: list[dict[str, object]] | None = None,
         approved_ingredient_dictionary_target: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
-        if not target_language or target_language.strip().lower() == "ko":
+        if (
+            not target_language
+            or (
+                target_language.strip().lower() == "ko"
+                and translation_kind != "message_to_ko"
+            )
+        ):
             return {
                 "ok": True,
                 "target_language": "ko",
@@ -243,6 +249,23 @@ class NoticeService:
             return {
                 "ok": True,
                 "target_language": target_language,
+                "status": fallback["status"],
+                "translation": fallback.get("final_translation"),
+                "pipeline_result": fallback,
+            }
+
+        if translation_kind == "message_to_ko":
+            try:
+                fallback = await self._translate_message_to_korean(
+                    gemini=GeminiJsonClient.from_settings(settings),
+                    source_text=source_text,
+                )
+            except Exception as exc:
+                raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
+
+            return {
+                "ok": True,
+                "target_language": "ko",
                 "status": fallback["status"],
                 "translation": fallback.get("final_translation"),
                 "pipeline_result": fallback,
@@ -582,6 +605,55 @@ class NoticeService:
             },
             "raw_steps": {
                 "best_effort": fallback,
+            },
+        }
+
+    async def _translate_message_to_korean(
+        self,
+        *,
+        gemini: GeminiJsonClient,
+        source_text: str,
+    ) -> dict[str, Any]:
+        prompt = _message_to_korean_prompt(source_text=source_text)
+        result = await gemini.generate_json(prompt=prompt, temperature=0.1)
+        translated_text = _optional_str(result.get("translated_korean"))
+        if not translated_text:
+            raise RuntimeError("Gemini message translation did not return translated_korean.")
+
+        return {
+            "status": "ready_to_save",
+            "source_language": "auto",
+            "target_language": "ko",
+            "source_text": source_text,
+            "final_translation": translated_text,
+            "source_hard_facts": {},
+            "target_hard_facts": {},
+            "ingredient_identity_map": {},
+            "validation": {
+                "hard_fact": {
+                    "status": "skipped",
+                    "attempts": 0,
+                    "issues": ["message_to_ko_light_translation"],
+                },
+                "context_tone": {
+                    "status": "skipped",
+                    "attempts": 0,
+                    "issues": ["message_to_ko_light_translation"],
+                },
+            },
+            "admin_review": {
+                "required": False,
+                "reason": None,
+                "priority": "normal",
+            },
+            "metadata": {
+                "title": None,
+                "fallback_mode": "message_to_ko_light_translation",
+                "validation_status": "passed",
+                "validation_failure_reason": None,
+            },
+            "raw_steps": {
+                "message_to_ko": result,
             },
         }
 
@@ -1201,6 +1273,31 @@ def _best_effort_translation_prompt(
 대상 언어: {target_language}
 {title_block}
 원문:
+\"\"\"
+{source_text}
+\"\"\"
+""".strip()
+
+
+def _message_to_korean_prompt(*, source_text: str) -> str:
+    return f"""
+너는 학부모가 선생님께 보내고 싶은 말을 자연스럽고 공손한 한국어로 바꿔 주는 번역기다.
+
+규칙:
+- JSON object만 반환해라.
+- 입력 문장의 언어를 스스로 파악한 뒤, 반드시 한국어로 번역해라.
+- 출력은 반드시 한국어여야 한다. 영어, 러시아어, 아랍어, 원문 언어를 그대로 남기지 마라.
+- 선생님께 보내는 짧은 메시지처럼 자연스럽고 공손하게 써라.
+- 원문에 없는 사실을 추가하거나 추측하지 마라.
+- 날짜, 시간, 금액, 이름, 연락처 같은 구체 정보는 그대로 보존해라.
+- 너무 딱딱한 공문체가 아니라, 학부모가 보낼 법한 정중한 문장으로 다듬어라.
+
+반환 스키마:
+{{
+  "translated_korean": "공손한 한국어 메시지"
+}}
+
+입력 문장:
 \"\"\"
 {source_text}
 \"\"\"

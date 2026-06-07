@@ -9,6 +9,8 @@ export const DEMO_SCHOOL_ADDRESS = 'Seoul Demo Campus, 101 Story Lane'
 export const DEMO_SCHOOL_OFFICE_CODE = 'DEMO'
 export const DEMO_SCHOOL_CODE = 'NARANHI001'
 export const DEMO_SCHOOL_HOMEPAGE_URL = 'https://demo.naranhi.school'
+export const DEMO_MEAL_DONOR_SCHOOL_NAMES = ['부천부흥초등학교', '부천부흥초']
+const DEMO_MEAL_SEED_WINDOW_DAYS = 21
 
 type ServiceClient = SupabaseClient<Database>
 
@@ -24,6 +26,7 @@ interface DemoSchoolSearchResult {
 interface DemoNoticeSeed {
   id: string
   detailUrl: string
+  sourcePostUid?: string
   titleKo: string
   translatedTitle: Record<string, string>
   originalText: string
@@ -35,6 +38,17 @@ interface DemoNoticeSeed {
   dueDate: string | null
   eventDates: string[]
   eventLocation: string | null
+  crawlResult?: Json
+  attachmentSources?: Array<{
+    sourceType: 'attachment'
+    filename: string
+    originUrl: string
+    publicUrl: string
+    fileType: 'pdf' | 'hwp' | 'hwpx'
+    refinedTextKo?: string
+    translatedText?: Record<string, string>
+    needsFile?: boolean
+  }>
   cards: Array<{
     id: string
     type: 'action' | 'schedule' | 'supplies'
@@ -492,6 +506,361 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
       },
     ],
   },
+  {
+    id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2005',
+    sourcePostUid: 'bcbh-2026-homepage-signup',
+    detailUrl: 'https://www.bcbh.es.kr/board/notice/2026-homepage-signup',
+    titleKo: '2026학년도 부천부흥초 홈페이지 가입 안내',
+    translatedTitle: {
+      en: '2026 Bucheon Buhung Elementary Website Registration Guide',
+      ar: 'دليل التسجيل في موقع مدرسة بوشون بوهونغ الابتدائية لعام 2026',
+      ru: 'Инструкция по регистрации на сайте начальной школы Пучхон Бухын на 2026 год',
+    },
+    originalText:
+      '2026학년도 부천부흥초 홈페이지 학부모 계정 가입 안내입니다.\n' +
+      '보호자는 3월 11일까지 가입을 완료하고 학생 이름을 연동해 주세요.\n' +
+      '첨부된 안내문과 가입 매뉴얼 PDF를 확인해 주세요.\n\n2026. 3. 4.\n부천부흥초등학교장',
+    translatedBody: {
+      en:
+        'This is the guide for parent account registration on the Bucheon Buhung Elementary website for the 2026 school year.\n' +
+        'Guardians should complete registration and connect the student name by March 11.\n' +
+        'Please review the attached guide and the registration manual PDF.',
+      ar:
+        'هذا هو دليل تسجيل حساب أولياء الأمور في موقع مدرسة بوشون بوهونغ الابتدائية للعام الدراسي 2026.\n' +
+        'يُرجى من أولياء الأمور إكمال التسجيل وربط اسم الطالب قبل 11 مارس.\n' +
+        'يُرجى مراجعة الدليل المرفق وملف PDF الخاص بإرشادات التسجيل.',
+      ru:
+        'Это инструкция по регистрации родительской учетной записи на сайте начальной школы Пучхон Бухын на 2026 учебный год.\n' +
+        'Родителям нужно завершить регистрацию и привязать имя ученика до 11 марта.\n' +
+        'Пожалуйста, ознакомьтесь с приложенной инструкцией и PDF-руководством по регистрации.',
+    },
+    summaryKo: '3월 11일까지 홈페이지 계정을 만들고 학생 정보를 연동해야 하는 안내입니다.',
+    translatedSummary: {
+      en: 'This notice asks guardians to create a website account and connect student information by March 11.',
+      ar: 'يطلب هذا الإشعار من أولياء الأمور إنشاء حساب في الموقع وربط معلومات الطالب قبل 11 مارس.',
+      ru: 'В этом уведомлении родителям нужно создать учетную запись на сайте и привязать данные ученика до 11 марта.',
+    },
+    refinedBodyKo:
+      '가입 대상: 보호자 계정\n' +
+      '완료 기한: 2026년 3월 11일\n' +
+      '확인 자료: 가입 안내문(HWP), 가입 매뉴얼(PDF)',
+    translatedSourceBody: {
+      en:
+        'Registration target: Guardian account\n' +
+        'Completion deadline: March 11, 2026\n' +
+        'Reference materials: Registration guide (HWP), registration manual (PDF)',
+      ar:
+        'الفئة المستهدفة بالتسجيل: حساب ولي الأمر\n' +
+        'آخر موعد للإكمال: 11 مارس 2026\n' +
+        'المواد المرجعية: دليل التسجيل (HWP)، دليل التسجيل (PDF)',
+      ru:
+        'Целевая учетная запись: учетная запись родителя\n' +
+        'Срок завершения: 11 марта 2026 года\n' +
+        'Справочные материалы: инструкция по регистрации (HWP), руководство по регистрации (PDF)',
+    },
+    dueDate: '2026-03-11',
+    eventDates: ['2026-03-11'],
+    eventLocation: null,
+    crawlResult: {
+      source: 'crawl',
+      board_url: 'https://www.bcbh.es.kr/board/notice',
+      board_kind: 'unknown',
+      parser_family: 'school-cms',
+      crawl_checked_at: '2026-06-07T09:00:00+09:00',
+      post_rank: 5,
+      post: {
+        title: '2026학년도 부천부흥초 홈페이지 가입 안내',
+        published_at: '2026-03-04',
+        author: '부천부흥초등학교장',
+      },
+    },
+    attachmentSources: [
+      {
+        sourceType: 'attachment',
+        filename: '2026_홈페이지_가입안내.hwp',
+        originUrl: 'https://www.bcbh.es.kr/files/2026-homepage-signup-guide.hwp',
+        publicUrl: 'https://demo.naranhi.school/files/bucheon-buhung-signup-guide.hwp',
+        fileType: 'hwp',
+        refinedTextKo: '보호자 계정 생성 절차와 학생명 연동 방법이 안내된 한글 파일입니다.',
+        translatedText: {
+          en: 'This HWP file explains guardian account creation and student-name linking.',
+          ar: 'يشرح ملف HWP هذا إنشاء حساب ولي الأمر وربط اسم الطالب.',
+          ru: 'Этот файл HWP объясняет создание учетной записи родителя и привязку имени ученика.',
+        },
+        needsFile: true,
+      },
+      {
+        sourceType: 'attachment',
+        filename: '홈페이지_가입_매뉴얼.pdf',
+        originUrl: 'https://www.bcbh.es.kr/files/homepage-registration-manual.pdf',
+        publicUrl: 'https://demo.naranhi.school/files/bucheon-buhung-registration-manual.pdf',
+        fileType: 'pdf',
+        refinedTextKo: '로그인 화면, 비밀번호 설정, 학생 정보 연결 순서가 담긴 PDF 매뉴얼입니다.',
+        translatedText: {
+          en: 'This PDF manual includes the login screen, password setup, and student-linking steps.',
+          ar: 'يتضمن دليل PDF هذا شاشة تسجيل الدخول وإعداد كلمة المرور وخطوات ربط الطالب.',
+          ru: 'Это PDF-руководство содержит экран входа, настройку пароля и шаги по привязке ученика.',
+        },
+      },
+    ],
+    cards: [
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4041',
+        type: 'action',
+        order: 0,
+        koItems: [{ text: '홈페이지 계정 가입 완료', hint: '2026-03-11' }],
+        translatedItems: {
+          en: [{ text: 'Complete website account registration', hint: '2026-03-11' }],
+          ar: [{ text: 'أكمل تسجيل حساب الموقع', hint: '2026-03-11' }],
+          ru: [{ text: 'Завершите регистрацию учетной записи сайта', hint: '2026-03-11' }],
+        },
+      },
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4042',
+        type: 'supplies',
+        order: 1,
+        koItems: [{ text: '첨부 HWP 안내문 확인' }, { text: '가입 매뉴얼 PDF 확인' }],
+        translatedItems: {
+          en: [{ text: 'Review the attached HWP guide' }, { text: 'Review the registration manual PDF' }],
+          ar: [{ text: 'راجع دليل HWP المرفق' }, { text: 'راجع دليل التسجيل بصيغة PDF' }],
+          ru: [{ text: 'Ознакомьтесь с приложенной инструкцией HWP' }, { text: 'Ознакомьтесь с PDF-руководством по регистрации' }],
+        },
+      },
+    ],
+  },
+  {
+    id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2006',
+    sourcePostUid: 'dics-2026-danger-items',
+    detailUrl: 'https://www.dics.ms.kr/board/notice/danger-items-2026',
+    titleKo: '위험 물품 및 학생 소지 금지 물품 안내',
+    translatedTitle: {
+      en: 'Notice on Dangerous and Prohibited Student Items',
+      ar: 'إشعار بشأن المواد الخطرة والمقتنيات المحظورة على الطلاب',
+      ru: 'Уведомление об опасных и запрещенных для учеников предметах',
+    },
+    originalText:
+      '학생 안전을 위해 위험 물품 및 소지 금지 물품을 안내드립니다.\n' +
+      '칼, 라이터, 전자담배, 레이저 포인터 등은 학교에 가져오면 안 됩니다.\n' +
+      '가정에서 소지품을 함께 점검해 주세요.\n\n2026. 5. 22.\n동인천중학교장',
+    translatedBody: {
+      en:
+        'For student safety, we are sharing the list of dangerous and prohibited items.\n' +
+        'Knives, lighters, e-cigarettes, and laser pointers must not be brought to school.\n' +
+        'Please check your child’s belongings together at home.',
+      ar:
+        'من أجل سلامة الطلاب، نشارك قائمة المواد الخطرة والمقتنيات المحظورة.\n' +
+        'يُمنع إحضار السكاكين والولاعات والسجائر الإلكترونية وأجهزة الليزر إلى المدرسة.\n' +
+        'يُرجى فحص مقتنيات الطفل معًا في المنزل.',
+      ru:
+        'В целях безопасности учеников мы публикуем список опасных и запрещенных предметов.\n' +
+        'Ножи, зажигалки, электронные сигареты и лазерные указки нельзя приносить в школу.\n' +
+        'Пожалуйста, проверяйте вещи ребенка дома вместе с ним.',
+    },
+    summaryKo: '가정에서 학생 소지품을 점검하고 금지 물품을 학교에 가져오지 않도록 안내하는 공지입니다.',
+    translatedSummary: {
+      en: 'This notice asks families to check student belongings at home and keep prohibited items out of school.',
+      ar: 'يطلب هذا الإشعار من العائلات فحص مقتنيات الطلاب في المنزل ومنع إحضار المواد المحظورة إلى المدرسة.',
+      ru: 'В этом уведомлении семьям предлагается проверять вещи учеников дома и не приносить запрещенные предметы в школу.',
+    },
+    refinedBodyKo:
+      '금지 물품: 칼, 라이터, 전자담배, 레이저 포인터\n' +
+      '가정 협조: 학생 가방과 소지품 사전 점검\n' +
+      '첨부 자료: 학생 생활안전 안내 PDF',
+    translatedSourceBody: {
+      en:
+        'Prohibited items: Knives, lighters, e-cigarettes, laser pointers\n' +
+        'Family action: Check the student’s bag and belongings in advance\n' +
+        'Attachment: Student safety guidance PDF',
+      ar:
+        'المواد المحظورة: السكاكين، الولاعات، السجائر الإلكترونية، أجهزة الليزر\n' +
+        'إجراء الأسرة: فحص حقيبة الطالب ومقتنياته مسبقًا\n' +
+        'المرفق: ملف PDF لإرشادات سلامة الطلاب',
+      ru:
+        'Запрещенные предметы: ножи, зажигалки, электронные сигареты, лазерные указки\n' +
+        'Действие семьи: заранее проверьте сумку и вещи ученика\n' +
+        'Вложение: PDF-памятка по безопасности учащихся',
+    },
+    dueDate: null,
+    eventDates: [],
+    eventLocation: null,
+    crawlResult: {
+      source: 'crawl',
+      board_url: 'https://www.dics.ms.kr/board/notice',
+      board_kind: 'unknown',
+      parser_family: 'school-cms',
+      crawl_checked_at: '2026-06-07T09:00:00+09:00',
+      post_rank: 6,
+      post: {
+        title: '위험 물품 및 학생 소지 금지 물품 안내',
+        published_at: '2026-05-22',
+        author: '동인천중학교장',
+      },
+    },
+    attachmentSources: [
+      {
+        sourceType: 'attachment',
+        filename: '학생생활안전_안내.pdf',
+        originUrl: 'https://www.dics.ms.kr/files/student-safety-guide.pdf',
+        publicUrl: 'https://demo.naranhi.school/files/dics-student-safety-guide.pdf',
+        fileType: 'pdf',
+        refinedTextKo: '학생 안전 수칙과 금지 물품 사례가 정리된 PDF 자료입니다.',
+        translatedText: {
+          en: 'This PDF summarizes student safety rules and examples of prohibited items.',
+          ar: 'يلخص ملف PDF هذا قواعد سلامة الطلاب وأمثلة على المواد المحظورة.',
+          ru: 'Этот PDF содержит правила безопасности учащихся и примеры запрещенных предметов.',
+        },
+      },
+    ],
+    cards: [
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4051',
+        type: 'action',
+        order: 0,
+        koItems: [{ text: '가정에서 학생 소지품 점검하기' }],
+        translatedItems: {
+          en: [{ text: 'Check the student’s belongings at home' }],
+          ar: [{ text: 'افحص مقتنيات الطالب في المنزل' }],
+          ru: [{ text: 'Проверьте вещи ученика дома' }],
+        },
+      },
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4052',
+        type: 'supplies',
+        order: 1,
+        koItems: [{ text: '금지 물품을 학교에 가져오지 않기' }],
+        translatedItems: {
+          en: [{ text: 'Do not bring prohibited items to school' }],
+          ar: [{ text: 'لا تحضر المواد المحظورة إلى المدرسة' }],
+          ru: [{ text: 'Не приносите запрещенные предметы в школу' }],
+        },
+      },
+    ],
+  },
+  {
+    id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2007',
+    sourcePostUid: 'dics-2026-vaccination-grade1',
+    detailUrl: 'https://www.dics.ms.kr/board/notice/vaccination-grade1-2026',
+    titleKo: '2026학년도 1학년 예방접종 미완료자 접종 안내',
+    translatedTitle: {
+      en: 'Vaccination Notice for Grade 1 Students with Incomplete Records',
+      ar: 'إشعار التطعيم لطلاب الصف الأول ذوي السجلات غير المكتملة',
+      ru: 'Уведомление о вакцинации для первоклассников с неполными записями',
+    },
+    originalText:
+      '1학년 예방접종 미완료 학생의 접종 안내입니다.\n' +
+      '보호자는 6월 20일까지 예방접종을 완료하고 확인서를 학교로 보내 주세요.\n' +
+      '자세한 병원 방문 안내는 첨부 한글 파일을 확인해 주세요.',
+    translatedBody: {
+      en:
+        'This notice is for Grade 1 students whose vaccination records are incomplete.\n' +
+        'Guardians should complete the vaccination by June 20 and send the confirmation form to school.\n' +
+        'Please review the attached HWP file for detailed clinic-visit guidance.',
+      ar:
+        'هذا الإشعار مخصص لطلاب الصف الأول الذين لم تكتمل سجلات تطعيمهم.\n' +
+        'يُرجى من أولياء الأمور إكمال التطعيم قبل 20 يونيو وإرسال استمارة التأكيد إلى المدرسة.\n' +
+        'يُرجى مراجعة ملف HWP المرفق للحصول على إرشادات مفصلة لزيارة العيادة.',
+      ru:
+        'Это уведомление предназначено для учеников 1 класса с неполными записями о вакцинации.\n' +
+        'Родителям нужно завершить вакцинацию до 20 июня и отправить подтверждающую форму в школу.\n' +
+        'Пожалуйста, ознакомьтесь с приложенным файлом HWP с подробными инструкциями по посещению клиники.',
+    },
+    summaryKo: '6월 20일까지 예방접종을 완료하고 확인서를 학교에 제출해야 하는 안내입니다.',
+    translatedSummary: {
+      en: 'This notice asks families to complete vaccination and submit the confirmation form by June 20.',
+      ar: 'يطلب هذا الإشعار من العائلات إكمال التطعيم وتقديم استمارة التأكيد قبل 20 يونيو.',
+      ru: 'В этом уведомлении семьям нужно завершить вакцинацию и подать подтверждающую форму до 20 июня.',
+    },
+    refinedBodyKo:
+      '대상: 1학년 예방접종 미완료 학생\n' +
+      '완료 기한: 2026년 6월 20일\n' +
+      '제출 서류: 예방접종 확인서\n' +
+      '첨부 자료: 병원 방문 안내 HWP',
+    translatedSourceBody: {
+      en:
+        'Target: Grade 1 students with incomplete vaccination records\n' +
+        'Completion deadline: June 20, 2026\n' +
+        'Required document: Vaccination confirmation form\n' +
+        'Attachment: HWP clinic-visit guide',
+      ar:
+        'الفئة المستهدفة: طلاب الصف الأول ذوو سجلات التطعيم غير المكتملة\n' +
+        'آخر موعد للإكمال: 20 يونيو 2026\n' +
+        'المستند المطلوب: استمارة تأكيد التطعيم\n' +
+        'المرفق: دليل زيارة العيادة بصيغة HWP',
+      ru:
+        'Кому: ученики 1 класса с неполными записями о вакцинации\n' +
+        'Срок завершения: 20 июня 2026 года\n' +
+        'Необходимый документ: подтверждение о вакцинации\n' +
+        'Вложение: инструкция по посещению клиники в формате HWP',
+    },
+    dueDate: '2026-06-20',
+    eventDates: ['2026-06-20'],
+    eventLocation: null,
+    crawlResult: {
+      source: 'crawl',
+      board_url: 'https://www.dics.ms.kr/board/notice',
+      board_kind: 'unknown',
+      parser_family: 'school-cms',
+      crawl_checked_at: '2026-06-07T09:00:00+09:00',
+      post_rank: 7,
+      post: {
+        title: '2026학년도 1학년 예방접종 미완료자 접종 안내',
+        published_at: '2026-06-03',
+        author: '동인천중학교장',
+      },
+    },
+    attachmentSources: [
+      {
+        sourceType: 'attachment',
+        filename: '예방접종_병원방문_안내.hwp',
+        originUrl: 'https://www.dics.ms.kr/files/vaccination-clinic-guide.hwp',
+        publicUrl: 'https://demo.naranhi.school/files/dics-vaccination-clinic-guide.hwp',
+        fileType: 'hwp',
+        refinedTextKo: '병원 방문 전 준비 사항과 확인서 제출 방법이 담긴 한글 안내문입니다.',
+        translatedText: {
+          en: 'This HWP guide explains what to prepare before visiting the clinic and how to submit the confirmation form.',
+          ar: 'يوضح دليل HWP هذا ما يجب تحضيره قبل زيارة العيادة وكيفية تقديم استمارة التأكيد.',
+          ru: 'Это руководство HWP объясняет, что подготовить перед посещением клиники и как подать подтверждение.',
+        },
+        needsFile: true,
+      },
+    ],
+    cards: [
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4061',
+        type: 'action',
+        order: 0,
+        koItems: [
+          { text: '예방접종 완료하기', hint: '2026-06-20' },
+          { text: '예방접종 확인서 제출하기', hint: '2026-06-20' },
+        ],
+        translatedItems: {
+          en: [
+            { text: 'Complete the vaccination', hint: '2026-06-20' },
+            { text: 'Submit the vaccination confirmation form', hint: '2026-06-20' },
+          ],
+          ar: [
+            { text: 'أكمل التطعيم', hint: '2026-06-20' },
+            { text: 'قدّم استمارة تأكيد التطعيم', hint: '2026-06-20' },
+          ],
+          ru: [
+            { text: 'Завершите вакцинацию', hint: '2026-06-20' },
+            { text: 'Подайте подтверждение о вакцинации', hint: '2026-06-20' },
+          ],
+        },
+      },
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4062',
+        type: 'supplies',
+        order: 1,
+        koItems: [{ text: '예방접종 확인서' }, { text: '병원 방문 안내 HWP' }],
+        translatedItems: {
+          en: [{ text: 'Vaccination confirmation form' }, { text: 'Clinic-visit guide HWP' }],
+          ar: [{ text: 'استمارة تأكيد التطعيم' }, { text: 'دليل زيارة العيادة بصيغة HWP' }],
+          ru: [{ text: 'Подтверждение о вакцинации' }, { text: 'Инструкция по посещению клиники HWP' }],
+        },
+      },
+    ],
+  },
 ]
 
 export function isDemoSchoolSelection(input: {
@@ -566,13 +935,15 @@ export async function ensureDemoSchoolSeed(
     school_id: schoolId,
     title: seed.titleKo,
     original_text: seed.originalText,
-    source_post_uid: null,
+    source_post_uid: seed.sourcePostUid ?? null,
     detail_url: seed.detailUrl,
-    crawl_result: {
-      source: 'demo',
-      crawl_checked_at: '2026-06-07T09:00:00+09:00',
-      post_rank: index + 1,
-    } satisfies Json,
+    crawl_result: (
+      seed.crawlResult ?? {
+        source: 'demo',
+        crawl_checked_at: '2026-06-07T09:00:00+09:00',
+        post_rank: index + 1,
+      }
+    ) satisfies Json,
     extracted_content: {
       summary: {
         rendered: seed.summaryKo,
@@ -580,14 +951,34 @@ export async function ensureDemoSchoolSeed(
       },
       sources: [
         {
+          source_id: `${seed.id}-body`,
           source_type: 'html_body',
+          source_role: 'body_carrier',
           refined_text: seed.refinedBodyKo,
           translations: seed.translatedSourceBody,
           needs_file: false,
+          filename: '',
+          origin_url: seed.detailUrl,
+          public_url: null,
           metadata: { order_index: 0 },
         },
+        ...(seed.attachmentSources ?? []).map((attachment, attachmentIndex) => ({
+          source_id: `${seed.id}-attachment-${attachmentIndex + 1}`,
+          source_type: attachment.sourceType,
+          source_role: 'attachment',
+          refined_text: attachment.refinedTextKo ?? '',
+          translations: attachment.translatedText ?? {},
+          needs_file: attachment.needsFile ?? attachment.fileType !== 'pdf',
+          filename: attachment.filename,
+          origin_url: attachment.originUrl,
+          public_url: attachment.publicUrl,
+          metadata: {
+            order_index: attachmentIndex + 1,
+            file_type: attachment.fileType === 'pdf' ? 'pdf' : 'document',
+          },
+        })),
       ],
-      needs_file: false,
+      needs_file: Boolean(seed.attachmentSources?.some(source => source.needsFile)),
     } satisfies Json,
     status: 'done' as const,
     error_message: null,
@@ -675,11 +1066,27 @@ export async function ensureDemoSchoolSeed(
   await serviceClient
     .from('school_events')
     .upsert(schoolEvents, { onConflict: 'notice_id,event_date' })
+
+  await seedDemoMeals(serviceClient)
 }
 
 export async function getDemoMealSourceCodes(
   serviceClient: ServiceClient,
 ): Promise<{ officeCode: string; schoolCode: string } | null> {
+  for (const schoolName of DEMO_MEAL_DONOR_SCHOOL_NAMES) {
+    const { data: school } = await serviceClient
+      .from('schools')
+      .select('neis_office_code,neis_school_code')
+      .eq('name', schoolName)
+      .maybeSingle()
+
+    const officeCode = typeof school?.neis_office_code === 'string' ? school.neis_office_code.trim() : ''
+    const schoolCode = typeof school?.neis_school_code === 'string' ? school.neis_school_code.trim() : ''
+    if (officeCode && schoolCode) {
+      return { officeCode, schoolCode }
+    }
+  }
+
   const { data } = await serviceClient
     .from('meals')
     .select('office_code,school_code')
@@ -693,4 +1100,91 @@ export async function getDemoMealSourceCodes(
     return null
   }
   return { officeCode, schoolCode }
+}
+
+function todayKstIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+function addDaysIso(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const base = Date.UTC(year, month - 1, day)
+  const next = new Date(base + days * 86400000)
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
+}
+
+async function seedDemoMeals(serviceClient: ServiceClient): Promise<void> {
+  const donor = await getDemoMealSourceCodes(serviceClient)
+  if (!donor) return
+
+  if (
+    donor.officeCode === DEMO_SCHOOL_OFFICE_CODE
+    && donor.schoolCode === DEMO_SCHOOL_CODE
+  ) {
+    return
+  }
+
+  const today = todayKstIso()
+  const fromIso = addDaysIso(today, -DEMO_MEAL_SEED_WINDOW_DAYS)
+  const toIso = addDaysIso(today, DEMO_MEAL_SEED_WINDOW_DAYS)
+
+  const { data: donorMeals, error } = await serviceClient
+    .from('meals')
+    .select('meal_date,meal_type,meal_type_name,dishes,calories,nutrients,origins')
+    .eq('office_code', donor.officeCode)
+    .eq('school_code', donor.schoolCode)
+    .gte('meal_date', fromIso)
+    .lte('meal_date', toIso)
+    .order('meal_date', { ascending: true })
+    .order('meal_type', { ascending: true })
+
+  if (error || !donorMeals || donorMeals.length === 0) {
+    return
+  }
+
+  await serviceClient
+    .from('meals')
+    .upsert(
+      donorMeals.map(meal => ({
+        office_code: DEMO_SCHOOL_OFFICE_CODE,
+        school_code: DEMO_SCHOOL_CODE,
+        meal_date: meal.meal_date,
+        meal_type: meal.meal_type,
+        meal_type_name: meal.meal_type_name,
+        dishes: meal.dishes,
+        calories: meal.calories,
+        nutrients: meal.nutrients,
+        origins: meal.origins,
+      })),
+      { onConflict: 'office_code,school_code,meal_date,meal_type' },
+    )
+}
+
+export async function getSeededDemoMealsForRange(
+  serviceClient: ServiceClient,
+  fromIso: string,
+  toIso: string,
+): Promise<Map<string, Database['public']['Tables']['meals']['Row'][]>> {
+  const { data } = await serviceClient
+    .from('meals')
+    .select('*')
+    .eq('office_code', DEMO_SCHOOL_OFFICE_CODE)
+    .eq('school_code', DEMO_SCHOOL_CODE)
+    .gte('meal_date', fromIso)
+    .lte('meal_date', toIso)
+    .order('meal_date', { ascending: true })
+    .order('meal_type', { ascending: true })
+
+  const map = new Map<string, Database['public']['Tables']['meals']['Row'][]>()
+  for (const meal of data ?? []) {
+    const bucket = map.get(meal.meal_date) ?? []
+    bucket.push(meal)
+    map.set(meal.meal_date, bucket)
+  }
+  return map
 }

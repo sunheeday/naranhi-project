@@ -379,6 +379,37 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["target_language"], "ko")
         self.assertEqual(result["status"], "ready_to_save")
 
+    async def test_translate_text_message_to_ko_uses_best_effort_translation(self):
+        settings = Mock(gemini_configured=True)
+        gemini = Mock()
+
+        with (
+            patch("app.services.notice_service.get_settings", return_value=settings),
+            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch.object(
+                NoticeService,
+                "_translate_message_to_korean",
+                AsyncMock(
+                    return_value={
+                        "status": "ready_to_save",
+                        "final_translation": "안녕하세요 선생님, 오늘 아이가 병원에 다녀와서 지각할 예정입니다.",
+                    }
+                ),
+            ) as fallback_mock,
+        ):
+            result = await NoticeService().translate_text(
+                source_text="Hello teacher, my child will be late today after a hospital visit.",
+                target_language="ko",
+                translation_kind="message_to_ko",
+            )
+
+        fallback_mock.assert_awaited_once()
+        self.assertEqual(result["target_language"], "ko")
+        self.assertEqual(
+            result["translation"],
+            "안녕하세요 선생님, 오늘 아이가 병원에 다녀와서 지각할 예정입니다.",
+        )
+
     async def test_translate_notice_ko_builds_canonical_cards_when_missing(self):
         supabase = FakeSupabase()
         supabase.notice = {
