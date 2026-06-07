@@ -5,6 +5,22 @@ import { getSchoolCrawlerState } from '@/lib/school-crawl-state'
 const USER_CONTEXT_TTL_SECONDS = 30
 const HOME_DATA_TTL_SECONDS = 15
 
+function latestChildTag(userId: string): string {
+  return `latest-child-for-user:${userId}`
+}
+
+function childrenForUserTag(userId: string): string {
+  return `children-for-user:${userId}`
+}
+
+function schoolSummaryTag(schoolId: string): string {
+  return `school-summary:${schoolId}`
+}
+
+function hiddenNoticeIdsTag(userId: string): string {
+  return `hidden-notice-ids:${userId}`
+}
+
 export interface CachedChildSummary {
   id: string
   school_id: string | null
@@ -85,7 +101,7 @@ export async function getLatestChildForUser(userId: string): Promise<CachedChild
       return mergeChildSchoolFields(child, schoolsById)
     },
     ['latest-child-for-user', userId],
-    { revalidate: USER_CONTEXT_TTL_SECONDS },
+    { revalidate: USER_CONTEXT_TTL_SECONDS, tags: [latestChildTag(userId)] },
   )()
 }
 
@@ -105,7 +121,7 @@ export async function getChildrenForUser(userId: string): Promise<CachedChildSum
       return children.map(child => mergeChildSchoolFields(child, schoolsById))
     },
     ['children-for-user', userId],
-    { revalidate: USER_CONTEXT_TTL_SECONDS },
+    { revalidate: USER_CONTEXT_TTL_SECONDS, tags: [childrenForUserTag(userId)] },
   )()
 }
 
@@ -123,7 +139,7 @@ export async function getSchoolSummary(schoolId: string): Promise<CachedSchoolSu
       }
     },
     ['school-summary', schoolId],
-    { revalidate: HOME_DATA_TTL_SECONDS },
+    { revalidate: HOME_DATA_TTL_SECONDS, tags: [schoolSummaryTag(schoolId)] },
   )()
 }
 
@@ -141,6 +157,13 @@ export async function getHiddenNoticeIds(userId: string): Promise<string[]> {
         .filter((value): value is string => typeof value === 'string' && value.length > 0)
     },
     ['hidden-notice-ids', userId],
-    { revalidate: HOME_DATA_TTL_SECONDS },
+    { revalidate: HOME_DATA_TTL_SECONDS, tags: [hiddenNoticeIdsTag(userId)] },
   )()
+}
+
+export const serverCacheTags = {
+  latestChildTag,
+  childrenForUserTag,
+  schoolSummaryTag,
+  hiddenNoticeIdsTag,
 }

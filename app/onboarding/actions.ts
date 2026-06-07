@@ -1,11 +1,13 @@
 'use server'
 
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { backfillSchoolEventsForSchool } from '@/lib/schedule-backfill'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
+import { serverCacheTags } from '@/lib/server-cache'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -187,6 +189,13 @@ export async function saveChildAndProfile(input: SaveChildInput) {
   if (shouldTriggerCrawl) {
     await triggerInitialSchoolCrawl(school.id)
   }
+
+  revalidateTag(serverCacheTags.latestChildTag(user.id), 'max')
+  revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
+  revalidateTag(serverCacheTags.schoolSummaryTag(school.id), 'max')
+  revalidatePath('/')
+  revalidatePath('/onboarding')
+  revalidatePath('/settings')
 
   redirect('/')
 }

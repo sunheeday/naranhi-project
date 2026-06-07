@@ -1,9 +1,10 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
+import { serverCacheTags } from '@/lib/server-cache'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -151,6 +152,9 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
     await triggerInitialSchoolCrawl(school.id)
   }
 
+  revalidateTag(serverCacheTags.latestChildTag(user.id), 'max')
+  revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
+  revalidateTag(serverCacheTags.schoolSummaryTag(school.id), 'max')
   revalidatePath('/')
   revalidatePath('/settings')
 }

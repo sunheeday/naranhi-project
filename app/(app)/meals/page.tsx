@@ -93,20 +93,43 @@ export default async function MealsPage({ searchParams }: Props) {
       neisOfficeCode: child.neis_office_code,
       neisSchoolCode: child.neis_school_code,
     })
-    if (!child.neis_office_code || !child.neis_school_code) {
+    if (isDemoSchool) {
+      const serviceClient = await createSupabaseServiceClient()
+      const mealSource = await getDemoMealSourceCodes(serviceClient)
+      if (!mealSource) {
+        dayEntries = await previewMealEntries(monday, locale)
+      } else {
+        try {
+          const map = await getCachedOrFetchMealsForRange(
+            serviceClient,
+            mealSource.officeCode,
+            mealSource.schoolCode,
+            monday,
+            friday,
+          )
+          const days: DayEntry[] = []
+          let hasAnyMeals = false
+          for (let i = 0; i < 5; i++) {
+            const iso = addDaysIso(monday, i)
+            const meals = map.get(iso) ?? []
+            if (meals.length > 0) hasAnyMeals = true
+            days.push({ isoDate: iso, meals })
+          }
+          dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
+        } catch (e) {
+          console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
+          dayEntries = await previewMealEntries(monday, locale)
+        }
+      }
+    } else if (!child.neis_office_code || !child.neis_school_code) {
       unsupported = true
     } else {
       try {
         const serviceClient = await createSupabaseServiceClient()
-        const mealSource = isDemoSchool
-          ? await getDemoMealSourceCodes(serviceClient)
-          : null
-        const officeCode = mealSource?.officeCode ?? child.neis_office_code
-        const schoolCode = mealSource?.schoolCode ?? child.neis_school_code
         const map = await getCachedOrFetchMealsForRange(
           serviceClient,
-          officeCode,
-          schoolCode,
+          child.neis_office_code,
+          child.neis_school_code,
           monday,
           friday,
         )
@@ -126,16 +149,12 @@ export default async function MealsPage({ searchParams }: Props) {
         dayEntries = days
       } catch (e) {
         console.error('[meals] fetch failed:', e instanceof Error ? e.message : e)
-        if (isDemoSchool) {
-          dayEntries = await previewMealEntries(monday, locale)
-        } else {
-          errorMessage = messages.meals?.error ?? '급식 정보를 불러오지 못했어요.'
-          const days: DayEntry[] = []
-          for (let i = 0; i < 5; i++) {
-            days.push({ isoDate: addDaysIso(monday, i), meals: [] as Meal[] })
-          }
-          dayEntries = days
+        errorMessage = messages.meals?.error ?? '급식 정보를 불러오지 못했어요.'
+        const days: DayEntry[] = []
+        for (let i = 0; i < 5; i++) {
+          days.push({ isoDate: addDaysIso(monday, i), meals: [] as Meal[] })
         }
+        dayEntries = days
       }
     }
   }
