@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 
@@ -10,9 +11,17 @@ export const DEMO_SCHOOL_OFFICE_CODE = 'DEMO'
 export const DEMO_SCHOOL_CODE = 'NARANHI001'
 export const DEMO_SCHOOL_HOMEPAGE_URL = 'https://demo.naranhi.school'
 export const DEMO_MEAL_DONOR_SCHOOL_NAMES = ['부천부흥초등학교', '부천부흥초']
+export const DEMO_NOTICE_DONOR_SCHOOL_NAMES = ['부천부흥중학교', '부천부흥중']
 const DEMO_MEAL_SEED_WINDOW_DAYS = 21
+const DEMO_NOTICE_REUSE_LIMIT = 2
 
 type ServiceClient = SupabaseClient<Database>
+
+type NoticeRow = Database['public']['Tables']['notices']['Row']
+type NoticeTranslationRow = Database['public']['Tables']['notice_ai_translations']['Row']
+type NoticeCardRow = Database['public']['Tables']['notice_cards']['Row']
+type NoticeCardTranslationRow = Database['public']['Tables']['notice_card_translations']['Row']
+type SchoolEventRow = Database['public']['Tables']['school_events']['Row']
 
 interface DemoSchoolSearchResult {
   name: string
@@ -43,7 +52,7 @@ interface DemoNoticeSeed {
     sourceType: 'attachment'
     filename: string
     originUrl: string
-    publicUrl: string
+    fixturePath: string
     fileType: 'pdf' | 'hwp' | 'hwpx'
     refinedTextKo?: string
     translatedText?: Record<string, string>
@@ -579,7 +588,7 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
         sourceType: 'attachment',
         filename: '2026_홈페이지_가입안내.hwp',
         originUrl: 'https://www.bcbh.es.kr/files/2026-homepage-signup-guide.hwp',
-        publicUrl: 'https://demo.naranhi.school/files/bucheon-buhung-signup-guide.hwp',
+        fixturePath: 'demo-assets/attachments/bucheon-buhung-signup-guide.hwp',
         fileType: 'hwp',
         refinedTextKo: '보호자 계정 생성 절차와 학생명 연동 방법이 안내된 한글 파일입니다.',
         translatedText: {
@@ -593,7 +602,7 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
         sourceType: 'attachment',
         filename: '홈페이지_가입_매뉴얼.pdf',
         originUrl: 'https://www.bcbh.es.kr/files/homepage-registration-manual.pdf',
-        publicUrl: 'https://demo.naranhi.school/files/bucheon-buhung-registration-manual.pdf',
+        fixturePath: 'demo-assets/attachments/bucheon-buhung-registration-manual.pdf',
         fileType: 'pdf',
         refinedTextKo: '로그인 화면, 비밀번호 설정, 학생 정보 연결 순서가 담긴 PDF 매뉴얼입니다.',
         translatedText: {
@@ -603,30 +612,7 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
         },
       },
     ],
-    cards: [
-      {
-        id: '7d27f255-3c41-44fd-8bf4-daa3415a4041',
-        type: 'action',
-        order: 0,
-        koItems: [{ text: '홈페이지 계정 가입 완료', hint: '2026-03-11' }],
-        translatedItems: {
-          en: [{ text: 'Complete website account registration', hint: '2026-03-11' }],
-          ar: [{ text: 'أكمل تسجيل حساب الموقع', hint: '2026-03-11' }],
-          ru: [{ text: 'Завершите регистрацию учетной записи сайта', hint: '2026-03-11' }],
-        },
-      },
-      {
-        id: '7d27f255-3c41-44fd-8bf4-daa3415a4042',
-        type: 'supplies',
-        order: 1,
-        koItems: [{ text: '첨부 HWP 안내문 확인' }, { text: '가입 매뉴얼 PDF 확인' }],
-        translatedItems: {
-          en: [{ text: 'Review the attached HWP guide' }, { text: 'Review the registration manual PDF' }],
-          ar: [{ text: 'راجع دليل HWP المرفق' }, { text: 'راجع دليل التسجيل بصيغة PDF' }],
-          ru: [{ text: 'Ознакомьтесь с приложенной инструкцией HWP' }, { text: 'Ознакомьтесь с PDF-руководством по регистрации' }],
-        },
-      },
-    ],
+    cards: [],
   },
   {
     id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2006',
@@ -701,7 +687,7 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
         sourceType: 'attachment',
         filename: '학생생활안전_안내.pdf',
         originUrl: 'https://www.dics.ms.kr/files/student-safety-guide.pdf',
-        publicUrl: 'https://demo.naranhi.school/files/dics-student-safety-guide.pdf',
+        fixturePath: 'demo-assets/attachments/dics-student-safety-guide.pdf',
         fileType: 'pdf',
         refinedTextKo: '학생 안전 수칙과 금지 물품 사례가 정리된 PDF 자료입니다.',
         translatedText: {
@@ -711,30 +697,7 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
         },
       },
     ],
-    cards: [
-      {
-        id: '7d27f255-3c41-44fd-8bf4-daa3415a4051',
-        type: 'action',
-        order: 0,
-        koItems: [{ text: '가정에서 학생 소지품 점검하기' }],
-        translatedItems: {
-          en: [{ text: 'Check the student’s belongings at home' }],
-          ar: [{ text: 'افحص مقتنيات الطالب في المنزل' }],
-          ru: [{ text: 'Проверьте вещи ученика дома' }],
-        },
-      },
-      {
-        id: '7d27f255-3c41-44fd-8bf4-daa3415a4052',
-        type: 'supplies',
-        order: 1,
-        koItems: [{ text: '금지 물품을 학교에 가져오지 않기' }],
-        translatedItems: {
-          en: [{ text: 'Do not bring prohibited items to school' }],
-          ar: [{ text: 'لا تحضر المواد المحظورة إلى المدرسة' }],
-          ru: [{ text: 'Не приносите запрещенные предметы в школу' }],
-        },
-      },
-    ],
+    cards: [],
   },
   {
     id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2007',
@@ -813,7 +776,7 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
         sourceType: 'attachment',
         filename: '예방접종_병원방문_안내.hwp',
         originUrl: 'https://www.dics.ms.kr/files/vaccination-clinic-guide.hwp',
-        publicUrl: 'https://demo.naranhi.school/files/dics-vaccination-clinic-guide.hwp',
+        fixturePath: 'demo-assets/attachments/dics-vaccination-clinic-guide.hwp',
         fileType: 'hwp',
         refinedTextKo: '병원 방문 전 준비 사항과 확인서 제출 방법이 담긴 한글 안내문입니다.',
         translatedText: {
@@ -897,6 +860,196 @@ export function maybeInjectDemoSchoolResult<T extends {
   return [DEMO_SCHOOL_SEARCH_RESULT as T, ...results]
 }
 
+function stableDemoUuid(seed: string): string {
+  const hex = createHash('sha1').update(seed).digest('hex').slice(0, 32)
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
+
+function isStaticDemoNoticeSeed(seed: DemoNoticeSeed): boolean {
+  return seed.detailUrl.startsWith('demo://')
+}
+
+function jsonRecord(value: Json | null | undefined): Record<string, Json> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, Json> : {}
+}
+
+function jsonArray(value: Json | null | undefined): Json[] {
+  return Array.isArray(value) ? value : []
+}
+
+function hasStorageAttachment(extractedContent: Json | null): boolean {
+  const extracted = jsonRecord(extractedContent)
+  const sources = jsonArray(extracted.sources)
+  return sources.some(source => {
+    const sourceObj = jsonRecord(source)
+    const role = typeof sourceObj.source_role === 'string' ? sourceObj.source_role : ''
+    const publicUrl = typeof sourceObj.public_url === 'string' ? sourceObj.public_url.trim() : ''
+    return role === 'attachment' && Boolean(publicUrl)
+  })
+}
+
+async function getDemoNoticeDonorSchoolId(serviceClient: ServiceClient): Promise<string | null> {
+  for (const schoolName of DEMO_NOTICE_DONOR_SCHOOL_NAMES) {
+    const { data: school } = await serviceClient
+      .from('schools')
+      .select('id')
+      .eq('name', schoolName)
+      .maybeSingle()
+
+    if (typeof school?.id === 'string' && school.id) {
+      return school.id
+    }
+  }
+
+  return null
+}
+
+interface ReusedNoticeSeedBundle {
+  notices: Array<Database['public']['Tables']['notices']['Insert']>
+  translations: Array<Database['public']['Tables']['notice_ai_translations']['Insert']>
+  cards: Array<Database['public']['Tables']['notice_cards']['Insert']>
+  cardTranslations: Array<Database['public']['Tables']['notice_card_translations']['Insert']>
+  events: Array<Database['public']['Tables']['school_events']['Insert']>
+}
+
+async function buildReusedDemoNotices(
+  serviceClient: ServiceClient,
+  schoolId: string,
+): Promise<ReusedNoticeSeedBundle> {
+  const donorSchoolId = await getDemoNoticeDonorSchoolId(serviceClient)
+  if (!donorSchoolId) {
+    return { notices: [], translations: [], cards: [], cardTranslations: [], events: [] }
+  }
+
+  const { data: candidateNotices } = await serviceClient
+    .from('notices')
+    .select(
+      'id, school_id, status, title, original_text, source_post_uid, detail_url, crawl_result, extracted_content, error_message, due_date, event_dates, event_location, source_hard_facts, extraction_attempts, extraction_started_at, extraction_next_run_at, extraction_error_code, created_at, updated_at',
+    )
+    .eq('school_id', donorSchoolId)
+    .eq('status', 'done')
+    .order('created_at', { ascending: false })
+    .limit(12)
+
+  const sourceNotices = (candidateNotices ?? [])
+    .filter(notice => hasStorageAttachment(notice.extracted_content))
+    .slice(0, DEMO_NOTICE_REUSE_LIMIT)
+
+  if (sourceNotices.length === 0) {
+    return { notices: [], translations: [], cards: [], cardTranslations: [], events: [] }
+  }
+
+  const sourceNoticeIds = sourceNotices.map(notice => notice.id)
+
+  const [{ data: translationRows }, { data: cardRows }, { data: eventRows }] = await Promise.all([
+    serviceClient
+      .from('notice_ai_translations')
+      .select('notice_id,target_language,source_language,translated_text,validation_status,updated_at')
+      .in('notice_id', sourceNoticeIds),
+    serviceClient
+      .from('notice_cards')
+      .select('id,notice_id,type,order,content')
+      .in('notice_id', sourceNoticeIds),
+    serviceClient
+      .from('school_events')
+      .select('notice_id,title,event_date,location,description,source_language')
+      .in('notice_id', sourceNoticeIds),
+  ])
+
+  const sourceCards = cardRows ?? []
+  const sourceCardIds = sourceCards.map(card => card.id)
+  const { data: cardTranslationRows } = sourceCardIds.length > 0
+    ? await serviceClient
+        .from('notice_card_translations')
+        .select('notice_card_id,target_language,translated_content,updated_at')
+        .in('notice_card_id', sourceCardIds)
+    : { data: [] as NoticeCardTranslationRow[] }
+
+  const noticeIdMap = new Map(sourceNotices.map(notice => [notice.id, stableDemoUuid(`demo-notice:${notice.id}`)]))
+  const cardIdMap = new Map(sourceCards.map(card => [card.id, stableDemoUuid(`demo-card:${card.id}`)]))
+
+  const notices = sourceNotices.map(notice => ({
+    id: noticeIdMap.get(notice.id)!,
+    school_id: schoolId,
+    title: notice.title,
+    original_text: notice.original_text,
+    source_post_uid: notice.source_post_uid ? `demo-${notice.source_post_uid}` : null,
+    detail_url: notice.detail_url,
+    crawl_result: {
+      ...jsonRecord(notice.crawl_result),
+      source: 'demo_reused',
+      demo_source_school_id: donorSchoolId,
+      demo_source_notice_id: notice.id,
+    } satisfies Json,
+    extracted_content: notice.extracted_content,
+    status: notice.status,
+    error_message: notice.error_message,
+    due_date: notice.due_date,
+    event_dates: notice.event_dates,
+    event_location: notice.event_location,
+    source_hard_facts: notice.source_hard_facts,
+    extraction_attempts: notice.extraction_attempts,
+    extraction_started_at: notice.extraction_started_at,
+    extraction_next_run_at: notice.extraction_next_run_at,
+    extraction_error_code: notice.extraction_error_code,
+    created_at: notice.created_at,
+    updated_at: notice.updated_at,
+  }))
+
+  const translations = (translationRows ?? []).flatMap(row => {
+    const mappedNoticeId = noticeIdMap.get(row.notice_id)
+    if (!mappedNoticeId) return []
+    return [{
+      notice_id: mappedNoticeId,
+      target_language: row.target_language,
+      source_language: row.source_language,
+      translated_text: row.translated_text,
+      validation_status: row.validation_status,
+      updated_at: row.updated_at,
+    }]
+  })
+
+  const cards = sourceCards.flatMap(card => {
+    const mappedNoticeId = noticeIdMap.get(card.notice_id)
+    const mappedCardId = cardIdMap.get(card.id)
+    if (!mappedNoticeId || !mappedCardId) return []
+    return [{
+      id: mappedCardId,
+      notice_id: mappedNoticeId,
+      type: card.type,
+      order: card.order,
+      content: card.content,
+    }]
+  })
+
+  const cardTranslations = (cardTranslationRows ?? []).flatMap(row => {
+    const mappedCardId = cardIdMap.get(row.notice_card_id)
+    if (!mappedCardId) return []
+    return [{
+      notice_card_id: mappedCardId,
+      target_language: row.target_language,
+      translated_content: row.translated_content,
+      updated_at: row.updated_at,
+    }]
+  })
+
+  const events = (eventRows ?? []).flatMap(event => {
+    const mappedNoticeId = noticeIdMap.get(event.notice_id)
+    if (!mappedNoticeId) return []
+    return [{
+      school_id: schoolId,
+      notice_id: mappedNoticeId,
+      title: event.title,
+      event_date: event.event_date,
+      location: event.location,
+      description: event.description,
+      source_language: event.source_language,
+    }]
+  })
+
+  return { notices, translations, cards, cardTranslations, events }
+}
+
 export async function ensureDemoSchoolSeed(
   serviceClient: ServiceClient,
   schoolId: string,
@@ -930,7 +1083,10 @@ export async function ensureDemoSchoolSeed(
       { onConflict: 'school_id' },
     )
 
-  const noticeRows = DEMO_NOTICE_SEEDS.map((seed, index) => ({
+  const reusedNotices = await buildReusedDemoNotices(serviceClient, schoolId)
+  const staticNoticeSeeds = DEMO_NOTICE_SEEDS.filter(isStaticDemoNoticeSeed)
+
+  const noticeRows = staticNoticeSeeds.map((seed, index) => ({
     id: seed.id,
     school_id: schoolId,
     title: seed.titleKo,
@@ -971,7 +1127,7 @@ export async function ensureDemoSchoolSeed(
           needs_file: attachment.needsFile ?? attachment.fileType !== 'pdf',
           filename: attachment.filename,
           origin_url: attachment.originUrl,
-          public_url: attachment.publicUrl,
+          public_url: null,
           metadata: {
             order_index: attachmentIndex + 1,
             file_type: attachment.fileType === 'pdf' ? 'pdf' : 'document',
@@ -1001,9 +1157,9 @@ export async function ensureDemoSchoolSeed(
 
   await serviceClient
     .from('notices')
-    .upsert(noticeRows, { onConflict: 'id' })
+    .upsert([...noticeRows, ...reusedNotices.notices], { onConflict: 'id' })
 
-  const noticeTranslations = DEMO_NOTICE_SEEDS.flatMap(seed =>
+  const noticeTranslations = staticNoticeSeeds.flatMap(seed =>
     DEMO_LANGUAGES.map(language => ({
       notice_id: seed.id,
       target_language: language,
@@ -1015,9 +1171,17 @@ export async function ensureDemoSchoolSeed(
 
   await serviceClient
     .from('notice_ai_translations')
-    .upsert(noticeTranslations, { onConflict: 'notice_id,target_language' })
+    .upsert([...noticeTranslations, ...reusedNotices.translations], { onConflict: 'notice_id,target_language' })
 
-  const cardRows = DEMO_NOTICE_SEEDS.flatMap(seed =>
+  const seededNoticeIds = [...staticNoticeSeeds.map(seed => seed.id), ...reusedNotices.notices.map(notice => notice.id)]
+    .filter((noticeId): noticeId is string => typeof noticeId === 'string' && noticeId.length > 0)
+
+  await serviceClient
+    .from('notice_cards')
+    .delete()
+    .in('notice_id', seededNoticeIds)
+
+  const cardRows = staticNoticeSeeds.flatMap(seed =>
     seed.cards.map(card => ({
       id: card.id,
       notice_id: seed.id,
@@ -1031,11 +1195,17 @@ export async function ensureDemoSchoolSeed(
     })),
   )
 
-  await serviceClient
-    .from('notice_cards')
-    .upsert(cardRows, { onConflict: 'id' })
+  if (cardRows.length > 0) {
+    await serviceClient
+      .from('notice_cards')
+      .upsert([...cardRows, ...reusedNotices.cards], { onConflict: 'id' })
+  } else if (reusedNotices.cards.length > 0) {
+    await serviceClient
+      .from('notice_cards')
+      .upsert(reusedNotices.cards, { onConflict: 'id' })
+  }
 
-  const cardTranslations = DEMO_NOTICE_SEEDS.flatMap(seed =>
+  const cardTranslations = staticNoticeSeeds.flatMap(seed =>
     seed.cards.flatMap(card =>
       DEMO_LANGUAGES.map(language => ({
         notice_card_id: card.id,
@@ -1047,11 +1217,17 @@ export async function ensureDemoSchoolSeed(
     ),
   )
 
-  await serviceClient
-    .from('notice_card_translations')
-    .upsert(cardTranslations, { onConflict: 'notice_card_id,target_language' })
+  if (cardTranslations.length > 0) {
+    await serviceClient
+      .from('notice_card_translations')
+      .upsert([...cardTranslations, ...reusedNotices.cardTranslations], { onConflict: 'notice_card_id,target_language' })
+  } else if (reusedNotices.cardTranslations.length > 0) {
+    await serviceClient
+      .from('notice_card_translations')
+      .upsert(reusedNotices.cardTranslations, { onConflict: 'notice_card_id,target_language' })
+  }
 
-  const schoolEvents = DEMO_NOTICE_SEEDS.flatMap(seed =>
+  const schoolEvents = staticNoticeSeeds.flatMap(seed =>
     seed.eventDates.map(eventDate => ({
       school_id: schoolId,
       notice_id: seed.id,
@@ -1065,7 +1241,7 @@ export async function ensureDemoSchoolSeed(
 
   await serviceClient
     .from('school_events')
-    .upsert(schoolEvents, { onConflict: 'notice_id,event_date' })
+    .upsert([...schoolEvents, ...reusedNotices.events], { onConflict: 'notice_id,event_date' })
 
   await seedDemoMeals(serviceClient)
 }
