@@ -235,30 +235,55 @@ def _fetch_registered_school_targets() -> list[ScheduledSchoolTarget]:
 
     rows: list[dict[str, Any]] = []
     for chunk in _chunks(school_ids, 100):
-        result = (
+        schools_result = (
             supabase.table("schools")
-            .select("id,name,crawl_status,crawl_last_checked_at")
+            .select("id,name")
             .in_("id", chunk)
             .execute()
         )
-        rows.extend(result.data or [])
+        states_result = (
+            supabase.table("school_crawl_state")
+            .select("school_id,crawl_status,crawl_last_checked_at")
+            .in_("school_id", chunk)
+            .execute()
+        )
+        states = {
+            str(row.get("school_id") or ""): row
+            for row in (states_result.data or [])
+            if row.get("school_id")
+        }
+        for row in schools_result.data or []:
+            merged = dict(row)
+            merged.update(states.get(str(row.get("id") or ""), {}))
+            rows.append(merged)
 
     return [_target_from_row(row) for row in rows if row.get("id")]
 
 
 def _fetch_single_school_target(school_id: str) -> list[ScheduledSchoolTarget]:
-    result = (
-        get_supabase_client()
+    supabase = get_supabase_client()
+    school_result = (
+        supabase
         .table("schools")
-        .select("id,name,crawl_status,crawl_last_checked_at")
+        .select("id,name")
         .eq("id", school_id)
         .limit(1)
         .execute()
     )
-    rows = result.data or []
+    rows = school_result.data or []
     if not rows:
         return []
-    return [_target_from_row(rows[0])]
+    state_result = (
+        supabase.table("school_crawl_state")
+        .select("school_id,crawl_status,crawl_last_checked_at")
+        .eq("school_id", school_id)
+        .limit(1)
+        .execute()
+    )
+    merged = dict(rows[0])
+    if state_result.data:
+        merged.update(dict(state_result.data[0]))
+    return [_target_from_row(merged)]
 
 
 def _target_from_row(row: dict[str, Any]) -> ScheduledSchoolTarget:

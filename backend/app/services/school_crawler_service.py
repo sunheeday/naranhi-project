@@ -302,7 +302,20 @@ def _fetch_school_row(school_id: str) -> dict[str, Any] | None:
     )
     if not result.data:
         return None
-    return dict(result.data[0])
+    row = dict(result.data[0])
+    state_result = (
+        supabase.table("school_crawl_state")
+        .select(
+            "school_id,crawl_board_url,crawl_board_kind,crawl_status,"
+            "crawl_error_message,crawl_result,crawl_last_checked_at"
+        )
+        .eq("school_id", school_id)
+        .limit(1)
+        .execute()
+    )
+    if state_result.data:
+        row.update(dict(state_result.data[0]))
+    return row
 
 
 def _context_from_school_row(school_id: str, row: dict[str, Any]) -> _SchoolContext:
@@ -558,26 +571,42 @@ async def _extract_cached_board_posts(
 
 
 def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
-    payload: dict[str, Any] = {
+    state_payload: dict[str, Any] = {
+        "school_id": result.school_id,
         "crawl_status": result.status,
         "crawl_error_message": result.error_message,
         "crawl_result": result.to_dict(),
         "crawl_last_checked_at": _utc_now_iso(),
     }
-    if result.homepage_url:
-        payload["homepage_url"] = result.homepage_url
     if result.verified and result.board_url:
-        payload["crawl_board_url"] = result.board_url
-        payload["crawl_board_kind"] = (
+        state_payload["crawl_board_url"] = result.board_url
+        state_payload["crawl_board_kind"] = (
             result.board_kind
             if result.board_kind in {"family_notice", "announcement_fallback", "unknown"}
             else "unknown"
         )
 
     try:
-        get_supabase_client().table("schools").update(payload).eq(
+        supabase = get_supabase_client()
+        school_payload: dict[str, Any] = {
+            "crawl_status": result.status,
+            "crawl_error_message": result.error_message,
+            "crawl_result": result.to_dict(),
+            "crawl_last_checked_at": state_payload["crawl_last_checked_at"],
+        }
+        if result.homepage_url:
+            school_payload["homepage_url"] = result.homepage_url
+        if result.verified and result.board_url:
+            school_payload["crawl_board_url"] = state_payload.get("crawl_board_url")
+            school_payload["crawl_board_kind"] = state_payload.get("crawl_board_kind")
+
+        supabase.table("schools").update(school_payload).eq(
             "id",
             result.school_id,
+        ).execute()
+        supabase.table("school_crawl_state").upsert(
+            state_payload,
+            on_conflict="school_id",
         ).execute()
     except Exception as exc:  # noqa: BLE001 - normalize DB errors for API layer.
         raise RuntimeError(f"Failed to save school crawler result: {exc}") from exc

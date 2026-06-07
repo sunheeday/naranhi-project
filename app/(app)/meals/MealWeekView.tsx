@@ -1,6 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import type { Locale } from '@/lib/i18n'
 import { ALLERGEN_NAMES, type Meal, type MealDish } from '@/lib/neis'
 
 /** ISO 날짜 → KST 기준 (year, month, day, weekday). UTC/local 시간대와 무관. */
@@ -46,28 +49,87 @@ interface Labels {
   allergy_prefix: string
   range: string                   // "{startMonth}/{startDay} – {endMonth}/{endDay}"
   today_label: string
+  translation_pending: string
+  translation_pending_body: string
+  translation_error: string
+  loading: string
 }
 
 interface Props {
   weekStartIso: string             // 월요일 YYYY-MM-DD
   days: DayEntry[]                 // 5개 (월~금) 또는 7개
+  locale: Locale
   labels: Labels
 }
 
-export default function MealWeekView({ weekStartIso, days, labels }: Props) {
+export default function MealWeekView({ weekStartIso, days, locale, labels }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [isNavigating, setIsNavigating] = useState(false)
+  const [displayDays, setDisplayDays] = useState(days)
+  const [isTranslating, setIsTranslating] = useState(locale !== 'ko' && days.some(day => day.meals.length > 0))
+  const [translationError, setTranslationError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (locale === 'ko' || days.every(day => day.meals.length === 0)) {
+      return
+    }
+
+    let cancelled = false
+
+    async function translateMeals() {
+      try {
+        const response = await fetch('/api/meals/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            locale,
+            collections: days.map(day => day.meals),
+          }),
+          cache: 'no-store',
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok || cancelled || !body?.ok || !Array.isArray(body.collections)) {
+          if (!cancelled) {
+            setTranslationError(labels.translation_error)
+          }
+          return
+        }
+        setDisplayDays(
+          days.map((day, index) => ({
+            ...day,
+            meals: Array.isArray(body.collections[index]) ? body.collections[index] : day.meals,
+          })),
+        )
+      } catch {
+        if (!cancelled) {
+          setTranslationError(labels.translation_error)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsTranslating(false)
+        }
+      }
+    }
+
+    void translateMeals()
+    return () => {
+      cancelled = true
+    }
+  }, [days, labels.translation_error, locale])
 
   function shiftWeek(deltaDays: number) {
     const next = shiftIsoByDays(weekStartIso, deltaDays)
     const params = new URLSearchParams(searchParams.toString())
     params.set('week', next)
+    setIsNavigating(true)
     router.push(`?${params.toString()}`)
   }
 
   function goThisWeek() {
     const params = new URLSearchParams(searchParams.toString())
     params.delete('week')
+    setIsNavigating(true)
     router.push(params.toString() ? `?${params.toString()}` : '?')
   }
 
@@ -82,7 +144,41 @@ export default function MealWeekView({ weekStartIso, days, labels }: Props) {
   const todayIso = todayKstIso()
 
   return (
-    <div className="flex flex-col">
+    <div className="relative flex flex-col">
+      {isNavigating && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/72 backdrop-blur-[1px]">
+          <div className="rounded-full bg-white/92 p-4 shadow-card">
+            <LoadingSpinner size="lg" label={labels.loading} />
+          </div>
+        </div>
+      )}
+
+      {isTranslating && (
+        <div className="px-6 pt-4">
+          <div className="rounded-card border border-sky-200 bg-[linear-gradient(135deg,#F8FCFF_0%,#EEF7FF_100%)] px-4 py-4 shadow-soft">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-ink">{labels.translation_pending_body}</p>
+                <span className="shrink-0 text-xs font-bold text-primary">
+                  {labels.translation_pending}
+                </span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-sky-100">
+                <div className="h-full w-[58%] rounded-full bg-[linear-gradient(90deg,#1FB6FF_0%,#2F80ED_100%)] animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {translationError && !isTranslating && (
+        <div role="alert" className="px-6 pt-4">
+          <div className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {translationError}
+          </div>
+        </div>
+      )}
+
       {/* 주 네비게이션 */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-border">
         <button
@@ -109,7 +205,7 @@ export default function MealWeekView({ weekStartIso, days, labels }: Props) {
 
       {/* 일자별 카드 */}
       <div className="flex flex-col gap-4 px-6 pt-4 pb-24">
-        {days.map(d => (
+        {displayDays.map(d => (
           <MealDayCard key={d.isoDate} day={d} labels={labels} isToday={d.isoDate === todayIso} />
         ))}
       </div>

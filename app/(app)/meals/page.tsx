@@ -2,8 +2,9 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getLatestChildForUser } from '@/lib/server-cache'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
-import { getCachedOrFetchMealsForRange, translateMealCollectionsForLocale, type Meal } from '@/lib/neis'
+import { getCachedOrFetchMealsForRange, type Meal } from '@/lib/neis'
 import BrandHeader from '@/components/brand/BrandHeader'
 import MealWeekView, { type DayEntry } from './MealWeekView'
 
@@ -78,13 +79,7 @@ export default async function MealsPage({ searchParams }: Props) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/login')
 
-    const { data: child } = await supabase
-      .from('children')
-      .select('id, school_name, grade, class_no, neis_office_code, neis_school_code')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const child = await getLatestChildForUser(user.id)
 
     if (!child) redirect('/onboarding')
     childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
@@ -106,13 +101,12 @@ export default async function MealsPage({ searchParams }: Props) {
           const iso = addDaysIso(monday, i)
           rawMealsByDay.push(map.get(iso) ?? [])
         }
-        const translatedMealsByDay = await translateMealCollectionsForLocale(rawMealsByDay, locale)
         const days: DayEntry[] = []
         for (let i = 0; i < 5; i++) {
           const iso = addDaysIso(monday, i)
           days.push({
             isoDate: iso,
-            meals: translatedMealsByDay[i] ?? [],
+            meals: rawMealsByDay[i] ?? [],
           })
         }
         dayEntries = days
@@ -160,7 +154,19 @@ export default async function MealsPage({ searchParams }: Props) {
       )}
 
       {!unsupported && (
-        <MealWeekView weekStartIso={monday} days={dayEntries} labels={labels} />
+        <MealWeekView
+          key={`${monday}:${locale}`}
+          weekStartIso={monday}
+          days={dayEntries}
+          locale={locale}
+          labels={{
+            ...labels,
+            translation_pending: m.translation_pending ?? '급식 번역 중...',
+            translation_pending_body: m.translation_pending_body ?? '한국어 급식을 먼저 보여드리고 있어요.',
+            translation_error: m.error ?? messages.common.error_generic,
+            loading: messages.common.loading,
+          }}
+        />
       )}
     </main>
   )
@@ -220,9 +226,7 @@ async function previewMealEntries(monday: string, locale: Locale): Promise<DayEn
     }],
   ]
 
-  const translatedMenus = await translateMealCollectionsForLocale(menus, locale)
-
-  return translatedMenus.map((meals, index) => ({
+  return menus.map((meals, index) => ({
     isoDate: addDaysIso(monday, index),
     meals,
   }))

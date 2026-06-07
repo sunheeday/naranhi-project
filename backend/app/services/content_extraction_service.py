@@ -593,7 +593,7 @@ def _summary_inputs(
 def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
     """본문 정제본 + 첨부 정제본들을 합쳐 '풀 본문'을 만든다.
 
-    팀 번역·구조화 파이프라인(translate_notice → notice_cards/schedules)의 입력이 되며,
+    팀 번역·구조화 파이프라인(translate_notice → notice_cards/school_events)의 입력이 되며,
     요약이 아니라 전체 내용에서 카드·일정이 추출되도록 한다. 첨부는 '## 첨부: 파일명'
     헤더로 구분해 이어붙인다.
     """
@@ -736,6 +736,46 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
     if not notice_id or not school_id:
         return
 
+    def _clean_text(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    notice_text = _clean_text(notice.get("original_text"))
+    if not notice_text:
+        try:
+            fresh_notice = (
+                get_supabase_client()
+                .table("notices")
+                .select("original_text")
+                .eq("id", notice_id)
+                .single()
+                .execute()
+                .data
+            )
+        except AttributeError:
+            fresh_notice = None
+        if isinstance(fresh_notice, dict):
+            notice_text = _clean_text(fresh_notice.get("original_text"))
+
+    from app.services.notice_service import NoticeService
+
+    service = NoticeService()
+    try:
+        await service.translate_notice(
+            notice_id=notice_id,
+            target_language="ko",
+            source_text=notice_text,
+        )
+    except Exception as exc:  # noqa: BLE001 - canonical refresh must not fail extraction.
+        LOGGER.warning(
+            "canonical ko translation refresh failed: notice_id=%s school_id=%s error=%s",
+            notice_id,
+            school_id,
+            sanitize_error(exc),
+        )
+
     locales = _school_translation_locales(school_id)
     if not locales:
         return
@@ -744,9 +784,6 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
     if not target_locales:
         return
 
-    from app.services.notice_service import NoticeService
-
-    service = NoticeService()
     for locale in target_locales:
         try:
             await service.translate_notice(
@@ -781,9 +818,13 @@ async def translate_sources_for_locale(service: Any, notice_id: str, target_lang
     summary = extracted.get("summary") if isinstance(extracted.get("summary"), dict) else None
     sources = extracted.get("sources") if isinstance(extracted.get("sources"), list) else []
 
-    async def _translate(text: str) -> str:
+    async def _translate(text: str, *, translation_kind: str) -> str:
         try:
-            result = await service.translate_text(source_text=text, target_language=target_language)
+            result = await service.translate_text(
+                source_text=text,
+                target_language=target_language,
+                translation_kind=translation_kind,
+            )
         except Exception as exc:  # noqa: BLE001 - 소스 번역 실패가 전체 번역을 깨지 않는다.
             LOGGER.warning(
                 "source translate failed: notice_id=%s lang=%s error=%s",
@@ -797,7 +838,7 @@ async def translate_sources_for_locale(service: Any, notice_id: str, target_lang
     if summary and isinstance(summary.get("rendered"), str) and summary["rendered"].strip():
         existing = summary.get("translations") if isinstance(summary.get("translations"), dict) else {}
         if target_language not in existing:
-            translated = await _translate(summary["rendered"])
+            translated = await _translate(summary["rendered"], translation_kind="notice_summary")
             if translated:
                 summary.setdefault("translations", {})[target_language] = translated
                 changed = True
@@ -811,7 +852,7 @@ async def translate_sources_for_locale(service: Any, notice_id: str, target_lang
         existing = src.get("translations") if isinstance(src.get("translations"), dict) else {}
         if target_language in existing:
             continue
-        translated = await _translate(text)
+        translated = await _translate(text, translation_kind="notice_source")
         if translated:
             src.setdefault("translations", {})[target_language] = translated
             changed = True
@@ -876,7 +917,6 @@ def _missing_translation_locales(notice_id: str, locales: list[str]) -> list[str
         for row in existing_rows
         if _normalized_locale(row.get("target_language"))
         and str(row.get("translated_text") or "").strip()
-        and str(row.get("validation_status") or "").strip().lower() != "failed"
     }
     return [locale for locale in locales if locale not in completed]
 

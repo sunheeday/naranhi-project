@@ -27,6 +27,8 @@ interface Props {
   confirmCancel: string
   confirmDelete: string
   deletingLabel: string
+  translationPending: boolean
+  translationProcessingLabel: string
 }
 
 export default function NoticeCardItem({
@@ -47,6 +49,8 @@ export default function NoticeCardItem({
   confirmCancel,
   confirmDelete,
   deletingLabel,
+  translationPending,
+  translationProcessingLabel,
 }: Props) {
   const [askingConfirm, setAskingConfirm] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -97,6 +101,11 @@ export default function NoticeCardItem({
                   }`}
                 >
                   {dueLabel}
+                </span>
+              )}
+              {translationPending && (
+                <span className="inline-flex items-center px-2 py-1 rounded-pill bg-amber-50 text-amber-800 text-xs font-bold whitespace-nowrap">
+                  {translationProcessingLabel}
                 </span>
               )}
             </div>

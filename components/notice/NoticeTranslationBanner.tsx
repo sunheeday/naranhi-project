@@ -7,10 +7,11 @@ import type { Locale } from '@/lib/i18n'
 import {
   dismissNoticeTranslationCompletionBanner,
   markNoticeTranslationBatchComplete,
-  markPendingBannerShown,
   NOTICE_TRANSLATION_BATCH_EVENT,
+  requestNoticeTranslations,
   readNoticeTranslationBatch,
   type NoticeTranslationBatch,
+  updateNoticeTranslationBatchProgress,
 } from '@/lib/notice-translation-batch'
 
 interface BannerMessages {
@@ -47,29 +48,25 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0) return
-    if (batch.phase === 'pending' && !batch.pendingBannerShownAt) {
-      markPendingBannerShown(batch)
-    }
-  }, [batch, locale])
-
   const activeKey = useMemo(() => {
-    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0) return null
-    return `${batch.locale}:${batch.phase}:${batch.createdAt}:${batch.completedAt ?? 0}`
+    if (!batch || batch.locale !== locale || batch.phase !== 'complete' || batch.noticeIds.length === 0) {
+      return null
+    }
+    return `${batch.locale}:${batch.createdAt}:${batch.completedAt ?? 0}`
   }, [batch, locale])
 
   const mode: BannerMode = useMemo(() => {
-    if (!batch || batch.locale !== locale || batch.noticeIds.length === 0 || !activeKey) {
+    if (!batch || batch.locale !== locale) {
       return null
     }
-    if (dismissedKey === activeKey) {
+    if (batch.phase === 'pending') {
+      const pendingKey = `${batch.locale}:pending:${batch.createdAt}`
+      return dismissedKey === pendingKey ? null : 'pending'
+    }
+    if (!activeKey || dismissedKey === activeKey) {
       return null
     }
-    if (batch.phase === 'complete') {
-      return batch.completionBannerDismissedAt ? null : 'complete'
-    }
-    return 'pending'
+    return batch.completionBannerDismissedAt ? null : 'complete'
   }, [activeKey, batch, dismissedKey, locale])
 
   useEffect(() => {
@@ -91,6 +88,7 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
 
     async function poll() {
       try {
+        await requestNoticeTranslations(activeBatch.pendingNoticeIds, activeBatch.locale)
         const response = await fetch('/api/notices/translation-batch-status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -102,12 +100,17 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
         })
         const body = await response.json().catch(() => null)
         if (!response.ok || cancelled || !body?.ok) return
+
+        const latest = readNoticeTranslationBatch()
+        if (latest && latest.phase === 'pending' && latest.locale === activeBatch.locale) {
+          updateNoticeTranslationBatchProgress(latest, Array.isArray(body.pendingNoticeIds) ? body.pendingNoticeIds : [])
+        }
+
         if (body.complete) {
-          const latest = readNoticeTranslationBatch()
           if (latest && latest.phase === 'pending' && latest.locale === activeBatch.locale) {
             markNoticeTranslationBatchComplete(latest)
-            router.refresh()
           }
+          router.refresh()
         }
       } catch {
         // Ignore polling hiccups and retry on next interval.
@@ -130,16 +133,29 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
 
   const actionHref = pathname === '/' ? null : '/'
   const title = mode === 'pending' ? messages.pending : messages.complete
+  const total = batch.noticeIds.length
+  const completed = Math.max(0, total - batch.pendingNoticeIds.length)
+  const progressWidth = total > 0
+    ? `${Math.max(18, Math.round((completed / total) * 100))}%`
+    : '18%'
 
   return (
     <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-50 px-4 pointer-events-none">
       <div className="mx-auto max-w-app pointer-events-auto rounded-card border border-sky-200 bg-[linear-gradient(135deg,#F5FBFF_0%,#E6F4FF_100%)] shadow-card">
         <div className="flex items-start gap-3 px-4 py-3">
           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-soft" aria-hidden="true">
-            {mode === 'pending' ? '...' : '✓'}
+            ✓
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-ink">{title}</p>
+            {mode === 'pending' ? (
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-sky-100">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#1FB6FF_0%,#2F80ED_100%)] animate-pulse"
+                  style={{ width: progressWidth }}
+                />
+              </div>
+            ) : null}
           </div>
           {mode === 'complete' && actionHref ? (
             <Link
@@ -156,6 +172,14 @@ export default function NoticeTranslationBanner({ locale, messages }: Props) {
             onClick={() => {
               if (mode === 'complete') {
                 dismissNoticeTranslationCompletionBanner(batch)
+                if (activeKey) {
+                  setDismissedKey(activeKey)
+                }
+                return
+              }
+              if (mode === 'pending') {
+                setDismissedKey(`${batch.locale}:pending:${batch.createdAt}`)
+                return
               }
               if (activeKey) {
                 setDismissedKey(activeKey)

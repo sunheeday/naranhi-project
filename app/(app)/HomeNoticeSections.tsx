@@ -1,12 +1,5 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import type { Locale } from '@/lib/i18n'
-import {
-  NOTICE_TRANSLATION_BATCH_EVENT,
-  readNoticeTranslationBatch,
-  type NoticeTranslationBatch,
-} from '@/lib/notice-translation-batch'
 import NoticeCardItem from './NoticeCardItem'
 
 interface DisplayNoticeItem {
@@ -27,57 +20,24 @@ interface DisplayNoticeItem {
   confirmCancel: string
   confirmDelete: string
   deletingLabel: string
+  translationPending: boolean
 }
 
 interface Props {
-  locale: Locale
   todoTitle: string
   newsTitle: string
+  translationProcessingLabel: string
   actionNotices: DisplayNoticeItem[]
   infoNotices: DisplayNoticeItem[]
 }
 
-function filterPendingBatchNotices(
-  notices: DisplayNoticeItem[],
-  batch: NoticeTranslationBatch | null,
-  locale: Locale,
-): DisplayNoticeItem[] {
-  if (!batch || batch.locale !== locale || batch.phase !== 'pending') {
-    return notices
-  }
-  const pendingIds = new Set(batch.noticeIds)
-  return notices.filter(notice => !pendingIds.has(notice.id))
-}
-
 export default function HomeNoticeSections({
-  locale,
   todoTitle,
   newsTitle,
+  translationProcessingLabel,
   actionNotices,
   infoNotices,
 }: Props) {
-  const [batch, setBatch] = useState<NoticeTranslationBatch | null>(null)
-
-  useEffect(() => {
-    const sync = () => setBatch(readNoticeTranslationBatch())
-    sync()
-    window.addEventListener(NOTICE_TRANSLATION_BATCH_EVENT, sync as EventListener)
-    window.addEventListener('storage', sync)
-    return () => {
-      window.removeEventListener(NOTICE_TRANSLATION_BATCH_EVENT, sync as EventListener)
-      window.removeEventListener('storage', sync)
-    }
-  }, [])
-
-  const visibleActionNotices = useMemo(
-    () => filterPendingBatchNotices(actionNotices, batch, locale),
-    [actionNotices, batch, locale],
-  )
-  const visibleInfoNotices = useMemo(
-    () => filterPendingBatchNotices(infoNotices, batch, locale),
-    [infoNotices, batch, locale],
-  )
-
   const renderNoticeItem = (notice: DisplayNoticeItem) => (
     <li key={notice.id}>
       <NoticeCardItem
@@ -98,34 +58,36 @@ export default function HomeNoticeSections({
         confirmCancel={notice.confirmCancel}
         confirmDelete={notice.confirmDelete}
         deletingLabel={notice.deletingLabel}
+        translationPending={notice.translationPending}
+        translationProcessingLabel={translationProcessingLabel}
       />
     </li>
   )
 
   return (
     <>
-      {visibleActionNotices.length > 0 && (
+      {actionNotices.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full bg-cat-action" aria-hidden="true" />
             <h2 className="text-sm font-bold text-ink">{todoTitle}</h2>
-            <span className="text-xs font-bold text-cat-action">{visibleActionNotices.length}</span>
+            <span className="text-xs font-bold text-cat-action">{actionNotices.length}</span>
           </div>
           <ul className="flex flex-col gap-3">
-            {visibleActionNotices.map(renderNoticeItem)}
+            {actionNotices.map(renderNoticeItem)}
           </ul>
         </div>
       )}
 
-      {visibleInfoNotices.length > 0 && (
+      {infoNotices.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full bg-muted-soft" aria-hidden="true" />
             <h2 className="text-sm font-bold text-ink">{newsTitle}</h2>
-            <span className="text-xs font-bold text-muted-soft">{visibleInfoNotices.length}</span>
+            <span className="text-xs font-bold text-muted-soft">{infoNotices.length}</span>
           </div>
           <ul className="flex flex-col gap-3">
-            {visibleInfoNotices.map(renderNoticeItem)}
+            {infoNotices.map(renderNoticeItem)}
           </ul>
         </div>
       )}

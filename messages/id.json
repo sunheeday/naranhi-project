@@ -33,6 +33,8 @@
     "period_suffix": "Jam ke-{period}",
     "unsupported": "Kode sekolah belum terdaftar. Silakan pilih sekolah lagi di Pengaturan.",
     "error": "Tidak dapat memuat informasi makanan.",
+    "translation_pending": "Sedang menerjemahkan menu...",
+    "translation_pending_body": "Menu Korea ditampilkan lebih dulu.",
     "timetable_error": "Tidak dapat memuat informasi kelas.",
     "timetable_unsupported": "Informasi kelas tidak dapat ditampilkan karena tingkat/kelas atau jenis sekolah tidak cocok."
   },

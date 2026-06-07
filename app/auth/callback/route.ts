@@ -53,5 +53,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  response.cookies.set('ui_preview', '', {
+    path: '/',
+    maxAge: 0,
+    sameSite: 'lax',
+  })
+
   return response
 }

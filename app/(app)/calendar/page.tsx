@@ -2,7 +2,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
-import { backfillSchedulesForChildren } from '@/lib/schedule-backfill'
+import { getChildrenForUser } from '@/lib/server-cache'
+import { backfillSchoolEventsForSchools } from '@/lib/schedule-backfill'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import {
   fetchTimetableRangeFromNeis,
@@ -93,23 +94,19 @@ export default async function CalendarPage({ searchParams }: Props) {
     if (!user) redirect('/login')
 
     try {
-      const { data: children } = await supabase
-        .from('children')
-        .select('id, school_id, school_name, grade, class_no, neis_office_code, neis_school_code')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      const children = await getChildrenForUser(user.id)
 
-      const childIds = (children ?? []).map(child => child.id)
+      const schoolIds = Array.from(new Set((children ?? []).map(child => child.school_id).filter(Boolean))) as string[]
       const child = children?.[0] ?? null
       if (child) {
         childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
       }
 
-      if (childIds.length > 0) {
+      if (schoolIds.length > 0) {
         let { data: rows, error } = await supabase
-          .from('schedules')
-          .select('id, notice_id, title, event_date, location')
-          .in('child_id', childIds)
+          .from('school_events')
+          .select('id, notice_id, title, event_date, location, description')
+          .in('school_id', schoolIds)
           .gte('event_date', from)
           .lt('event_date', to)
           .order('event_date', { ascending: true })
@@ -118,16 +115,16 @@ export default async function CalendarPage({ searchParams }: Props) {
 
         if ((rows ?? []).length === 0) {
           const serviceClient = createSupabaseServiceClient()
-          await backfillSchedulesForChildren({
+          await backfillSchoolEventsForSchools({
             serviceClient,
-            children: (children ?? []).map(item => ({ id: item.id, school_id: item.school_id ?? null })),
+            schoolIds,
             preferredLocale: locale,
           })
 
           const retry = await supabase
-            .from('schedules')
-            .select('id, notice_id, title, event_date, location')
-            .in('child_id', childIds)
+            .from('school_events')
+            .select('id, notice_id, title, event_date, location, description')
+            .in('school_id', schoolIds)
             .gte('event_date', from)
             .lt('event_date', to)
             .order('event_date', { ascending: true })
@@ -142,6 +139,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           title: row.title,
           eventDate: row.event_date,
           location: row.location,
+          description: row.description,
           cardType: 'schedule',
         }))
       }
@@ -255,6 +253,7 @@ function previewEvents(year: number, month: number): ScheduleEvent[] {
       title: '체험학습 동의서 제출',
       eventDate: `${base}-08`,
       location: '각 반 교실',
+      description: '체험학습 동의서 제출 마감일',
       cardType: 'action',
     },
     {
@@ -263,6 +262,7 @@ function previewEvents(year: number, month: number): ScheduleEvent[] {
       title: '학부모 상담주간',
       eventDate: `${base}-14`,
       location: '상담실',
+      description: '학부모 상담 일정',
       cardType: 'schedule',
     },
     {
@@ -271,6 +271,7 @@ function previewEvents(year: number, month: number): ScheduleEvent[] {
       title: '봄 소풍',
       eventDate: `${base}-21`,
       location: '서울숲',
+      description: '봄 소풍 행사일',
       cardType: 'supplies',
     },
   ]

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getHiddenNoticeIds, getLatestChildForUser, getSchoolSummary } from '@/lib/server-cache'
 import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
@@ -17,6 +18,7 @@ interface NoticeRow {
   id: string
   status: NoticeStatus
   title: string | null
+  due_date: string | null
   ai_translations: { [locale: string]: string }
   crawl_result: Json
   created_at: string
@@ -117,8 +119,7 @@ function compareNoticeRows(a: NoticeRow, b: NoticeRow): number {
 }
 
 function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
-  // 1순위: 사용자 locale로 lazy 번역돼 캐시된 번역문의 첫 줄
-  //        (사용자가 한 번이라도 그 공지에 진입했으면 캐시 적중)
+  // 1순위: 백엔드 파이프라인이 저장한 사용자 locale 번역문의 첫 줄
   const t = row.ai_translations ?? {}
   const localized = t[locale]?.trim()
   if (localized) return localized.split('\n')[0].slice(0, 40)
@@ -259,13 +260,7 @@ export default async function HomePage() {
       redirect('/login')
     }
 
-    const { data: child } = await supabase
-      .from('children')
-      .select('id, school_id, name, school_name, grade, class_no')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const child = await getLatestChildForUser(user.id)
 
     if (!child) {
       redirect('/onboarding')
@@ -273,38 +268,44 @@ export default async function HomePage() {
 
     childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`
 
-    if (child.school_id) {
-      const { data: school } = await supabase
-        .from('schools')
-        .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
-        .eq('id', child.school_id)
-        .maybeSingle()
-      schoolCrawlerState = school
-    }
+    const schoolPromise = child.school_id
+      ? getSchoolSummary(child.school_id)
+      : Promise.resolve(null)
 
-    const { data: hiddenRows } = await supabase
-      .from('notice_hides')
-      .select('notice_id')
-      .eq('user_id', user.id)
-    const hiddenIds = new Set((hiddenRows ?? []).map(row => row.notice_id))
+    const hiddenRowsPromise = getHiddenNoticeIds(user.id)
 
-    const { data: schoolRows } = child.school_id
-      ? await supabase
+    const schoolRowsPromise = child.school_id
+      ? supabase
           .from('notices')
-          .select('id, status, title, crawl_result, created_at')
+          .select('id, status, title, due_date, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('status', 'done')
           .order('created_at', { ascending: false })
           .limit(50)
-      : { data: [] }
+      : Promise.resolve({ data: [] })
 
-    const { count: schoolProcessingCount } = child.school_id
-      ? await supabase
+    const schoolProcessingCountPromise = child.school_id
+      ? supabase
           .from('notices')
           .select('id', { count: 'exact', head: true })
           .eq('school_id', child.school_id)
           .in('status', ['pending', 'processing'])
-      : { count: 0 }
+      : Promise.resolve({ count: 0 })
+
+    const [
+      school,
+      hiddenNoticeIds,
+      { data: schoolRows },
+      { count: schoolProcessingCount },
+    ] = await Promise.all([
+      schoolPromise,
+      hiddenRowsPromise,
+      schoolRowsPromise,
+      schoolProcessingCountPromise,
+    ]) 
+
+    schoolCrawlerState = school
+    const hiddenIds = new Set(hiddenNoticeIds)
 
     hasProcessingNotices = Boolean(schoolProcessingCount ?? 0)
 
@@ -318,11 +319,45 @@ export default async function HomePage() {
 
     if (rows && rows.length > 0) {
       const noticeIds = rows.map(r => r.id)
-      const { data: translations } = await supabase
+      const translationsPromise = supabase
         .from('notice_ai_translations')
         .select('notice_id, target_language, translated_text')
         .in('notice_id', noticeIds)
         .in('target_language', [locale, 'ko'])
+
+      const cardsPromise = supabase
+        .from('notice_cards')
+        .select('notice_id, type')
+        .in('notice_id', noticeIds)
+
+      // 공지별 D-day용 날짜: 연결된 학교 일정(school_events) 중 오늘 이후 가장 가까운 event_date.
+      // event_date가 없으면 칩은 표시하지 않는다(안전).
+      const todayIso = todayKstIso()
+      const dueByNotice: Record<string, string> = {}
+      for (const row of rows) {
+        if (row.due_date && /^\d{4}-\d{2}-\d{2}$/.test(row.due_date)) {
+          dueByNotice[row.id] = row.due_date
+        }
+      }
+      const schoolEventsPromise = child.school_id
+        ? supabase
+            .from('school_events')
+            .select('notice_id, event_date')
+            .eq('school_id', child.school_id)
+            .in('notice_id', noticeIds)
+            .gte('event_date', todayIso)
+            .order('event_date', { ascending: true })
+        : Promise.resolve({ data: [] })
+
+      const [
+        { data: translations },
+        { data: cards },
+        { data: schoolEventRows },
+      ] = await Promise.all([
+        translationsPromise,
+        cardsPromise,
+        schoolEventsPromise,
+      ])
 
       const translationsByNotice: Record<string, { [locale: string]: string }> = {}
       for (const t of translations ?? []) {
@@ -331,32 +366,14 @@ export default async function HomePage() {
         }
       }
 
-      const { data: cards } = await supabase
-        .from('notice_cards')
-        .select('notice_id, type')
-        .in('notice_id', noticeIds)
-
       const cardsByNotice: Record<string, { type: string }[]> = {}
       for (const c of cards ?? []) {
         ;(cardsByNotice[c.notice_id] ??= []).push({ type: c.type })
       }
 
-      // 공지별 D-day용 날짜: 연결된 일정(schedules) 중 오늘 이후 가장 가까운 event_date.
-      // event_date가 없으면 칩은 표시하지 않는다(안전).
-      const todayIso = todayKstIso()
-      const dueByNotice: Record<string, string> = {}
-      if (child.id) {
-        const { data: scheduleRows } = await supabase
-          .from('schedules')
-          .select('notice_id, event_date')
-          .eq('child_id', child.id)
-          .in('notice_id', noticeIds)
-          .gte('event_date', todayIso)
-          .order('event_date', { ascending: true })
-        for (const s of scheduleRows ?? []) {
-          if (s.notice_id && s.event_date && !dueByNotice[s.notice_id]) {
-            dueByNotice[s.notice_id] = s.event_date
-          }
+      for (const s of schoolEventRows ?? []) {
+        if (s.notice_id && s.event_date && !dueByNotice[s.notice_id]) {
+          dueByNotice[s.notice_id] = s.event_date
         }
       }
 
@@ -407,12 +424,16 @@ export default async function HomePage() {
       confirmCancel: messages.common.cancel ?? '취소',
       confirmDelete: messages.home.delete ?? '삭제',
       deletingLabel: messages.home.deleting ?? '삭제 중...',
+      translationPending: notice.needsTranslation,
     }
   }
 
   return (
     <main className="flex flex-col min-h-screen pb-24">
-      <HomePoller active={isPreparingSchoolNotices} />
+      <HomePoller
+        active={isPreparingSchoolNotices}
+        loadingLabel={messages.common.loading ?? 'Loading...'}
+      />
       <HomeNoticeTranslationKickoff
         locale={locale}
         noticeIds={notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
@@ -455,9 +476,9 @@ export default async function HomePage() {
             ) : null}
 
             <HomeNoticeSections
-              locale={locale}
               todoTitle={todoTitle}
               newsTitle={newsTitle}
+              translationProcessingLabel={messages.home.status_processing ?? '처리 중'}
               actionNotices={actionNotices.map(mapNoticeForClient)}
               infoNotices={infoNotices.map(mapNoticeForClient)}
             />

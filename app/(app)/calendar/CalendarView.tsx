@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import CharacterEmptyState from '@/components/brand/CharacterEmptyState'
+import { buildGoogleCalendarEventUrl } from '@/lib/google-calendar'
 
 export interface ScheduleEvent {
   id: string
@@ -10,6 +11,7 @@ export interface ScheduleEvent {
   title: string
   eventDate: string  // YYYY-MM-DD
   location: string | null
+  description?: string | null
   cardType: 'supplies' | 'action' | 'schedule'
 }
 
@@ -231,21 +233,42 @@ export default function CalendarView({
 }
 
 function EventCard({ event, onPress }: { event: ScheduleEvent; onPress?: () => void }) {
+  const googleCalendarUrl = buildGoogleCalendarEventUrl({
+    title: event.title,
+    isoDate: event.eventDate,
+    details: event.description ?? null,
+    location: event.location,
+  })
+
   return (
-    <Link
-      href={`/notices/${event.noticeId}`}
-      onClick={onPress}
-      className="flex items-center gap-3 bg-bg rounded-card p-3 active:scale-[0.98] transition-transform"
-    >
-      <span className={`w-3 h-3 rounded-full flex-shrink-0 ${BADGE_DOT[event.cardType]}`} aria-hidden="true" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-text-primary truncate">{event.title}</p>
-        <p className="text-xs text-text-secondary mt-0.5">
-          {event.eventDate.slice(5).replace('-', '/')}
-          {event.location ? ` · ${event.location}` : ''}
-        </p>
+    <div className="bg-bg rounded-card p-3">
+      <div className="flex items-center gap-3">
+        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${BADGE_DOT[event.cardType]}`} aria-hidden="true" />
+        <Link
+          href={`/notices/${event.noticeId}`}
+          onClick={onPress}
+          className="flex flex-1 min-w-0 items-center gap-3 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-text-primary truncate">{event.title}</p>
+            <p className="text-xs text-text-secondary mt-0.5">
+              {event.eventDate.slice(5).replace('-', '/')}
+              {event.location ? ` · ${event.location}` : ''}
+            </p>
+          </div>
+          <span className="text-text-disabled text-sm" aria-hidden="true">›</span>
+        </Link>
       </div>
-      <span className="text-text-disabled text-sm" aria-hidden="true">›</span>
-    </Link>
+      <div className="mt-3 flex justify-end">
+        <a
+          href={googleCalendarUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-9 items-center rounded-btn border border-border px-3 text-xs font-semibold text-text-secondary active:scale-[0.98] transition-transform"
+        >
+          Google Calendar
+        </a>
+      </div>
+    </div>
   )
 }

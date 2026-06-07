@@ -44,6 +44,8 @@ export interface CardLabels {
   supplies: string
   action: string
   schedule: string
+  defaultTitle: string
+  swipeHint: string
 }
 
 interface Props {
@@ -147,7 +149,7 @@ export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
             <button
               key={i}
               onClick={() => emblaApi?.scrollTo(i)}
-              aria-label={`${i + 1}번 카드로 이동`}
+              aria-label={`${labels.swipeHint} ${i + 1}/${total}`}
               className="flex-1 h-1.5 rounded-full overflow-hidden bg-hairline"
             >
               <span
@@ -276,7 +278,7 @@ function CardContent({
     card.type === 'action' || card.type === 'schedule' || card.type === 'supplies'
   const badgeLabel = isStructured
     ? labelFor(card.type as CardType, labels)
-    : card.title ?? '가정통신문'
+    : card.title ?? labels.defaultTitle
 
   return (
     <>
@@ -299,7 +301,7 @@ function CardContent({
       {/* 넘기기 안내 (마지막 카드 제외) */}
       {!isLast && (
         <p className="mt-1 text-xs text-muted-soft flex items-center gap-1">
-          <span>옆으로 넘겨 보세요</span>
+          <span>{labels.swipeHint}</span>
           <span aria-hidden="true" className="rtl-flip">→</span>
         </p>
       )}
@@ -341,7 +343,7 @@ function parseSummary(text: string): { title: string; points: { label: string; v
 function IntroBody({ card }: { card: NoticeCard }) {
   const { title, points } = parseSummary(card.summary ?? '')
   if (!title && points.length === 0) {
-    return <p className="text-sm text-muted-soft">요약 정보가 없어요.</p>
+    return null
   }
   // 제목 강조 + 항목(label 볼드 : value) — 줄글이 아니라 구조화로 읽기 편하게, 키워드만 볼드.
   return (
@@ -371,7 +373,7 @@ function IntroBody({ card }: { card: NoticeCard }) {
 function CategoryBody({ card, theme }: { card: NoticeCard; theme: CardTheme }) {
   const items = card.items ?? []
   if (items.length === 0) {
-    return <p className="text-sm text-muted-soft">표시할 항목이 없어요.</p>
+    return null
   }
   return (
     <ul className="w-full max-w-[24rem] flex flex-col gap-3">
@@ -418,10 +420,10 @@ function SourceBody({ card }: { card: NoticeCard }) {
 /** 원본 파일 카드: 우리 Storage 사본을 미리보기(새 창)·다운로드. */
 function FileBody({ card }: { card: NoticeCard }) {
   const files = card.files ?? []
-  const previewLabel = card.fileLabels?.preview ?? 'Preview'
-  const downloadLabel = card.fileLabels?.download ?? 'Download'
+  const previewLabel = card.fileLabels?.preview ?? ''
+  const downloadLabel = card.fileLabels?.download ?? ''
   if (files.length === 0) {
-    return <p className="text-sm text-muted-soft">첨부된 원본 파일이 없어요.</p>
+    return null
   }
   return (
     <ul className="w-full max-w-[24rem] flex flex-col gap-3">

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -8,18 +9,6 @@ import {
 
 interface RouteContext {
   params: Promise<{ schoolId: string }>
-}
-
-interface SchoolStateRow {
-  id: string
-  crawl_status: string | null
-  crawl_board_url: string | null
-  crawl_last_checked_at: string | null
-}
-
-interface ChildSchoolLookupRow {
-  id: string
-  schools: SchoolStateRow | SchoolStateRow[] | null
 }
 
 export async function POST(_request: Request, context: RouteContext) {
@@ -36,15 +25,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
   const { data: lookupRow, error: lookupError } = await supabase
     .from('children')
-    .select(`
-      id,
-      schools!inner (
-        id,
-        crawl_status,
-        crawl_board_url,
-        crawl_last_checked_at
-      )
-    `)
+    .select('id')
     .eq('user_id', user.id)
     .eq('school_id', schoolId)
     .limit(1)
@@ -58,12 +39,18 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'school_not_allowed' }, { status: 403 })
   }
 
-  const childWithSchool = lookupRow as unknown as ChildSchoolLookupRow
-  const school = Array.isArray(childWithSchool.schools)
-    ? childWithSchool.schools[0]
-    : childWithSchool.schools
-  if (!school) {
-    return NextResponse.json({ ok: false, error: 'school_not_found' }, { status: 404 })
+  const serviceClient = createSupabaseServiceClient()
+  let school = null
+  try {
+    school = await getSchoolCrawlerState(serviceClient, schoolId)
+  } catch {
+    return NextResponse.json({ ok: false, error: 'school_state_lookup_failed' }, { status: 500 })
+  }
+  const schoolState = school ?? {
+    id: schoolId,
+    crawl_status: 'pending',
+    crawl_board_url: null,
+    crawl_last_checked_at: null,
   }
 
   const { count: pendingNoticeCount, error: pendingCountError } = await supabase
@@ -78,7 +65,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
   const pendingCount = pendingNoticeCount ?? 0
 
-  if (!schoolNeedsInitialCrawl(school)) {
+  if (!schoolNeedsInitialCrawl(schoolState)) {
     const extractionQueued = pendingCount > 0
       ? await triggerPendingSchoolExtraction(schoolId, Math.min(pendingCount, 20))
       : false

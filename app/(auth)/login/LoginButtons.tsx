@@ -42,14 +42,21 @@ export default function LoginButtons({
 }: Props) {
   const [loading, setLoading] = useState<'google' | 'dev' | null>(null)
   const [error, setError] = useState<string | null>(initialError)
+  const [devEmail, setDevEmail] = useState('')
+  const [devName, setDevName] = useState('')
   const [inApp] = useState<InAppBrowserDetection | null>(() => {
     const detection = detectInAppBrowser()
     return detection.isInApp ? detection : null
   })
   const [copied, setCopied] = useState(false)
 
+  function clearPreviewCookie() {
+    document.cookie = 'ui_preview=; Path=/; Max-Age=0; SameSite=Lax'
+  }
+
   async function handleGoogle() {
     if (!googleLoginEnabled) return
+    clearPreviewCookie()
     // 인앱 브라우저에서 Google OAuth는 403 disallowed_useragent로 막히므로,
     // 외부 브라우저 전환이 가능하면 그쪽으로 리다이렉트한 뒤 사용자에게 재시도를 맡긴다.
     if (inApp?.canOpenExternal) {
@@ -81,11 +88,16 @@ export default function LoginButtons({
   async function handleDevLogin() {
     setLoading('dev')
     setError(null)
-    const safeNext = safeNextPath(nextPath)
+    const safeNext = safeNextPath(nextPath) === '/' ? '/onboarding' : safeNextPath(nextPath)
     const response = await fetch('/api/auth/dev-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ next: safeNext }),
+      body: JSON.stringify({
+        next: safeNext,
+        profileEmail: devEmail,
+        displayName: devName,
+        resetOnboarding: true,
+      }),
     })
     const body = await response.json().catch(() => null)
     setLoading(null)
@@ -143,15 +155,39 @@ export default function LoginButtons({
       </Link>
 
       {devLoginEnabled && (
-        <button
-          type="button"
-          onClick={handleDevLogin}
-          disabled={isLoading}
-          aria-busy={loading === 'dev'}
-          className="flex items-center justify-center w-full h-[52px] rounded-btn bg-surface-card border border-hairline-soft text-ink text-base font-semibold active:bg-hairline disabled:opacity-60 transition-colors"
-        >
-          {loading === 'dev' ? '로그인 중...' : '개발용 로그인'}
-        </button>
+        <div className="rounded-card border border-hairline bg-surface-card p-4">
+          <p className="text-sm font-semibold text-ink">개발용 온보딩 시작</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            Google 정보 대신 이메일과 이름을 직접 넣고, 학교/아이 정보 온보딩부터 다시 시작합니다.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            <input
+              type="email"
+              value={devEmail}
+              onChange={event => setDevEmail(event.target.value)}
+              placeholder="이메일 (선택)"
+              className="h-11 rounded-btn border border-hairline-soft bg-white px-3 text-sm text-ink outline-none placeholder:text-muted"
+              disabled={isLoading}
+            />
+            <input
+              type="text"
+              value={devName}
+              onChange={event => setDevName(event.target.value)}
+              placeholder="보호자 이름 (선택)"
+              className="h-11 rounded-btn border border-hairline-soft bg-white px-3 text-sm text-ink outline-none placeholder:text-muted"
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              onClick={handleDevLogin}
+              disabled={isLoading}
+              aria-busy={loading === 'dev'}
+              className="flex items-center justify-center w-full h-[52px] rounded-btn bg-surface-card border border-hairline-soft text-ink text-base font-semibold active:bg-hairline disabled:opacity-60 transition-colors"
+            >
+              {loading === 'dev' ? '온보딩 준비 중...' : '개발용 로그인 후 온보딩 시작'}
+            </button>
+          </div>
+        </div>
       )}
 
       {error && (

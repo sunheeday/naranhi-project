@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 interface Props {
   /**
@@ -9,6 +10,7 @@ interface Props {
    * true일 때만 5초 간격으로 `router.refresh()`를 수행한다.
    */
   active: boolean
+  loadingLabel: string
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * 준비/처리 상태가 끝나면 부모 서버 컴포넌트가 `active=false`로 재렌더되므로
  * 폴링이 자연스럽게 멈춘다.
  */
-export default function HomePoller({ active }: Props) {
+export default function HomePoller({ active, loadingLabel }: Props) {
   const router = useRouter()
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -31,5 +33,13 @@ export default function HomePoller({ active }: Props) {
     }
   }, [active, router])
 
-  return null
+  if (!active) return null
+
+  return (
+    <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+      <div className="rounded-full bg-white/88 p-4 shadow-card backdrop-blur-[2px]">
+        <LoadingSpinner size="lg" label={loadingLabel} />
+      </div>
+    </div>
+  )
 }

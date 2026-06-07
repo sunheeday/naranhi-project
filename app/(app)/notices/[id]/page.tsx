@@ -29,7 +29,7 @@ function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
   const obj = asObject(content)
   if (!obj) return null
   const rawItems = Array.isArray(obj.items) ? obj.items : []
-  const items = rawItems
+  let items = rawItems
     .map(item => {
       if (typeof item === 'string') {
         const text = asText(item)
@@ -43,6 +43,17 @@ function mapCommonCard(type: CardType, content: unknown): NoticeCard | null {
       return hint ? { text, hint } : { text }
     })
     .filter((item): item is { text: string; hint?: string } => Boolean(item))
+  if (items.length === 0 && type === 'schedule') {
+    const date = asText(obj.date)
+    const location = asText(obj.location)
+    const description = asText(obj.description)
+    const legacyItems = [
+      date ? { text: date } : null,
+      location ? { text: location } : null,
+      description ? { text: description } : null,
+    ].filter((item): item is { text: string } => Boolean(item))
+    items = legacyItems
+  }
   if (items.length === 0) return null
   return {
     type,
@@ -167,9 +178,9 @@ export default async function NoticePage({ params }: Props) {
         <main className="flex flex-col min-h-screen">
           {Header}
           <NoticeProcessingView
-            noticeId={id}
             title={messages.notice_detail.processing_title}
             description={messages.notice_detail.processing_desc}
+            progressLabel={messages.common.loading}
           />
         </main>
       )
@@ -185,6 +196,8 @@ export default async function NoticePage({ params }: Props) {
               supplies: messages.notice_detail.supplies_badge,
               action: messages.notice_detail.action_badge,
               schedule: messages.notice_detail.schedule_badge,
+              defaultTitle: messages.notice_detail.intro_title,
+              swipeHint: messages.notice_detail.swipe_hint,
             }}
           />
         </main>
@@ -202,9 +215,9 @@ export default async function NoticePage({ params }: Props) {
       <main className="flex flex-col min-h-screen">
         {Header}
         <NoticeProcessingView
-          noticeId={id}
           title={messages.notice_detail.processing_title}
           description={messages.notice_detail.processing_desc}
+          progressLabel={messages.common.loading}
         />
       </main>
     )
@@ -221,6 +234,7 @@ export default async function NoticePage({ params }: Props) {
           errorMessage={detail.errorMessage}
           retryLabel={messages.notice_detail.retry}
           retryingLabel={messages.notice_detail.retrying}
+          retryFailedLabel={messages.common.error_generic}
         />
       </main>
     )
@@ -289,8 +303,31 @@ export default async function NoticePage({ params }: Props) {
   return (
     <main className="flex flex-col min-h-screen">
       {Header}
-      {!detail.hasLocaleTranslation ? (
-        <NoticeLocaleTranslationKickoff noticeId={id} locale={locale} />
+      {locale !== 'ko' ? (
+        <NoticeLocaleTranslationKickoff
+          noticeId={id}
+          locale={locale}
+          hasLocaleTranslation={detail.hasLocaleTranslation}
+        />
+      ) : null}
+      {!detail.hasLocaleTranslation && locale !== 'ko' ? (
+        <div className="px-4 pt-4">
+          <div className="mx-auto max-w-app rounded-card border border-sky-200 bg-[linear-gradient(135deg,#F8FCFF_0%,#EEF7FF_100%)] px-4 py-4 shadow-soft">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-ink">
+                  {messages.home.translation_pending_banner}
+                </p>
+                <span className="shrink-0 text-xs font-bold text-primary">
+                  {messages.common.loading}
+                </span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-sky-100">
+                <div className="h-full w-[58%] rounded-full bg-[linear-gradient(90deg,#1FB6FF_0%,#2F80ED_100%)] animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
       <NoticeCardSwiper
         noticeId={id}
@@ -299,6 +336,8 @@ export default async function NoticePage({ params }: Props) {
           supplies: messages.notice_detail.supplies_badge,
           action: messages.notice_detail.action_badge,
           schedule: messages.notice_detail.schedule_badge,
+          defaultTitle: messages.notice_detail.intro_title,
+          swipeHint: messages.notice_detail.swipe_hint,
         }}
       />
     </main>

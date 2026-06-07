@@ -5,28 +5,13 @@ import { useRouter } from 'next/navigation'
 import CharacterImage from '@/components/brand/CharacterImage'
 
 interface Props {
-  noticeId: string
   title: string
   description: string
+  progressLabel: string
 }
 
-export default function NoticeProcessingView({ noticeId, title, description }: Props) {
+export default function NoticeProcessingView({ title, description, progressLabel }: Props) {
   const router = useRouter()
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch(`/api/notices/${noticeId}/process`, {
-      method: 'POST',
-      signal: controller.signal,
-    })
-      .then(() => router.refresh())
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          router.refresh()
-        }
-      })
-    return () => controller.abort()
-  }, [noticeId, router])
 
   // 5초마다 페이지 refresh로 상태 재확인
   useEffect(() => {
@@ -40,9 +25,12 @@ export default function NoticeProcessingView({ noticeId, title, description }: P
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 gap-6">
       <div className="flex flex-col items-center gap-4">
         <CharacterImage character="standingPaper" size={120} disc />
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" aria-label="processing" />
         <h1 className="text-lg font-bold text-text-primary text-center">{title}</h1>
         <p className="text-sm text-text-secondary text-center">{description}</p>
+        <div className="w-full max-w-sm rounded-full bg-border/80 p-1 shadow-soft" aria-label={progressLabel}>
+          <div className="h-3 w-[62%] rounded-full bg-[linear-gradient(90deg,#1FB6FF_0%,#2F80ED_100%)] animate-pulse" />
+        </div>
+        <p className="text-sm font-semibold text-primary">{progressLabel}</p>
       </div>
 
       {/* 카드 스켈레톤 */}

@@ -1,26 +1,20 @@
-export default function HomeLoading() {
-  return (
-    <main className="flex flex-col min-h-screen pb-20">
-      <header className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between z-10">
-        <div className="flex flex-col gap-1.5">
-          <div className="h-5 w-16 bg-border rounded animate-pulse" />
-          <div className="h-4 w-32 bg-border rounded animate-pulse" />
-        </div>
-        <div className="w-6 h-6 bg-border rounded animate-pulse" />
-      </header>
+import { cookies } from 'next/headers'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { defaultLocale, isValidLocale, type Locale } from '@/lib/i18n'
 
-      <section className="px-6 pt-6">
-        <div className="h-4 w-20 bg-border rounded animate-pulse mb-4" />
-        <ul className="flex flex-col gap-4">
-          {[0, 1, 2].map(i => (
-            <li key={i} className="bg-surface rounded-card shadow-card p-4">
-              <div className="h-5 w-20 bg-border rounded-pill animate-pulse mb-3" />
-              <div className="h-5 w-3/4 bg-border rounded animate-pulse mb-2" />
-              <div className="h-3 w-16 bg-border rounded animate-pulse" />
-            </li>
-          ))}
-        </ul>
-      </section>
+export default async function HomeLoading() {
+  const cookieStore = await cookies()
+  const cookieLocale = cookieStore.get('locale')?.value
+  const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
+  const messages = (await import(`@/messages/${locale}.json`)).default
+  const loading = messages.common.loading ?? 'Loading...'
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-6 pb-20">
+      <div className="flex flex-col items-center gap-4 rounded-[28px] bg-white/92 px-8 py-7 shadow-card backdrop-blur-[2px]">
+        <LoadingSpinner size="lg" label={loading} />
+        <p className="text-sm font-semibold text-muted-soft">{loading}</p>
+      </div>
     </main>
   )
 }

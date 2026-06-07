@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -44,7 +45,7 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
 
   const { data: existingSchool, error: schoolLookupError } = await serviceClient
     .from('schools')
-    .select('id,crawl_status,crawl_board_url,crawl_last_checked_at,homepage_url')
+    .select('id,homepage_url')
     .eq('neis_office_code', officeCode)
     .eq('neis_school_code', schoolCode)
     .maybeSingle()
@@ -54,22 +55,22 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
   }
 
   let school: SchoolCrawlerState | null = existingSchool
-  let shouldTriggerCrawl = existingSchool ? schoolNeedsInitialCrawl(existingSchool) : false
+    ? await getSchoolCrawlerState(serviceClient, existingSchool.id)
+    : null
+  let shouldTriggerCrawl = school ? schoolNeedsInitialCrawl(school) : false
 
   if (existingSchool && homepageUrl && !existingSchool.homepage_url) {
-    const { data: updatedSchool, error: homepageUpdateError } = await serviceClient
+    const { error: homepageUpdateError } = await serviceClient
       .from('schools')
       .update({ homepage_url: homepageUrl })
       .eq('id', existingSchool.id)
-      .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
-      .single()
 
     if (homepageUpdateError) {
       throw new Error('학교 홈페이지 저장 실패: ' + homepageUpdateError.message)
     }
 
-    school = updatedSchool
-    shouldTriggerCrawl = schoolNeedsInitialCrawl(updatedSchool)
+    school = await ensureSchoolCrawlerState(serviceClient, existingSchool.id)
+    shouldTriggerCrawl = schoolNeedsInitialCrawl(school)
   }
 
   if (!school) {
@@ -82,14 +83,14 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
         address: input.schoolAddress?.trim() || null,
         homepage_url: homepageUrl,
       })
-      .select('id,crawl_status,crawl_board_url,crawl_last_checked_at')
+      .select('id')
       .single()
 
     if (schoolInsertError) {
       if (_isUniqueViolation(schoolInsertError)) {
         const { data: fallbackSchool, error: fallbackError } = await serviceClient
           .from('schools')
-          .select('id,crawl_status,crawl_board_url,crawl_last_checked_at,homepage_url')
+          .select('id,homepage_url')
           .eq('neis_office_code', officeCode)
           .eq('neis_school_code', schoolCode)
           .single()
@@ -97,8 +98,8 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
         if (fallbackError || !fallbackSchool) {
           throw new Error('학교 정보 재조회 실패: ' + fallbackError?.message)
         }
-        school = fallbackSchool
-        shouldTriggerCrawl = schoolNeedsInitialCrawl(fallbackSchool)
+        school = await ensureSchoolCrawlerState(serviceClient, fallbackSchool.id)
+        shouldTriggerCrawl = schoolNeedsInitialCrawl(school)
         if (homepageUrl && !fallbackSchool.homepage_url) {
           const { error: homepageUpdateError } = await serviceClient
             .from('schools')
@@ -113,7 +114,7 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
         throw new Error('학교 정보 저장 실패: ' + schoolInsertError.message)
       }
     } else if (insertedSchool) {
-      school = insertedSchool
+      school = await ensureSchoolCrawlerState(serviceClient, insertedSchool.id)
       shouldTriggerCrawl = true
     }
   }
@@ -127,9 +128,6 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
     .from('children')
     .update({
       school_id: school.id,
-      school_name: schoolName,
-      neis_office_code: officeCode,
-      neis_school_code: schoolCode,
       grade,
       class_no: classNo,
     })
