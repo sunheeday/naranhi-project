@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import {
@@ -146,13 +145,6 @@ export default function LoginButtons({
           {loading === 'google' ? messages.connecting : messages.google}
         </button>
       )}
-
-      <Link
-        href="/demo"
-        className="flex items-center justify-center w-full h-[52px] rounded-btn bg-surface-card border border-hairline-soft text-ink text-base font-semibold active:bg-hairline transition-colors"
-      >
-        로그인 없이 체험하기
-      </Link>
 
       {devLoginEnabled && (
         <div className="rounded-card border border-hairline bg-surface-card p-4">
