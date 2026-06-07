@@ -160,6 +160,8 @@
   },
   "camera": {
     "nav_title": "Camera",
+    "ocr_tab": "OCR",
+    "message_tab": "Message translation",
     "eyebrow": "Notice capture",
     "title": "Upload a photo of a HiClass teacher notice or KakaoTalk notice",
     "subtitle": "Take a photo of a notice or choose a captured image, and we will translate it for you.",
@@ -181,7 +183,17 @@
     "success": "OCR and translation are ready.",
     "extracted_title": "Extracted text",
     "translated_title": "Translation",
-    "unreadable_warning": "The photo was not readable enough. Please retake it brighter and sharper."
+    "unreadable_warning": "The photo was not readable enough. Please retake it brighter and sharper.",
+    "swipe_hint": "We can read and translate the notice you captured with OCR.",
+    "message_card_title": "Translate a message for your teacher",
+    "message_card_body": "Type what you want to send, and we will turn it into natural Korean for you.",
+    "message_placeholder": "Type the message you want to send.",
+    "message_translate": "Translate to Korean",
+    "message_translating": "Translating to Korean...",
+    "message_translated_title": "Message translated into Korean",
+    "message_copy": "Copy",
+    "message_copied": "Copied",
+    "message_error": "Message translation failed. Please try again later."
   },
   "settings": {
     "title": "Settings",

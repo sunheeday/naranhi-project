@@ -160,6 +160,8 @@
   },
   "camera": {
     "nav_title": "촬영",
+    "ocr_tab": "OCR",
+    "message_tab": "메시지 번역",
     "eyebrow": "가정통신문 촬영",
     "title": "하이클래스 담임선생님 공지, 카카오톡 공지를 사진으로 넣어주세요",
     "subtitle": "안내문을 촬영하거나 캡처된 이미지로 선택하면, 번역해드릴게요.",
@@ -181,7 +183,17 @@
     "success": "OCR과 번역이 완료됐어요.",
     "extracted_title": "추출된 원문",
     "translated_title": "번역 결과",
-    "unreadable_warning": "사진의 글자를 충분히 읽지 못했어요. 더 밝고 선명하게 다시 촬영해 주세요."
+    "unreadable_warning": "사진의 글자를 충분히 읽지 못했어요. 더 밝고 선명하게 다시 촬영해 주세요.",
+    "swipe_hint": "촬영한 안내문을 OCR로 읽고 번역해 드려요.",
+    "message_card_title": "선생님께 보낼 말 자동 번역",
+    "message_card_body": "학부모가 보내고 싶은 문장을 입력하면 한국어로 자연스럽게 번역해 드려요.",
+    "message_placeholder": "보내고 싶은 문장을 입력해 주세요.",
+    "message_translate": "한국어로 번역",
+    "message_translating": "한국어로 번역 중...",
+    "message_translated_title": "한국어로 번역된 문장",
+    "message_copy": "복사",
+    "message_copied": "복사됨",
+    "message_error": "메시지 번역에 실패했어요. 잠시 후 다시 시도해주세요."
   },
   "settings": {
     "title": "설정",

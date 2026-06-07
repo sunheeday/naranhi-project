@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import {
-  getDemoMealSourceCodes,
+  ensureDemoSchoolSeed,
+  getSeededDemoMealsForRange,
   isDemoSchoolSelection,
 } from '@/lib/demo-school'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
@@ -95,31 +96,31 @@ export default async function MealsPage({ searchParams }: Props) {
     })
     if (isDemoSchool) {
       const serviceClient = await createSupabaseServiceClient()
-      const mealSource = await getDemoMealSourceCodes(serviceClient)
-      if (!mealSource) {
-        dayEntries = await previewMealEntries(monday, locale)
-      } else {
-        try {
-          const map = await getCachedOrFetchMealsForRange(
-            serviceClient,
-            mealSource.officeCode,
-            mealSource.schoolCode,
-            monday,
-            friday,
-          )
-          const days: DayEntry[] = []
-          let hasAnyMeals = false
-          for (let i = 0; i < 5; i++) {
-            const iso = addDaysIso(monday, i)
-            const meals = map.get(iso) ?? []
-            if (meals.length > 0) hasAnyMeals = true
-            days.push({ isoDate: iso, meals })
-          }
-          dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
-        } catch (e) {
-          console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
-          dayEntries = await previewMealEntries(monday, locale)
+      try {
+        if (child.school_id) {
+          await ensureDemoSchoolSeed(serviceClient, child.school_id)
         }
+        const map = await getSeededDemoMealsForRange(serviceClient, monday, friday)
+        const days: DayEntry[] = []
+        let hasAnyMeals = false
+        for (let i = 0; i < 5; i++) {
+          const iso = addDaysIso(monday, i)
+          const rows = map.get(iso) ?? []
+          const meals = rows.map(row => ({
+            mealType: row.meal_type,
+            mealTypeName: row.meal_type_name,
+            dishes: Array.isArray(row.dishes) ? (row.dishes as unknown as Meal['dishes']) : [],
+            calories: row.calories,
+            nutrients: Array.isArray(row.nutrients) ? (row.nutrients as Meal['nutrients']) : null,
+            origins: Array.isArray(row.origins) ? (row.origins as Meal['origins']) : null,
+          }))
+          if (meals.length > 0) hasAnyMeals = true
+          days.push({ isoDate: iso, meals })
+        }
+        dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
+      } catch (e) {
+        console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
+        dayEntries = await previewMealEntries(monday, locale)
       }
     } else if (!child.neis_office_code || !child.neis_school_code) {
       unsupported = true

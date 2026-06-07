@@ -8,6 +8,8 @@ import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import CameraUploadForm, { type CameraUploadLabels } from './CameraUploadForm'
 
 const cameraFallback: CameraUploadLabels = {
+  ocrTab: 'OCR',
+  messageTab: '메시지 번역',
   eyebrow: '가정통신문 촬영',
   title: '하이클래스 담임선생님 공지, 카카오톡 공지를 사진으로 넣어주세요',
   subtitle: '안내문을 촬영하거나 캡처된 이미지로 선택하면, 번역해드릴게요.',
@@ -30,11 +32,23 @@ const cameraFallback: CameraUploadLabels = {
   extractedTitle: '추출된 원문',
   translatedTitle: '번역 결과',
   unreadableWarning: '사진의 글자를 충분히 읽지 못했어요. 더 밝고 선명하게 다시 촬영해 주세요.',
+  swipeHint: '옆으로 넘겨서 다른 카드를 확인해 보세요.',
+  messageCardTitle: '선생님께 보낼 말 자동 번역',
+  messageCardBody: '학부모가 보내고 싶은 문장을 입력하면 한국어로 자연스럽게 번역해 드려요.',
+  messagePlaceholder: '보내고 싶은 문장을 입력해 주세요.',
+  messageTranslate: '한국어로 번역',
+  messageTranslating: '한국어로 번역 중...',
+  messageTranslatedTitle: '한국어로 번역된 문장',
+  messageCopy: '복사',
+  messageCopied: '복사됨',
+  messageError: '메시지 번역에 실패했어요. 잠시 후 다시 시도해주세요.',
 }
 
 function labelsFor(messages: any): CameraUploadLabels {
   const camera = messages.camera ?? {}
   return {
+    ocrTab: camera.ocr_tab ?? cameraFallback.ocrTab,
+    messageTab: camera.message_tab ?? cameraFallback.messageTab,
     eyebrow: camera.eyebrow ?? cameraFallback.eyebrow,
     title: camera.title ?? cameraFallback.title,
     subtitle: camera.subtitle ?? cameraFallback.subtitle,
@@ -53,6 +67,16 @@ function labelsFor(messages: any): CameraUploadLabels {
     extractedTitle: camera.extracted_title ?? cameraFallback.extractedTitle,
     translatedTitle: camera.translated_title ?? cameraFallback.translatedTitle,
     unreadableWarning: camera.unreadable_warning ?? cameraFallback.unreadableWarning,
+    swipeHint: camera.swipe_hint ?? cameraFallback.swipeHint,
+    messageCardTitle: camera.message_card_title ?? cameraFallback.messageCardTitle,
+    messageCardBody: camera.message_card_body ?? cameraFallback.messageCardBody,
+    messagePlaceholder: camera.message_placeholder ?? cameraFallback.messagePlaceholder,
+    messageTranslate: camera.message_translate ?? cameraFallback.messageTranslate,
+    messageTranslating: camera.message_translating ?? cameraFallback.messageTranslating,
+    messageTranslatedTitle: camera.message_translated_title ?? cameraFallback.messageTranslatedTitle,
+    messageCopy: camera.message_copy ?? cameraFallback.messageCopy,
+    messageCopied: camera.message_copied ?? cameraFallback.messageCopied,
+    messageError: camera.message_error ?? cameraFallback.messageError,
   }
 }
 

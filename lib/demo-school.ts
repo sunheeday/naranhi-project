@@ -10,6 +10,7 @@ export const DEMO_SCHOOL_OFFICE_CODE = 'DEMO'
 export const DEMO_SCHOOL_CODE = 'NARANHI001'
 export const DEMO_SCHOOL_HOMEPAGE_URL = 'https://demo.naranhi.school'
 export const DEMO_MEAL_DONOR_SCHOOL_NAMES = ['부천부흥초등학교', '부천부흥초']
+const DEMO_MEAL_SEED_WINDOW_DAYS = 21
 
 type ServiceClient = SupabaseClient<Database>
 
@@ -1065,6 +1066,8 @@ export async function ensureDemoSchoolSeed(
   await serviceClient
     .from('school_events')
     .upsert(schoolEvents, { onConflict: 'notice_id,event_date' })
+
+  await seedDemoMeals(serviceClient)
 }
 
 export async function getDemoMealSourceCodes(
@@ -1097,4 +1100,91 @@ export async function getDemoMealSourceCodes(
     return null
   }
   return { officeCode, schoolCode }
+}
+
+function todayKstIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+function addDaysIso(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const base = Date.UTC(year, month - 1, day)
+  const next = new Date(base + days * 86400000)
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
+}
+
+async function seedDemoMeals(serviceClient: ServiceClient): Promise<void> {
+  const donor = await getDemoMealSourceCodes(serviceClient)
+  if (!donor) return
+
+  if (
+    donor.officeCode === DEMO_SCHOOL_OFFICE_CODE
+    && donor.schoolCode === DEMO_SCHOOL_CODE
+  ) {
+    return
+  }
+
+  const today = todayKstIso()
+  const fromIso = addDaysIso(today, -DEMO_MEAL_SEED_WINDOW_DAYS)
+  const toIso = addDaysIso(today, DEMO_MEAL_SEED_WINDOW_DAYS)
+
+  const { data: donorMeals, error } = await serviceClient
+    .from('meals')
+    .select('meal_date,meal_type,meal_type_name,dishes,calories,nutrients,origins')
+    .eq('office_code', donor.officeCode)
+    .eq('school_code', donor.schoolCode)
+    .gte('meal_date', fromIso)
+    .lte('meal_date', toIso)
+    .order('meal_date', { ascending: true })
+    .order('meal_type', { ascending: true })
+
+  if (error || !donorMeals || donorMeals.length === 0) {
+    return
+  }
+
+  await serviceClient
+    .from('meals')
+    .upsert(
+      donorMeals.map(meal => ({
+        office_code: DEMO_SCHOOL_OFFICE_CODE,
+        school_code: DEMO_SCHOOL_CODE,
+        meal_date: meal.meal_date,
+        meal_type: meal.meal_type,
+        meal_type_name: meal.meal_type_name,
+        dishes: meal.dishes,
+        calories: meal.calories,
+        nutrients: meal.nutrients,
+        origins: meal.origins,
+      })),
+      { onConflict: 'office_code,school_code,meal_date,meal_type' },
+    )
+}
+
+export async function getSeededDemoMealsForRange(
+  serviceClient: ServiceClient,
+  fromIso: string,
+  toIso: string,
+): Promise<Map<string, Database['public']['Tables']['meals']['Row'][]>> {
+  const { data } = await serviceClient
+    .from('meals')
+    .select('*')
+    .eq('office_code', DEMO_SCHOOL_OFFICE_CODE)
+    .eq('school_code', DEMO_SCHOOL_CODE)
+    .gte('meal_date', fromIso)
+    .lte('meal_date', toIso)
+    .order('meal_date', { ascending: true })
+    .order('meal_type', { ascending: true })
+
+  const map = new Map<string, Database['public']['Tables']['meals']['Row'][]>()
+  for (const meal of data ?? []) {
+    const bucket = map.get(meal.meal_date) ?? []
+    bucket.push(meal)
+    map.set(meal.meal_date, bucket)
+  }
+  return map
 }
