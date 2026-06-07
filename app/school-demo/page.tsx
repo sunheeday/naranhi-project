@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getLatestChildForUser } from "@/lib/server-cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import UploadForm from "./UploadForm";
 
@@ -11,13 +12,7 @@ export default async function SchoolDemoPage() {
 
   if (!user) redirect("/login");
 
-  const { data: child } = await supabase
-    .from("children")
-    .select("id, name, school_name")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const child = await getLatestChildForUser(user.id);
 
   if (!child) redirect("/onboarding");
 

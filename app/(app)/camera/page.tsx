@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import BrandHeader from '@/components/brand/BrandHeader'
 import { defaultLocale, isValidLocale, type Locale } from '@/lib/i18n'
+import { getLatestChildForUser } from '@/lib/server-cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import CameraUploadForm, { type CameraUploadLabels } from './CameraUploadForm'
@@ -71,13 +72,7 @@ export default async function CameraPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/login')
 
-    const { data: child } = await supabase
-      .from('children')
-      .select('id, school_name, grade, class_no')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const child = await getLatestChildForUser(user.id)
 
     if (!child) redirect('/onboarding')
 

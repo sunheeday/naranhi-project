@@ -33,6 +33,8 @@
     "period_suffix": "Période {period}",
     "unsupported": "Code de l'école non enregistré. Veuillez resélectionner l'école dans les paramètres.",
     "error": "Impossible de charger les informations sur les repas.",
+    "translation_pending": "Traduction des repas en cours...",
+    "translation_pending_body": "Le menu coréen s'affiche d'abord.",
     "timetable_error": "Impossible de charger les informations de cours.",
     "timetable_unsupported": "Les cours ne peuvent pas être affichés car la classe ou le type d'école ne correspond pas."
   },

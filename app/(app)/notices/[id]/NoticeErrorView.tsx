@@ -10,6 +10,7 @@ interface Props {
   errorMessage: string | null
   retryLabel: string
   retryingLabel: string
+  retryFailedLabel: string
 }
 
 export default function NoticeErrorView({
@@ -19,6 +20,7 @@ export default function NoticeErrorView({
   errorMessage,
   retryLabel,
   retryingLabel,
+  retryFailedLabel,
 }: Props) {
   const router = useRouter()
   const [isRetrying, setIsRetrying] = useState(false)
@@ -33,12 +35,11 @@ export default function NoticeErrorView({
         method: 'POST',
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body?.error ?? 'retry failed')
+        throw new Error(retryFailedLabel)
       }
       router.refresh()
     } catch (e) {
-      setRetryError(e instanceof Error ? e.message : 'retry failed')
+      setRetryError(e instanceof Error ? e.message : retryFailedLabel)
     } finally {
       setIsRetrying(false)
     }

@@ -427,14 +427,14 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(locales, ["ko"])
 
-    def test_missing_translation_locales_skips_cached_non_failed_rows(self) -> None:
+    def test_missing_translation_locales_skips_any_cached_translated_rows(self) -> None:
         client = FakeSupabaseClient()
         client.translations = [
             {
                 "notice_id": "notice-1",
                 "target_language": "vi",
                 "translated_text": "ok",
-                "validation_status": "human_review_required",
+                "validation_status": "passed",
             },
             {
                 "notice_id": "notice-1",
@@ -447,7 +447,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
             missing = _missing_translation_locales("notice-1", ["vi", "en", "ru"])
 
-        self.assertEqual(missing, ["en", "ru"])
+        self.assertEqual(missing, ["ru"])
 
     def test_auto_translate_notice_locales_translates_only_missing_locales(self) -> None:
         client = FakeSupabaseClient()
@@ -479,12 +479,13 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
             patch("app.services.content_extraction_service.get_supabase_client", return_value=client),
             patch("app.services.content_extraction_service.get_settings", return_value=settings),
             patch("app.services.notice_service.NoticeService", return_value=FakeNoticeService()),
+            patch("app.services.content_extraction_service.translate_sources_for_locale"),
         ):
             import asyncio
 
             asyncio.run(_auto_translate_notice_locales({"id": "notice-1", "school_id": "school-1"}))
 
-        self.assertEqual(translated, [("notice-1", "en")])
+        self.assertEqual(translated, [("notice-1", "ko"), ("notice-1", "en")])
 
     def test_normalized_locale_rejects_korean_and_invalid_values(self) -> None:
         self.assertIsNone(_normalized_locale("ko"))
@@ -539,11 +540,22 @@ class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):
     """요약·본문·첨부를 팀 translate_text 재사용해 번역·저장(이미 있는 언어는 건너뜀)."""
 
     class FakeService:
-        async def translate_text(self, *, source_text: str, target_language: str) -> dict[str, object]:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str, str | None]] = []
+
+        async def translate_text(
+            self,
+            *,
+            source_text: str,
+            target_language: str,
+            translation_kind: str | None = None,
+        ) -> dict[str, object]:
+            self.calls.append((source_text, target_language, translation_kind))
             return {"translation": f"[{target_language}] {source_text}"}
 
     async def test_translates_summary_and_sources_skips_cached(self) -> None:
         client = MagicMock()
+        service = self.FakeService()
         extracted = {
             "summary": {"rendered": "요약문", "points": []},
             "sources": [
@@ -556,13 +568,20 @@ class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):
         ) = {"extracted_content": extracted}
 
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
-            await translate_sources_for_locale(self.FakeService(), "notice-1", "en")
+            await translate_sources_for_locale(service, "notice-1", "en")
 
         saved = client.table.return_value.update.call_args.args[0]["extracted_content"]
         self.assertEqual(saved["summary"]["translations"]["en"], "[en] 요약문")
         self.assertEqual(saved["sources"][0]["translations"]["en"], "[en] 본문 정제본")
         # 이미 en 번역 있는 소스는 그대로(재번역 안 함)
         self.assertEqual(saved["sources"][1]["translations"]["en"], "이미있음")
+        self.assertEqual(
+            service.calls,
+            [
+                ("요약문", "en", "notice_summary"),
+                ("본문 정제본", "en", "notice_source"),
+            ],
+        )
 
     async def test_ko_does_nothing(self) -> None:
         client = MagicMock()

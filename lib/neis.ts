@@ -15,6 +15,7 @@ import type { Locale } from '@/lib/i18n'
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const PAGE_SIZE = 100
 const mealTranslationCache = new Map<string, string>()
+const mealTranslationBatchCache = new Map<string, Record<string, string>>()
 
 export interface SchoolSearchResult {
   officeCode: string   // ATPT_OFCDC_SC_CODE (시도교육청 코드)
@@ -567,7 +568,12 @@ async function translateMealStrings(
   locale: Locale,
 ): Promise<Record<string, string>> {
   if (texts.length === 0) return {}
-  return await translateMealStringsViaPipeline(texts, locale)
+  const cacheKey = `${locale}:${texts.join('\u241f')}`
+  const cached = mealTranslationBatchCache.get(cacheKey)
+  if (cached) return cached
+  const translated = await translateMealStringsViaPipeline(texts, locale)
+  mealTranslationBatchCache.set(cacheKey, translated)
+  return translated
 }
 
 async function translateMealStringsViaPipeline(

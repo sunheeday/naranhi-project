@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getLatestChildForUser } from '@/lib/server-cache'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import BrandHeader from '@/components/brand/BrandHeader'
@@ -38,15 +39,16 @@ export default async function SettingsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/login')
 
-    const result = await supabase
-      .from('children')
-      .select('id, school_name, neis_school_code, grade, class_no')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    child = result.data
+    const latestChild = await getLatestChildForUser(user.id)
+    child = latestChild
+      ? {
+          id: latestChild.id,
+          school_name: latestChild.school_name,
+          neis_school_code: latestChild.neis_school_code,
+          grade: latestChild.grade,
+          class_no: latestChild.class_no,
+        }
+      : null
   }
 
   const childGradeLabel = child

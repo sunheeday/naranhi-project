@@ -94,8 +94,6 @@ HARD_FACT_SCHEMA = """{
     "should_preserve_honorific_tone": true
   },
   "ambiguities": [],
-  "human_review_required": false,
-  "human_review_reason": null,
   "confidence": 0.0
 }"""
 
@@ -117,13 +115,27 @@ Input:
 Extraction rules:
 - Extract only facts explicitly present in SOURCE_TEXT.
 - Use null for unknown values. Never invent missing information.
-- Normalize dates to YYYY-MM-DD only when the year is explicit or unambiguous.
-- If the year is missing, keep normalized=null and set inferred_year_required=true.
+- Classify each fact by its semantic role, not by surface appearance. A visible date is not automatically an event date, and a visible item name is not automatically a material.
+- Normalize dates to YYYY-MM-DD whenever the date is explicit enough.
+- If the source omits the year but gives a concrete month/day (for example `6월 10일`, `05.22.`), infer the year as 2026 and set normalized accordingly.
+- When you infer 2026 for a yearless month/day, set inferred_year_required=false because this system explicitly uses 2026 as the canonical fallback year.
 - Normalize times to HH:mm when possible.
 - Preserve numbers, amounts, phone numbers, account numbers, and URLs exactly in raw_text.
 - For locations, materials, submissions, and actions, raw_text must preserve the Korean phrase from the source.
 - Ingredient and allergy items must remain raw Korean text unless an approved dictionary is provided in a later step.
-- Set human_review_required=true for unclear health, safety, allergy, ingredient, religious restriction, or personal-data issues.
+- `dates` must contain only real occurrence / participation / attendance / visit / exam / event dates, or other dates the parent or student must remember as "happens on this date".
+- Do NOT put board/admin metadata dates into `dates` or `deadlines`: examples include `작성일`, `등록일`, `게시일`, `수정일`, `배부일`, `조회수`, comment timestamps, file upload timestamps, or contact-log dates, unless the text explicitly says that date is an event date, attendance date, submission date, or deadline.
+- If a date is introduced as a due / until / by / 마감 / 제출 / 회신 / 납부 / 신청기한 / 신청 마감 expression, extract it into `deadlines` even if the same date also appears elsewhere.
+- If a date range describes an event period, camp period, exam period, survey period, or participation period, keep the visible boundary dates in `dates`. If a date range is purely a submission / payment / application window, keep the closing or due boundary in `deadlines`, and keep other visible boundary dates only when they are explicitly important for the parent to act on.
+- `materials` must contain only things the parent or student must actually bring, prepare, wear, carry, or have ready. Good cues: `준비물`, `지참`, `준비해 오기`, `가져오기`, `복장`.
+- Do NOT put prohibited / banned / confiscated / restricted items into `materials`. If the notice says `금지물품`, `반입금지`, `소지 금지`, `지참 금지`, `가져오지 마세요`, `허용되지 않음`, or similar, those items belong in `warnings` and/or the prohibition sentence belongs in `actions_required`, not in `materials`.
+- `submissions` is for items that must be submitted / returned / handed in, such as forms, consent slips, applications, or receipts. Do not mix these into `materials` unless the notice explicitly frames them as bring-along items rather than return/submit items.
+- `actions_required` should capture what the parent/student must do, including negative compliance instructions such as `소지하지 마세요`, `반입하지 마세요`, `제출하세요`, `신청하세요`, `확인 바랍니다`.
+- Before returning JSON, self-check for role confusion:
+  1. If `dates` only contains posting/admin metadata dates, remove them.
+  2. If an item in `materials` appears in the same phrase as `금지`, `반입금지`, `소지 금지`, or `지참 금지`, move it out of `materials`.
+  3. If the notice has an explicit `준비물`/`지참물` section and `materials` is empty, revise.
+  4. If the notice has an explicit `마감`/`제출`/`신청기한` phrase and `deadlines` is empty, revise.
 
 Return this JSON schema:
 {HARD_FACT_SCHEMA}"""
@@ -159,8 +171,6 @@ Rules:
 - Do not translate or infer ingredients.
 - If no exact or approved alias match exists, put the item in unmapped_ingredients.
 - Pork, beef, chicken, seafood, nuts, milk, egg, wheat, soy, alcohol-derived ingredients, gelatin, and religiously sensitive items require strict matching.
-- Any unmapped critical ingredient must set human_review_required=true.
-
 Return JSON:
 {{
   "mapped_ingredients": [
@@ -178,9 +188,7 @@ Return JSON:
     "contains_allergen": false,
     "contains_religious_restriction_item": false,
     "contains_unmapped_critical_item": false
-  }},
-  "human_review_required": false,
-  "human_review_reason": null
+  }}
 }}"""
 
 
@@ -288,7 +296,6 @@ Translation rules:
 - Do not add facts, cultural explanations, or helpful details beyond the source.
 - Preserve numbers, dates, times, locations, amounts, contacts, URLs, grade/class targets, submissions, and deadlines.
 - Resolve ingredient placeholders only through the approved target-language dictionary.
-- If a target-language ingredient name is unavailable or uncertain, set human_review_required=true.
 - Do not directly translate ingredient names yourself.
 - If ingredient_identity_map contains unmapped_ingredients, keep the original Korean ingredient token exactly as-is in the target translation. Do not guess, paraphrase, transliterate, or add a glossary-style explanation. Do not wrap the token in code fences, quotes, or brackets unless the source itself does so.
 {language_specific_rules}
@@ -300,9 +307,7 @@ Return JSON:
     {{"ingredient_id": "", "target_text": "", "source": "approved_dictionary"}}
   ],
   "unresolved_ingredients": [],
-  "translator_notes": [],
-  "human_review_required": false,
-  "human_review_reason": null
+  "translator_notes": []
 }}"""
 
 
@@ -324,7 +329,8 @@ Input:
 Extraction rules:
 - Extract facts as they actually appear in TARGET_TRANSLATION.
 - For normalized, use language-independent canonical values when possible: YYYY-MM-DD, HH:mm, exact numeric strings, exact URLs, exact phone numbers.
-- If the translation does not explicitly state a year, do NOT invent or infer one from weekday alignment or calendar reasoning. Keep `normalized` null for yearless dates and set `inferred_year_required=true`.
+- If the translation omits the year but clearly states a concrete month/day, infer the year as 2026 and set normalized accordingly.
+- Do not infer a year from weekday alignment or vague calendar reasoning alone; only use the explicit 2026 fallback for concrete month/day expressions.
 - For translated semantic fields such as locations/materials/actions, keep raw_text in the target language and use normalized only if a language-independent canonical value is clear.
 - Do not infer source facts that are not present in TARGET_TRANSLATION.
 - Read each table, bullet list, schedule line, and label-value row as structured content. Inspect every row/cell/line before deciding an array is empty.
@@ -502,9 +508,7 @@ Return JSON:
   "fixed_items": [
     {{"field": "", "before": "", "after": ""}}
   ],
-  "remaining_risks": [],
-  "human_review_required": false,
-  "human_review_reason": null
+  "remaining_risks": []
 }}"""
 
 
@@ -657,9 +661,7 @@ Return JSON:
   "changes": [
     {{"before": "", "after": "", "reason": ""}}
   ],
-  "remaining_risks": [],
-  "human_review_required": false,
-  "human_review_reason": null
+  "remaining_risks": []
 }}"""
 
 
@@ -699,7 +701,11 @@ Rules:
 - title must be a short Korean title suitable for a notice list.
 - summary_ko must summarize the source in Korean without adding facts.
 - summary_target_language must be in {target_name}.
+- actions_required, important_dates, and deadlines are canonical source-side fields and must stay in Korean even when target_language is not Korean.
 - actions_required and deadlines must be copied from hard facts when available.
+- card_sections_ko must be in Korean and formatted for direct canonical UI use.
+- card_sections_target_language must be in {target_name} and formatted for direct translated UI use.
+- both card_sections_ko and card_sections_target_language items must be concise, factual, and each item should contain one concrete action, supply, date/time, or location detail.
 - If validation is not safe, reflect that in validation_status and validation_failure_reason.
 - summary_ko and summary_target_language must use clean, readable line breaks: short paragraphs separated by one blank line, and each distinct date/deadline/action/fee/material/location on its own "- " line.
 {READABILITY_RULES}
@@ -715,6 +721,28 @@ Return JSON:
   "important_dates": [],
   "deadlines": [],
   "actions_required": [],
+  "card_sections_ko": {{
+    "supplies": {{
+      "items": [{{"text": "", "hint": null}}]
+    }},
+    "action": {{
+      "items": [{{"text": "", "hint": null}}]
+    }},
+    "schedule": {{
+      "items": [{{"text": "", "hint": null}}]
+    }}
+  }},
+  "card_sections_target_language": {{
+    "supplies": {{
+      "items": [{{"text": "", "hint": null}}]
+    }},
+    "action": {{
+      "items": [{{"text": "", "hint": null}}]
+    }},
+    "schedule": {{
+      "items": [{{"text": "", "hint": null}}]
+    }}
+  }},
   "has_meal_info": false,
   "has_allergy_info": false,
   "contains_critical_health_info": false,

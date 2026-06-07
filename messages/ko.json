@@ -33,6 +33,8 @@
     "period_suffix": "{period}교시",
     "unsupported": "학교 코드가 등록되지 않았어요. 설정에서 학교를 다시 선택해 주세요.",
     "error": "급식 정보를 불러오지 못했어요.",
+    "translation_pending": "급식 번역 중...",
+    "translation_pending_body": "한국어 급식을 먼저 보여드리고 있어요.",
     "timetable_error": "수업 정보를 불러오지 못했어요.",
     "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요."
   },

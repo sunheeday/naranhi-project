@@ -4,97 +4,88 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 type ServiceClient = ReturnType<typeof createSupabaseServiceClient>
 type NoticeRow = Database['public']['Tables']['notices']['Row']
-type TranslationRow = Database['public']['Tables']['notice_ai_translations']['Row']
-type ScheduleInsert = Database['public']['Tables']['schedules']['Insert']
+type SchoolEventInsert = Database['public']['Tables']['school_events']['Insert']
+type NoticeCardRow = Pick<Database['public']['Tables']['notice_cards']['Row'], 'notice_id' | 'type' | 'content'>
 
-export async function backfillSchedulesForChild({
+export async function backfillSchoolEventsForSchool({
   serviceClient,
   schoolId,
-  childId,
-  preferredLocale,
+  preferredLocale: _preferredLocale,
 }: {
   serviceClient: ServiceClient
   schoolId: string
-  childId: string
   preferredLocale: Locale
 }) {
   const { data: notices, error: noticeError } = await serviceClient
     .from('notices')
-    .select('id,title,school_id')
+    .select('id,title,original_text,school_id,event_dates,event_location,created_at')
     .eq('school_id', schoolId)
-    .limit(200)
+    .order('created_at', { ascending: false })
 
   if (noticeError) {
     throw new Error('기존 공지 조회 실패: ' + noticeError.message)
   }
 
-  const noticeRows = (notices ?? []) as Pick<NoticeRow, 'id' | 'title' | 'school_id'>[]
+  const noticeRows = (notices ?? []) as Pick<
+    NoticeRow,
+    'id' | 'title' | 'original_text' | 'school_id' | 'event_dates' | 'event_location' | 'created_at'
+  >[]
   const noticeIds = noticeRows.map(notice => notice.id)
   if (noticeIds.length === 0) return
 
-  const { data: translations, error: translationError } = await serviceClient
-    .from('notice_ai_translations')
-    .select('notice_id,target_language,translated_text,source_hard_facts,target_hard_facts,metadata,validation_status')
-    .in('notice_id', noticeIds)
-    .neq('validation_status', 'failed')
-
-  if (translationError) {
-    throw new Error('기존 번역 조회 실패: ' + translationError.message)
-  }
-
-  const chosen = chooseTranslationsByNotice(
-    (translations ?? []) as Pick<
-      TranslationRow,
-      'notice_id' | 'target_language' | 'translated_text' | 'source_hard_facts' | 'target_hard_facts' | 'metadata' | 'validation_status'
-    >[],
-    preferredLocale,
-  )
-  if (chosen.size === 0) return
-
-  const { data: existingSchedules, error: existingError } = await serviceClient
-    .from('schedules')
+  const { data: existingEvents, error: existingError } = await serviceClient
+    .from('school_events')
     .select('notice_id,event_date')
-    .eq('child_id', childId)
-    .in('notice_id', Array.from(chosen.keys()))
+    .eq('school_id', schoolId)
+    .in('notice_id', noticeIds)
 
   if (existingError) {
-    throw new Error('기존 일정 조회 실패: ' + existingError.message)
+    throw new Error('기존 학교 일정 조회 실패: ' + existingError.message)
   }
 
   const existingKeys = new Set(
-    (existingSchedules ?? []).map(row => `${row.notice_id}:${row.event_date}`),
+    (existingEvents ?? []).map(row => `${row.notice_id}:${row.event_date}`),
   )
+  const { data: noticeCards, error: cardError } = await serviceClient
+    .from('notice_cards')
+    .select('notice_id,type,content')
+    .in('notice_id', noticeIds)
+    .eq('type', 'schedule')
 
-  const noticeById = new Map(noticeRows.map(notice => [notice.id, notice]))
-  const rows: ScheduleInsert[] = []
-  for (const [noticeId, translation] of chosen.entries()) {
-    const notice = noticeById.get(noticeId)
-    if (!notice) continue
+  if (cardError) {
+    throw new Error('기존 일정 카드 조회 실패: ' + cardError.message)
+  }
 
-    const eventDates = scheduleDatesFromTranslation(translation)
+  const scheduleCardsByNoticeId = new Map<string, NoticeCardRow[]>()
+  for (const row of (noticeCards ?? []) as NoticeCardRow[]) {
+    const list = scheduleCardsByNoticeId.get(row.notice_id) ?? []
+    list.push(row)
+    scheduleCardsByNoticeId.set(row.notice_id, list)
+  }
+
+  const rows: SchoolEventInsert[] = []
+  for (const notice of noticeRows) {
+    const eventDates = noticeEventDates(notice.event_dates).length > 0
+      ? noticeEventDates(notice.event_dates)
+      : parseScheduleCardDates(scheduleCardsByNoticeId.get(notice.id) ?? [])
     if (eventDates.length === 0) continue
 
-    const title =
-      optionalString(jsonObject(translation.metadata)?.title)
-      ?? optionalString(notice.title)
-      ?? '학교 일정'
-    const location = scheduleLocationFromTranslation(translation)
-    const description =
-      optionalString(jsonObject(translation.metadata)?.summary_target_language)
-      ?? optionalString(translation.translated_text)
-      ?? title
+    const title = optionalString(notice.title) ?? '학교 일정'
+    const scheduleCardLocation = parseScheduleCardLocation(scheduleCardsByNoticeId.get(notice.id) ?? [])
+    const description = firstNonEmptyLine(notice.original_text) ?? title
 
     for (const eventDate of eventDates) {
-      const key = `${noticeId}:${eventDate}`
+      const key = `${notice.id}:${eventDate}`
       if (existingKeys.has(key)) continue
       existingKeys.add(key)
       rows.push({
-        notice_id: noticeId,
-        child_id: childId,
+        school_id: schoolId,
+        notice_id: notice.id,
         title,
         event_date: eventDate,
-        location,
+        location: optionalString(notice.event_location) ?? scheduleCardLocation,
         description,
+        source_language: 'ko',
       })
     }
   }
@@ -102,145 +93,141 @@ export async function backfillSchedulesForChild({
   if (rows.length === 0) return
 
   const { error: insertError } = await serviceClient
-    .from('schedules')
+    .from('school_events')
     .insert(rows)
 
   if (insertError) {
-    throw new Error('기존 일정 생성 실패: ' + insertError.message)
+    throw new Error('기존 학교 일정 생성 실패: ' + insertError.message)
   }
 }
 
-export async function backfillSchedulesForChildren({
+export async function backfillSchoolEventsForSchools({
   serviceClient,
-  children,
+  schoolIds,
   preferredLocale,
 }: {
   serviceClient: ServiceClient
-  children: Array<{ id: string; school_id: string | null }>
+  schoolIds: string[]
   preferredLocale: Locale
 }) {
-  for (const child of children) {
-    if (!child.school_id) continue
-    await backfillSchedulesForChild({
+  for (const schoolId of Array.from(new Set(schoolIds))) {
+    await backfillSchoolEventsForSchool({
       serviceClient,
-      schoolId: child.school_id,
-      childId: child.id,
+      schoolId,
       preferredLocale,
     })
   }
 }
 
-function chooseTranslationsByNotice(
-  rows: Pick<
-    TranslationRow,
-    'notice_id' | 'target_language' | 'translated_text' | 'source_hard_facts' | 'target_hard_facts' | 'metadata' | 'validation_status'
-  >[],
-  preferredLocale: Locale,
-) {
-  const selected = new Map<string, typeof rows[number]>()
-
-  for (const row of rows) {
-    if (!optionalString(row.translated_text)) continue
-    const current = selected.get(row.notice_id)
-    if (!current) {
-      selected.set(row.notice_id, row)
-      continue
-    }
-    if (row.target_language === preferredLocale && current.target_language !== preferredLocale) {
-      selected.set(row.notice_id, row)
-      continue
-    }
-    if (
-      row.validation_status === 'passed'
-      && current.validation_status !== 'passed'
-    ) {
-      selected.set(row.notice_id, row)
-    }
-  }
-
-  return selected
-}
-
-function scheduleDatesFromTranslation(
-  translation: Pick<TranslationRow, 'source_hard_facts' | 'target_hard_facts'>,
-) {
-  const sourceFacts = hardFacts(translation.source_hard_facts)
-  const targetFacts = hardFacts(translation.target_hard_facts)
-  const values = [
-    ...normalizedIsoDates(targetFacts.dates),
-    ...normalizedIsoDates(targetFacts.deadlines),
-    ...normalizedIsoDates(sourceFacts.dates),
-    ...normalizedIsoDates(sourceFacts.deadlines),
-  ]
-  return Array.from(new Set(values))
-}
-
-function scheduleLocationFromTranslation(
-  translation: Pick<TranslationRow, 'source_hard_facts' | 'target_hard_facts'>,
-) {
-  const sourceFacts = hardFacts(translation.source_hard_facts)
-  const targetFacts = hardFacts(translation.target_hard_facts)
-  return firstValue(targetFacts.locations) ?? firstValue(sourceFacts.locations)
-}
-
-function hardFacts(value: Json | null | undefined): Record<string, Json | undefined> {
-  const root = jsonObject(value)
-  const facts = jsonObject(root?.hard_facts)
-  return facts ?? {}
-}
-
-function normalizedIsoDates(value: Json | undefined): string[] {
+function noticeEventDates(value: Json): string[] {
   if (!Array.isArray(value)) return []
-  const results: string[] = []
-  for (const item of value) {
-    const text = machineVerifiableValue(item)
-    if (!text) continue
-    const matches = text.match(/\b\d{4}-\d{2}-\d{2}\b/g)
-    if (matches?.length) {
-      results.push(...matches)
-    }
-  }
-  return results
+  return Array.from(new Set(
+    value
+      .filter((item): item is string => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item)),
+  ))
 }
 
-function firstValue(value: Json | undefined): string | null {
-  if (!Array.isArray(value)) return null
-  for (const item of value) {
-    const text = machineVerifiableValue(item)
-    if (text) return text
+function parseScheduleCardDates(rows: NoticeCardRow[]): string[] {
+  const dates = new Set<string>()
+  for (const row of rows) {
+    const content = localizedCardContent(row.content)
+    const items = cardItems(content)
+    const legacyDate = asString(content?.date)
+    for (const value of [
+      ...items.flatMap(item => [item.text, item.hint]),
+      legacyDate,
+    ]) {
+      for (const date of extractIsoDates(value)) {
+        dates.add(date)
+      }
+    }
+  }
+  return Array.from(dates)
+}
+
+function parseScheduleCardLocation(rows: NoticeCardRow[]): string | null {
+  for (const row of rows) {
+    const content = localizedCardContent(row.content)
+    const legacyLocation = asString(content?.location)
+    if (legacyLocation) return legacyLocation
+    for (const item of cardItems(content)) {
+      const text = item.text.trim()
+      if (text.startsWith('장소:')) {
+        return text.slice(3).trim() || null
+      }
+    }
   }
   return null
 }
 
-function machineVerifiableValue(value: Json): string {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'string') return value.trim()
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  if (Array.isArray(value)) {
-    return value.map(machineVerifiableValue).filter(Boolean).join(' ').trim()
+function localizedCardContent(content: Json): Record<string, unknown> | null {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return null
+  const object = content as Record<string, unknown>
+  const localized = object.ko
+  if (localized && typeof localized === 'object' && !Array.isArray(localized)) {
+    return localized as Record<string, unknown>
   }
-  const obj = value as Record<string, Json>
-  for (const key of ['normalized', 'value', 'raw_text', 'text']) {
-    const item = obj[key]
-    if (item !== undefined && item !== null) {
-      return machineVerifiableValue(item)
-    }
-  }
-  return Object.keys(obj)
-    .sort()
-    .map(key => machineVerifiableValue(obj[key]))
-    .filter(Boolean)
-    .join(' ')
-    .trim()
+  return object
 }
 
-function jsonObject(value: Json | null | undefined): Record<string, Json> | null {
-  if (!value || Array.isArray(value) || typeof value !== 'object') return null
-  return value as Record<string, Json>
+function cardItems(content: Record<string, unknown> | null): Array<{ text: string; hint: string | null }> {
+  if (!content || !Array.isArray(content.items)) return []
+  return content.items.flatMap(item => {
+    if (typeof item === 'string') {
+      return item.trim() ? [{ text: item.trim(), hint: null }] : []
+    }
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+    const text = asString((item as Record<string, unknown>).text)
+    if (!text) return []
+    return [{
+      text,
+      hint: asString((item as Record<string, unknown>).hint),
+    }]
+  })
+}
+
+function extractIsoDates(value: string | null): string[] {
+  if (!value) return []
+  const matches = new Set<string>()
+  for (const match of value.match(/\d{4}-\d{2}-\d{2}/g) ?? []) {
+    matches.add(match)
+  }
+  const yearlessPatterns = [
+    /(^|[^\d])(\d{1,2})\s*월\s*(\d{1,2})\s*일/g,
+    /(^|[^\d])(\d{1,2})\s*[./]\s*(\d{1,2})(?:[./]|$)/g,
+    /(^|[^\d])(\d{1,2})\s*\/\s*(\d{1,2})(?!\d)/g,
+  ]
+  for (const pattern of yearlessPatterns) {
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(value)) !== null) {
+      const month = Number(match[2])
+      const day = Number(match[3])
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        matches.add(`2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+      }
+    }
+  }
+  return Array.from(matches)
+}
+
+function firstNonEmptyLine(value: string | null | undefined): string | null {
+  const text = optionalString(value)
+  if (!text) return null
+  const firstLine = text
+    .split('\n')
+    .map(line => line.trim())
+    .find(Boolean)
+  return firstLine ? firstLine.slice(0, 160) : null
 }
 
 function optionalString(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+function asString(value: unknown): string | null {
+  return optionalString(value)
 }

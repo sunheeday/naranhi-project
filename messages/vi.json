@@ -33,6 +33,8 @@
     "period_suffix": "Tiết {period}",
     "unsupported": "Chưa đăng ký mã trường. Vui lòng chọn lại trường trong cài đặt.",
     "error": "Không thể tải thông tin bữa ăn.",
+    "translation_pending": "Đang dịch bữa ăn...",
+    "translation_pending_body": "Trước tiên đang hiển thị thực đơn tiếng Hàn.",
     "timetable_error": "Không thể tải thông tin lớp học.",
     "timetable_unsupported": "Không thể hiển thị lớp học vì khối/lớp hoặc loại trường không khớp."
   },

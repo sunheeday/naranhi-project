@@ -4,7 +4,7 @@ export type SupportedLocale = 'ko' | 'en' | 'zh' | 'vi' | 'ru' | 'ar' | 'fr' | '
 export type NoticeStatus = 'pending' | 'processing' | 'done' | 'error'
 export type CardType = 'supplies' | 'action' | 'schedule'
 export type SchoolCrawlBoardKind = 'family_notice' | 'announcement_fallback' | 'unknown'
-export type NoticeAiValidationStatus = 'passed' | 'human_review_required' | 'failed'
+export type NoticeAiValidationStatus = 'passed' | 'failed'
 
 export interface Database {
   public: {
@@ -17,7 +17,6 @@ export interface Database {
           avatar_url: string | null
           locale: SupportedLocale
           native_language: SupportedLocale
-          role: 'parent' | 'school_admin'
           created_at: string
           updated_at: string
         }
@@ -28,7 +27,6 @@ export interface Database {
           avatar_url?: string | null
           locale?: SupportedLocale
           native_language?: SupportedLocale
-          role?: 'parent' | 'school_admin'
           created_at?: string
           updated_at?: string
         }
@@ -38,7 +36,6 @@ export interface Database {
           avatar_url?: string | null
           locale?: SupportedLocale
           native_language?: SupportedLocale
-          role?: 'parent' | 'school_admin'
           updated_at?: string
         }
         Relationships: []
@@ -92,17 +89,48 @@ export interface Database {
         }
         Relationships: []
       }
+      school_crawl_state: {
+        Row: {
+          school_id: string
+          crawl_board_url: string | null
+          crawl_board_kind: SchoolCrawlBoardKind
+          crawl_status: string
+          crawl_error_message: string | null
+          crawl_result: Json
+          crawl_last_checked_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          school_id: string
+          crawl_board_url?: string | null
+          crawl_board_kind?: SchoolCrawlBoardKind
+          crawl_status?: string
+          crawl_error_message?: string | null
+          crawl_result?: Json
+          crawl_last_checked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          crawl_board_url?: string | null
+          crawl_board_kind?: SchoolCrawlBoardKind
+          crawl_status?: string
+          crawl_error_message?: string | null
+          crawl_result?: Json
+          crawl_last_checked_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       children: {
         Row: {
           id: string
           user_id: string
           school_id: string | null
           name: string
-          school_name: string
           grade: number
           class_no: number | null
-          neis_office_code: string | null
-          neis_school_code: string | null
           created_at: string
         }
         Insert: {
@@ -110,21 +138,15 @@ export interface Database {
           user_id: string
           school_id?: string | null
           name: string
-          school_name: string
           grade: number
           class_no?: number | null
-          neis_office_code?: string | null
-          neis_school_code?: string | null
           created_at?: string
         }
         Update: {
           school_id?: string | null
           name?: string
-          school_name?: string
           grade?: number
           class_no?: number | null
-          neis_office_code?: string | null
-          neis_school_code?: string | null
         }
         Relationships: []
       }
@@ -142,6 +164,12 @@ export interface Database {
           error_message: string | null
           /** 제출/행동 마감일 (YYYY-MM-DD). LLM이 추출한 가장 이른 deadline. 없으면 null */
           due_date: string | null
+          /** 공지에서 추출된 행사/마감 관련 날짜 목록(YYYY-MM-DD 배열) */
+          event_dates: Json
+          /** 공지에서 추출된 대표 장소 */
+          event_location: string | null
+          /** 한국어 기준 canonical hard facts */
+          source_hard_facts: Json
           extraction_attempts: number
           extraction_started_at: string | null
           extraction_next_run_at: string | null
@@ -161,6 +189,9 @@ export interface Database {
           status?: NoticeStatus
           error_message?: string | null
           due_date?: string | null
+          event_dates?: Json
+          event_location?: string | null
+          source_hard_facts?: Json
           extraction_attempts?: number
           extraction_started_at?: string | null
           extraction_next_run_at?: string | null
@@ -179,6 +210,9 @@ export interface Database {
           status?: NoticeStatus
           error_message?: string | null
           due_date?: string | null
+          event_dates?: Json
+          event_location?: string | null
+          source_hard_facts?: Json
           extraction_attempts?: number
           extraction_started_at?: string | null
           extraction_next_run_at?: string | null
@@ -193,17 +227,8 @@ export interface Database {
           notice_id: string
           target_language: string
           source_language: string
-          source_text: string
           translated_text: string
-          source_hard_facts: Json
-          target_hard_facts: Json
-          ingredient_identity_map: Json
-          validation: Json
-          metadata: Json
-          raw_pipeline: Json
           validation_status: NoticeAiValidationStatus
-          requires_admin_review: boolean
-          admin_review_reason: string | null
           created_at: string
           updated_at: string
         }
@@ -212,34 +237,16 @@ export interface Database {
           notice_id: string
           target_language: string
           source_language?: string
-          source_text: string
           translated_text: string
-          source_hard_facts?: Json
-          target_hard_facts?: Json
-          ingredient_identity_map?: Json
-          validation?: Json
-          metadata?: Json
-          raw_pipeline?: Json
           validation_status?: NoticeAiValidationStatus
-          requires_admin_review?: boolean
-          admin_review_reason?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           target_language?: string
           source_language?: string
-          source_text?: string
           translated_text?: string
-          source_hard_facts?: Json
-          target_hard_facts?: Json
-          ingredient_identity_map?: Json
-          validation?: Json
-          metadata?: Json
-          raw_pipeline?: Json
           validation_status?: NoticeAiValidationStatus
-          requires_admin_review?: boolean
-          admin_review_reason?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -283,35 +290,65 @@ export interface Database {
         }
         Relationships: []
       }
-      schedules: {
+      notice_card_translations: {
         Row: {
           id: string
+          notice_card_id: string
+          target_language: string
+          translated_content: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          notice_card_id: string
+          target_language: string
+          translated_content?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          notice_card_id?: string
+          target_language?: string
+          translated_content?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      school_events: {
+        Row: {
+          id: string
+          school_id: string
           notice_id: string
-          child_id: string
           title: string
           event_date: string
           location: string | null
           description: string | null
-          gcal_event_id: string | null
+          source_language: string
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
+          school_id: string
           notice_id: string
-          child_id: string
           title: string
           event_date: string
           location?: string | null
           description?: string | null
-          gcal_event_id?: string | null
+          source_language?: string
           created_at?: string
+          updated_at?: string
         }
         Update: {
+          school_id?: string
+          notice_id?: string
           title?: string
           event_date?: string
           location?: string | null
           description?: string | null
-          gcal_event_id?: string | null
+          source_language?: string
+          updated_at?: string
         }
         Relationships: []
       }

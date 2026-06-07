@@ -106,6 +106,14 @@ export async function getNoticeDetail(
     content: r.content,
   }))
 
+  const cardTranslationRows = locale !== 'ko' && cards.length > 0
+    ? (await supabase
+        .from('notice_card_translations')
+        .select('notice_card_id, translated_content')
+        .eq('target_language', locale)
+        .in('notice_card_id', cards.map(card => card.id))).data ?? []
+    : []
+
   const translations: Translations = {}
   if (notice.original_text) translations.ko = notice.original_text
   for (const row of translationRows ?? []) {
@@ -113,16 +121,40 @@ export async function getNoticeDetail(
       translations[row.target_language] = row.translated_text
     }
   }
+  const translatedBodyText = locale === 'ko' ? null : (translations[locale] ?? null)
+  const cardTranslationsById = new Map<string, Json>()
+  for (const row of cardTranslationRows) {
+    if (typeof row.notice_card_id === 'string') {
+      cardTranslationsById.set(row.notice_card_id, row.translated_content)
+    }
+  }
+  let localizedCardCount = 0
+  for (const card of cards) {
+    const translatedContent = cardTranslationsById.get(card.id)
+    const canonicalContent = (asJsonObject(card.content)?.ko ?? card.content) as Json
+    if (translatedContent !== undefined) {
+      card.content = {
+        ko: canonicalContent,
+        [locale]: translatedContent,
+      } as Json
+      localizedCardCount += 1
+      continue
+    }
+    card.content = canonicalContent
+  }
   const extracted = asJsonObject(notice.extracted_content)
   const needsFile = extracted?.needs_file === true
   const fileLinks = extractFileLinks(extracted)
-  const sourceCards = buildSourceCards(extracted, locale)
+  const sourceCards = buildSourceCards(extracted, locale, translatedBodyText)
   const attachmentFiles = buildAttachmentFiles(extracted)
   const summaryObj = asJsonObject(extracted?.summary)
   const hasSummary = Boolean(summaryObj && typeof summaryObj.rendered === 'string' && summaryObj.rendered.trim())
   // 요약 텍스트 = extracted_content.summary 의 렌더 텍스트(ko) + 번역(다른 언어).
   // original_text 는 이제 '풀 본문'(팀 구조화/번역 입력)이라 요약은 여기서 따로 읽는다.
   const summary = pickTranslation(summaryTextMap(summaryObj), locale) ?? notice.title ?? null
+  const hasCompleteSourceTranslations = locale === 'ko'
+    ? true
+    : hasCompleteTranslatedSources(extracted, locale)
 
   return {
     id: notice.id,
@@ -131,7 +163,11 @@ export async function getNoticeDetail(
     createdAt: notice.created_at,
     summary,
     hasSummary,
-    hasLocaleTranslation: locale === 'ko' ? Boolean(notice.original_text || notice.title) : !!translations[locale],
+    hasLocaleTranslation: locale === 'ko'
+      ? Boolean(notice.original_text || notice.title)
+      : Boolean(translations[locale])
+        && (cards.length === 0 || localizedCardCount >= cards.length)
+        && hasCompleteSourceTranslations,
     summaryTranslations: translations,
     cards,
     needsFile,
@@ -139,6 +175,39 @@ export async function getNoticeDetail(
     sourceCards,
     attachmentFiles,
   }
+}
+
+function hasCompleteTranslatedSources(
+  extracted: Record<string, unknown> | null,
+  locale: Locale,
+): boolean {
+  if (!extracted) return true
+
+  const summary = asJsonObject(extracted.summary)
+  const summaryRendered = typeof summary?.rendered === 'string' ? summary.rendered.trim() : ''
+  if (summaryRendered) {
+    const summaryTranslations = asJsonObject(summary?.translations)
+    const localizedSummary = typeof summaryTranslations?.[locale] === 'string'
+      ? summaryTranslations[locale].trim()
+      : ''
+    if (!localizedSummary) {
+      return false
+    }
+  }
+
+  const sources = Array.isArray(extracted.sources) ? extracted.sources : []
+  for (const source of sources) {
+    const sourceObj = asJsonObject(source)
+    const refinedText = typeof sourceObj?.refined_text === 'string' ? sourceObj.refined_text.trim() : ''
+    if (!refinedText) continue
+    const translations = asJsonObject(sourceObj?.translations)
+    const localized = typeof translations?.[locale] === 'string' ? translations[locale].trim() : ''
+    if (!localized) {
+      return false
+    }
+  }
+
+  return true
 }
 
 /** PDF·이미지면 브라우저 미리보기 가능. metadata.file_type 로 판단. */
@@ -172,11 +241,24 @@ function bodyHasContent(text: string): boolean {
  *  카드가 된다(합쳐진 본문 외의 inline_image 는 refined_text 가 없어 자동 제외). */
 function buildSourceCards(
   extracted: Record<string, unknown> | null,
-  locale: Locale
+  locale: Locale,
+  translatedBodyText: string | null,
 ): NoticeSourceCard[] {
-  if (!extracted) return []
+  if (!extracted) {
+    return translatedBodyText
+      ? [{
+          kind: 'body',
+          filename: '',
+          content: translatedBodyText,
+          needsFile: false,
+          previewable: false,
+          publicUrl: null,
+        }]
+      : []
+  }
   const sources = Array.isArray(extracted.sources) ? extracted.sources : []
   const rows: (NoticeSourceCard & { _isBody: boolean; _order: number })[] = []
+  let usedTranslatedBodyText = false
   for (const source of sources) {
     const obj = asJsonObject(source)
     if (!obj) continue
@@ -189,7 +271,16 @@ function buildSourceCards(
     if (isBody && !bodyHasContent(refined)) continue
     // 표시 본문 = 소스별 번역(있으면) → 없으면 한국어 정제본.
     const localized = asJsonObject(obj.translations)?.[locale]
-    const content = (typeof localized === 'string' && localized.trim() ? localized : refined) || ''
+    const content = (
+      isBody && translatedBodyText
+        ? translatedBodyText
+        : typeof localized === 'string' && localized.trim()
+          ? localized
+          : refined
+    ) || ''
+    if (isBody && translatedBodyText) {
+      usedTranslatedBodyText = true
+    }
     const meta = asJsonObject(obj.metadata)
     rows.push({
       kind: isBody ? 'body' : 'attachment',
@@ -200,6 +291,18 @@ function buildSourceCards(
       publicUrl: typeof obj.public_url === 'string' ? obj.public_url : null,
       _isBody: isBody,
       _order: typeof meta?.order_index === 'number' ? meta.order_index : 999,
+    })
+  }
+  if (translatedBodyText && !usedTranslatedBodyText) {
+    rows.unshift({
+      kind: 'body',
+      filename: '',
+      content: translatedBodyText,
+      needsFile: false,
+      previewable: false,
+      publicUrl: null,
+      _isBody: true,
+      _order: -1,
     })
   }
   rows.sort((a, b) => (a._isBody === b._isBody ? a._order - b._order : a._isBody ? -1 : 1))

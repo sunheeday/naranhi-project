@@ -33,6 +33,8 @@
     "period_suffix": "Period {period}",
     "unsupported": "School code not registered. Please reselect your school in Settings.",
     "error": "Could not load meal information.",
+    "translation_pending": "Translating meals...",
+    "translation_pending_body": "Showing the Korean meal menu first.",
     "timetable_error": "Could not load class information.",
     "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match."
   },
