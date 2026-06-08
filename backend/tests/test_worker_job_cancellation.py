@@ -46,6 +46,59 @@ class WorkerCancellationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(queue.failed), 1)
         self.assertEqual(queue.failed[0][0]["id"], "job-2")
 
+    async def test_crawler_worker_processes_claimed_jobs_concurrently(self) -> None:
+        class _ConcurrentQueue:
+            def __init__(self) -> None:
+                self._first = True
+                self.completed: list[str] = []
+
+            def claim(self, *, job_types, limit):  # noqa: ANN001, ARG002
+                if not self._first:
+                    return []
+                self._first = False
+                return [
+                    {"id": "job-1", "job_type": "school_notice_extraction", "payload": {"school_id": "s1"}},
+                    {"id": "job-2", "job_type": "school_notice_extraction", "payload": {"school_id": "s2"}},
+                ][:limit]
+
+            def fail(self, job, *, error: str, retry_delay_seconds: int) -> None:  # noqa: ANN001, ARG002
+                raise AssertionError(f"fail should not be called: {job} {error}")
+
+            def complete(self, job_id: str, *, result=None) -> None:  # noqa: ARG002
+                self.completed.append(job_id)
+
+        queue = _ConcurrentQueue()
+        both_started = asyncio.Event()
+        release = asyncio.Event()
+        started = 0
+        max_running = 0
+        running = 0
+
+        async def fake_run(_job):  # noqa: ANN001
+            nonlocal started, max_running, running
+            started += 1
+            running += 1
+            max_running = max(max_running, running)
+            if started >= 2:
+                both_started.set()
+            await both_started.wait()
+            await release.wait()
+            running -= 1
+            return {}
+
+        with (
+            patch("app.jobs.crawler_worker.JobQueueService", return_value=queue),
+            patch("app.jobs.crawler_worker._run_extraction_job", side_effect=fake_run),
+        ):
+            task = asyncio.create_task(process_crawler_jobs(max_jobs=2, batch_size=2, retry_delay_seconds=120))
+            await asyncio.wait_for(both_started.wait(), timeout=1.0)
+            release.set()
+            processed = await asyncio.wait_for(task, timeout=1.0)
+
+        self.assertEqual(processed, 2)
+        self.assertEqual(max_running, 2)
+        self.assertEqual(sorted(queue.completed), ["job-1", "job-2"])
+
 
 if __name__ == "__main__":
     unittest.main()

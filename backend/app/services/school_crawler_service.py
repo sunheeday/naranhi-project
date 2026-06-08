@@ -135,8 +135,16 @@ class SchoolCrawlerService:
         max_posts: int | None = None,
     ) -> SchoolBoardDiscoveryResult:
         settings = get_settings()
+        started_at = datetime.now(UTC)
+        LOGGER.info(
+            "school crawler started: school_id=%s use_gemini=%s max_posts=%s timeout=%ss",
+            school_id,
+            use_gemini,
+            max_posts,
+            settings.crawler_school_timeout_seconds,
+        )
         try:
-            return await asyncio.wait_for(
+            result = await asyncio.wait_for(
                 self._discover_school_board_inner(
                     school_id,
                     use_gemini=use_gemini,
@@ -144,7 +152,20 @@ class SchoolCrawlerService:
                 ),
                 timeout=settings.crawler_school_timeout_seconds,
             )
+            LOGGER.info(
+                "school crawler finished: school_id=%s status=%s success_count=%s elapsed=%.2fs",
+                school_id,
+                result.status,
+                result.success_count,
+                (datetime.now(UTC) - started_at).total_seconds(),
+            )
+            return result
         except asyncio.TimeoutError:
+            LOGGER.warning(
+                "school crawler timeout: school_id=%s elapsed=%.2fs",
+                school_id,
+                (datetime.now(UTC) - started_at).total_seconds(),
+            )
             return _failure_result(
                 _SchoolContext(
                     school_id=school_id,
@@ -160,6 +181,11 @@ class SchoolCrawlerService:
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - service returns status payloads.
+            LOGGER.exception(
+                "school crawler failed: school_id=%s elapsed=%.2fs",
+                school_id,
+                (datetime.now(UTC) - started_at).total_seconds(),
+            )
             return _failure_result(
                 _SchoolContext(
                     school_id=school_id,
@@ -221,6 +247,13 @@ class SchoolCrawlerService:
         )
         post_limit = max_posts if max_posts is not None else settings.crawler_max_posts
         cached_board_failed_status: str | None = None
+        LOGGER.info(
+            "school crawler context ready: school_id=%s homepage_url=%s gemini_enabled=%s post_limit=%s",
+            school_id,
+            context.homepage_url,
+            gemini_enabled,
+            post_limit,
+        )
 
         cached_board = _cached_board_from_school_row(school_row)
         if cached_board:

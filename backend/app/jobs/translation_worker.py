@@ -20,6 +20,12 @@ async def _run_job(job: dict[str, object]) -> dict[str, object]:
     target_language = str(payload.get("target_language") or "").strip()
     if not notice_id or not target_language:
         raise RuntimeError("Missing notice_id or target_language in translation job payload.")
+    LOGGER.info(
+        "translation job started: job_id=%s notice_id=%s target_language=%s",
+        job.get("id"),
+        notice_id,
+        target_language,
+    )
 
     service = NoticeService()
     result = await service.translate_notice(
@@ -33,6 +39,12 @@ async def _run_job(job: dict[str, object]) -> dict[str, object]:
         service=service,
         notice_id=notice_id,
         target_language=target_language,
+    )
+    LOGGER.info(
+        "translation job finished: job_id=%s notice_id=%s target_language=%s",
+        job.get("id"),
+        notice_id,
+        target_language,
     )
     return result
 
@@ -49,10 +61,16 @@ async def process_jobs(
         jobs = queue.claim(job_types=[JOB_TYPE], limit=min(batch_size, max_jobs - processed))
         if not jobs:
             break
+        LOGGER.info(
+            "translation worker batch claimed: count=%s job_ids=%s",
+            len(jobs),
+            ",".join(str(job.get("id")) for job in jobs),
+        )
         for job in jobs:
             try:
                 result = await _run_job(job)
                 queue.complete(str(job["id"]), result=serialize_job_result(result))
+                LOGGER.info("translation worker job completed: job_id=%s", job.get("id"))
             except asyncio.CancelledError as exc:
                 LOGGER.warning("translation worker job cancelled: job_id=%s", job.get("id"))
                 queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)

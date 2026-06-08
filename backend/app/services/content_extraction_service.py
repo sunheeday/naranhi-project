@@ -163,6 +163,12 @@ class ContentExtractionService:
         _ensure_supabase_configured(settings)
         started_at = _utc_now()
         notice_ids = _pending_notice_ids_for_school(school_id, limit=max_notices)
+        LOGGER.info(
+            "school content extraction started: school_id=%s max_notices=%s pending_notice_ids=%s",
+            school_id,
+            max_notices,
+            len(notice_ids),
+        )
 
         from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
 
@@ -213,7 +219,7 @@ class ContentExtractionService:
                         item.gemini_calls_used,
                     )
 
-        return _build_summary(
+        summary = _build_summary(
             started_at=started_at,
             dry_run=False,
             force=True,
@@ -222,6 +228,16 @@ class ContentExtractionService:
             results=results,
             gemini_call_cap_reached=gemini_call_cap_reached,
         )
+        LOGGER.info(
+            "school content extraction finished: school_id=%s processed=%s success=%s error=%s gemini_calls=%s cap_reached=%s",
+            school_id,
+            summary.processed_count,
+            summary.success_count,
+            summary.error_count,
+            summary.gemini_calls_used,
+            summary.gemini_call_cap_reached,
+        )
+        return summary
 
     async def _process_notice_batch(
         self,
