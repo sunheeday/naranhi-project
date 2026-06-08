@@ -1028,11 +1028,11 @@ async function buildReusedDemoNotices(
       .in('notice_id', sourceNoticeIds),
     serviceClient
       .from('school_events')
-      .select('notice_id,title,event_date,location,description,source_language')
+      .select('notice_id,title,event_date,event_kinds,location,description,source_language')
       .in('notice_id', sourceNoticeIds),
   ])
 
-  const sourceCards = cardRows ?? []
+  const sourceCards = (cardRows ?? []).filter(card => card.type === 'action')
   const sourceCardIds = sourceCards.map(card => card.id)
   const { data: cardTranslationRows } = sourceCardIds.length > 0
     ? await serviceClient
@@ -1117,6 +1117,7 @@ async function buildReusedDemoNotices(
       notice_id: mappedNoticeId,
       title: event.title,
       event_date: event.event_date,
+      event_kinds: event.event_kinds,
       location: event.location,
       description: event.description,
       source_language: event.source_language,
@@ -1258,7 +1259,9 @@ export async function ensureDemoSchoolSeed(
     .in('notice_id', seededNoticeIds)
 
   const cardRows = staticNoticeSeeds.flatMap(seed =>
-    seed.cards.map(card => ({
+    seed.cards
+      .filter(card => card.type === 'action')
+      .map(card => ({
       id: card.id,
       notice_id: seed.id,
       type: card.type,
@@ -1282,7 +1285,9 @@ export async function ensureDemoSchoolSeed(
   }
 
   const cardTranslations = staticNoticeSeeds.flatMap(seed =>
-    seed.cards.flatMap(card =>
+    seed.cards
+      .filter(card => card.type === 'action')
+      .flatMap(card =>
       DEMO_LANGUAGES.map(language => ({
         notice_card_id: card.id,
         target_language: language,
@@ -1304,11 +1309,12 @@ export async function ensureDemoSchoolSeed(
   }
 
   const schoolEvents = staticNoticeSeeds.flatMap(seed =>
-    seed.eventDates.map(eventDate => ({
+    buildDemoEventEntries(seed.eventDates, seed.dueDate).map(entry => ({
       school_id: schoolId,
       notice_id: seed.id,
       title: seed.titleKo,
-      event_date: eventDate,
+      event_date: entry.eventDate,
+      event_kinds: entry.eventKinds satisfies Json,
       location: seed.eventLocation,
       description: seed.summaryKo,
       source_language: 'ko',
@@ -1320,6 +1326,20 @@ export async function ensureDemoSchoolSeed(
     .upsert([...schoolEvents, ...reusedNotices.events], { onConflict: 'notice_id,event_date' })
 
   await seedDemoMeals(serviceClient)
+}
+
+function buildDemoEventEntries(
+  eventDates: string[],
+  dueDate: string | null,
+): Array<{ eventDate: string; eventKinds: ('event' | 'deadline')[] }> {
+  const rows = eventDates.map(eventDate => ({
+    eventDate,
+    eventKinds: [eventDate === dueDate ? 'deadline' : 'event'] as ('event' | 'deadline')[],
+  }))
+  if (dueDate && !eventDates.includes(dueDate)) {
+    rows.push({ eventDate: dueDate, eventKinds: ['deadline'] })
+  }
+  return rows
 }
 
 export async function getDemoMealSourceCodes(

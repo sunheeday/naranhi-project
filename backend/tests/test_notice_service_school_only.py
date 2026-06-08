@@ -429,7 +429,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         }
         settings = Mock(supabase_configured=True, gemini_configured=True, crawler_timeout_seconds=5)
 
-        async def fake_generate_json(*, prompt, temperature):
+        async def fake_generate_json(*, prompt, temperature, model=None):
             if '"hard_facts"' in prompt and 'SOURCE_TEXT' in prompt:
                 return {
                     "hard_facts": {
@@ -1117,14 +1117,8 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(school_event_inserts[0][0]["event_date"], "2026-06-12")
         self.assertEqual(school_event_inserts[0][0]["location"], "서울숲")
         self.assertEqual(saved["school_events"][0]["title"], "현장체험학습 안내")
-        self.assertEqual(saved["cards"][0]["type"], "schedule")
-        self.assertEqual(
-            saved["cards"][0]["content"]["ko"]["items"],
-            [
-                {"text": "2026-06-12"},
-                {"text": "장소: 서울숲"},
-            ],
-        )
+        self.assertEqual(saved["school_events"][0]["event_kinds"], ["deadline", "event"])
+        self.assertEqual(saved["cards"], [])
 
         notice_updates = [
             op[2]
@@ -1184,6 +1178,10 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("validation", translation_upserts[-1])
         self.assertNotIn("raw_pipeline", translation_upserts[-1])
         self.assertEqual({row["event_date"] for row in saved["school_events"]}, {"2026-05-18", "2026-05-20", "2026-05-22"})
+        by_date = {row["event_date"]: row["event_kinds"] for row in saved["school_events"]}
+        self.assertEqual(by_date["2026-05-18"], ["event"])
+        self.assertEqual(by_date["2026-05-20"], ["event"])
+        self.assertEqual(by_date["2026-05-22"], ["deadline"])
         notice_updates = [
             op[2]
             for op in supabase.operations
@@ -1227,6 +1225,9 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
             {row["event_date"] for row in saved["school_events"]},
             {"2026-05-22", "2026-06-10"},
         )
+        by_date = {row["event_date"]: row["event_kinds"] for row in saved["school_events"]}
+        self.assertEqual(by_date["2026-06-10"], ["event"])
+        self.assertEqual(by_date["2026-05-22"], ["deadline"])
         notice_updates = [
             op[2]
             for op in supabase.operations
@@ -1285,18 +1286,10 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
             source_metadata={"school_id": "school-1"},
         )
 
-        self.assertEqual([card["type"] for card in saved["cards"]], ["supplies", "action", "schedule"])
+        self.assertEqual([card["type"] for card in saved["cards"]], ["action"])
         self.assertEqual(
             saved["cards"][0]["content"]["ko"]["items"],
-            [{"text": "운동화", "hint": "2026-10-05"}, {"text": "물"}],
-        )
-        self.assertEqual(
-            saved["cards"][1]["content"]["ko"]["items"],
             [{"text": "참가 신청서 제출", "hint": "2026-10-05"}],
-        )
-        self.assertEqual(
-            saved["cards"][2]["content"]["ko"]["items"],
-            [{"text": "2026-10-12"}, {"text": "장소: 운동장"}],
         )
         notice_updates = [
             op[2]
@@ -1450,6 +1443,53 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
             saved["notice_patch"]["source_hard_facts"]["hard_facts"]["dates"],
             [],
         )
+
+    def test_save_translation_keeps_real_event_date_when_same_date_also_appears_in_admin_meta(self):
+        supabase = FakeSupabase()
+        pipeline_result = {
+            "status": "ready_to_save",
+            "source_text": (
+                "현장체험학습 안내\n"
+                "체험학습일: 2026년 5월 22일\n"
+                "장소: 과천과학관\n\n"
+                "작성일 2026.05.22\n"
+                "부천부흥초등학교"
+            ),
+            "final_translation": "현장체험학습 안내",
+            "source_hard_facts": {
+                "hard_facts": {
+                    "dates": [
+                        {"raw_text": "2026년 5월 22일", "normalized": "2026-05-22"},
+                    ],
+                    "locations": [
+                        {"raw_text": "과천과학관", "normalized": "과천과학관"},
+                    ],
+                },
+            },
+            "target_hard_facts": {},
+            "metadata": {"title": "현장체험학습 안내"},
+            "admin_review": {"required": False, "reason": None},
+            "validation": {},
+            "raw_steps": {},
+        }
+
+        saved = NoticeService()._save_translation_result(
+            supabase=supabase,
+            notice={"school_id": "school-1", "title": "원본 제목"},
+            notice_id="notice-1",
+            target_language="ko",
+            pipeline_result=pipeline_result,
+            source_metadata={"school_id": "school-1"},
+        )
+
+        notice_updates = [
+            op[2]
+            for op in supabase.operations
+            if op[0] == "notices" and op[1] == "update"
+        ]
+        self.assertEqual(notice_updates[-1]["event_dates"], ["2026-05-22"])
+        self.assertEqual(saved["school_events"][0]["event_date"], "2026-05-22")
+        self.assertEqual(saved["school_events"][0]["event_kinds"], ["event"])
 
     def test_save_translation_filters_prohibited_materials(self):
         supabase = FakeSupabase()

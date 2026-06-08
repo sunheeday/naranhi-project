@@ -28,6 +28,7 @@ class GeminiJsonClient:
         *,
         api_key: str | None = None,
         model: str,
+        source_hard_fact_model: str | None = None,
         timeout_seconds: float = 60.0,
         use_vertex: bool = False,
         project: str | None = None,
@@ -35,6 +36,7 @@ class GeminiJsonClient:
     ) -> None:
         self.api_keys = _split_api_keys(api_key or "")
         self.model = model
+        self.source_hard_fact_model = source_hard_fact_model or model
         self.timeout_seconds = timeout_seconds
         self.use_vertex = use_vertex
         self.project = project
@@ -45,9 +47,11 @@ class GeminiJsonClient:
     def from_settings(cls, settings: "Settings") -> "GeminiJsonClient":
         """Build a client based on app settings, preferring Vertex AI when configured."""
         model = settings.gemini_translation_model or settings.gemini_model
+        source_hard_fact_model = settings.gemini_source_hard_fact_model or model
         if settings.use_vertex:
             return cls(
                 model=model,
+                source_hard_fact_model=source_hard_fact_model,
                 timeout_seconds=settings.gemini_timeout_seconds,
                 use_vertex=True,
                 project=settings.vertex_ai_project_id,
@@ -56,6 +60,7 @@ class GeminiJsonClient:
         return cls(
             api_key=settings.gemini_key_material,
             model=model,
+            source_hard_fact_model=source_hard_fact_model,
             timeout_seconds=settings.gemini_timeout_seconds,
         )
 
@@ -64,10 +69,19 @@ class GeminiJsonClient:
         *,
         prompt: str,
         temperature: float = 0.1,
+        model: str | None = None,
     ) -> dict[str, Any]:
         if self.use_vertex:
-            return await self._generate_json_vertex(prompt=prompt, temperature=temperature)
-        return await self._generate_json_api_key(prompt=prompt, temperature=temperature)
+            return await self._generate_json_vertex(
+                prompt=prompt,
+                temperature=temperature,
+                model=model or self.model,
+            )
+        return await self._generate_json_api_key(
+            prompt=prompt,
+            temperature=temperature,
+            model=model or self.model,
+        )
 
     def _get_vertex_client(self) -> Any:
         if self._vertex_client is None:
@@ -90,12 +104,13 @@ class GeminiJsonClient:
         *,
         prompt: str,
         temperature: float,
+        model: str,
     ) -> dict[str, Any]:
         from google.genai import types
 
         client = self._get_vertex_client()
         response = await client.aio.models.generate_content(
-            model=self.model,
+            model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=temperature,
@@ -112,6 +127,7 @@ class GeminiJsonClient:
         *,
         prompt: str,
         temperature: float,
+        model: str,
     ) -> dict[str, Any]:
         if not self.api_keys:
             raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
@@ -123,7 +139,7 @@ class GeminiJsonClient:
                 "responseMimeType": "application/json",
             },
         }
-        endpoint = f"{GEMINI_API_BASE}/{self.model}:generateContent"
+        endpoint = f"{GEMINI_API_BASE}/{model}:generateContent"
         last_error: Exception | None = None
 
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:

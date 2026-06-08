@@ -451,6 +451,7 @@ class NoticeService:
         source_hard_facts = await gemini.generate_json(
             prompt=extract_source_hard_facts_prompt(source_text),
             temperature=0.0,
+            model=getattr(gemini, "source_hard_fact_model", None),
         )
         source_hard_facts = _sanitize_source_hard_facts(source_hard_facts, source_text)
         validation_results = {
@@ -1029,8 +1030,8 @@ class NoticeService:
             return []
 
         supabase.table("school_events").delete().eq("notice_id", notice_id).execute()
-        event_dates = _schedule_dates_from_pipeline(pipeline_result)
-        if not event_dates:
+        event_entries = _school_event_entries_from_pipeline(pipeline_result)
+        if not event_entries:
             return []
 
         title = (
@@ -1052,12 +1053,13 @@ class NoticeService:
                 "school_id": school_id,
                 "notice_id": notice_id,
                 "title": title,
-                "event_date": event_date,
+                "event_date": entry["event_date"],
+                "event_kinds": entry["event_kinds"],
                 "location": location,
                 "description": description,
                 "source_language": "ko",
             }
-            for event_date in event_dates
+            for entry in event_entries
         ]
         result = supabase.table("school_events").insert(rows).execute()
         return result.data or []
@@ -1351,7 +1353,7 @@ def _due_date_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
 
 
 def _event_dates_json_from_pipeline(pipeline_result: dict[str, Any]) -> list[str]:
-    return _schedule_dates_from_pipeline(pipeline_result)
+    return [entry["event_date"] for entry in _school_event_entries_from_pipeline(pipeline_result)]
 
 
 def _event_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
@@ -1359,18 +1361,38 @@ def _event_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None
 
 
 def _schedule_dates_from_pipeline(pipeline_result: dict[str, Any]) -> list[str]:
+    return [entry["event_date"] for entry in _school_event_entries_from_pipeline(pipeline_result)]
+
+
+def _school_event_entries_from_pipeline(pipeline_result: dict[str, Any]) -> list[dict[str, Any]]:
     source_facts = _hard_facts(pipeline_result.get("source_hard_facts"))
     target_facts = _hard_facts(pipeline_result.get("target_hard_facts"))
     metadata = pipeline_result.get("metadata") if isinstance(pipeline_result.get("metadata"), dict) else {}
-    values: list[str] = []
+    order: list[str] = []
+    kinds_by_date: dict[str, set[str]] = {}
+
+    def add(values: list[str], kind: str) -> None:
+        for value in values:
+            if value not in kinds_by_date:
+                kinds_by_date[value] = set()
+                order.append(value)
+            kinds_by_date[value].add(kind)
+
     for container in (target_facts, source_facts):
-        for field in ("dates", "deadlines"):
-            values.extend(_normalized_iso_dates(container.get(field)))
-    values.extend(_canonical_metadata_iso_dates(metadata, "important_dates"))
-    values.extend(_canonical_metadata_iso_dates(metadata, "deadlines"))
-    values.extend(_metadata_card_section_dates(metadata, "schedule"))
-    values.extend(_metadata_card_section_dates(metadata, "action"))
-    return _dedupe(values)
+        add(_normalized_iso_dates(container.get("dates")), "event")
+        add(_normalized_iso_dates(container.get("deadlines")), "deadline")
+    add(_canonical_metadata_iso_dates(metadata, "important_dates"), "event")
+    add(_canonical_metadata_iso_dates(metadata, "deadlines"), "deadline")
+    add(_metadata_card_section_dates(metadata, "schedule"), "event")
+    add(_metadata_card_section_dates(metadata, "action"), "deadline")
+
+    return [
+        {
+            "event_date": value,
+            "event_kinds": [kind for kind in ("deadline", "event") if kind in kinds_by_date.get(value, set())],
+        }
+        for value in order
+    ]
 
 
 def _schedule_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
@@ -1400,24 +1422,7 @@ def _build_notice_cards(
     cards: list[dict[str, Any]] = []
     order = 0
 
-    supplies_items = _legacy_supply_card_items(
-        source_facts=source_facts,
-        metadata=metadata,
-    )
-    if supplies_items:
-        cards.append(
-            _card_row(
-                notice_id=notice_id,
-                card_type="supplies",
-                order=order,
-                content={
-                    "items": supplies_items,
-                },
-            )
-        )
-        order += 1
-
-    action_items = _legacy_action_card_items(
+    action_items = _canonical_action_card_items(
         source_facts=source_facts,
         metadata=metadata,
     )
@@ -1429,24 +1434,6 @@ def _build_notice_cards(
                 order=order,
                 content={
                     "items": action_items,
-                },
-            )
-        )
-        order += 1
-
-    schedule_items = _legacy_schedule_card_items(
-        source_facts=source_facts,
-        metadata=metadata,
-        summary_ko=_first_value(metadata.get("summary_ko")),
-    )
-    if schedule_items:
-        cards.append(
-            _card_row(
-                notice_id=notice_id,
-                card_type="schedule",
-                order=order,
-                content={
-                    "items": schedule_items,
                 },
             )
         )
@@ -1527,27 +1514,7 @@ def _first_non_empty_line(value: object) -> str | None:
     return None
 
 
-def _legacy_supply_card_items(
-    *,
-    source_facts: dict[str, Any],
-    metadata: dict[str, Any],
-) -> list[dict[str, str]]:
-    materials = _values(source_facts.get("materials"))
-    if not materials:
-        materials = _metadata_card_item_texts(metadata, "supplies")
-    deadline = _first_value(source_facts.get("deadlines"))
-    if not deadline:
-        deadline = _first_value(_canonical_metadata_values(metadata, "deadlines"))
-    items: list[dict[str, str]] = []
-    for index, material in enumerate(materials):
-        item = {"text": material}
-        if deadline and index == 0:
-            item["hint"] = deadline
-        items.append(item)
-    return items
-
-
-def _legacy_action_card_items(
+def _canonical_action_card_items(
     *,
     source_facts: dict[str, Any],
     metadata: dict[str, Any],
@@ -1567,43 +1534,6 @@ def _legacy_action_card_items(
         if deadline and index == 0:
             item["hint"] = deadline
         items.append(item)
-    return items
-
-
-def _legacy_schedule_card_items(
-    *,
-    source_facts: dict[str, Any],
-    metadata: dict[str, Any],
-    summary_ko: str | None = None,
-) -> list[dict[str, str]]:
-    dates = _values(source_facts.get("dates"))
-    if not dates:
-        dates = _canonical_metadata_values(metadata, "important_dates")
-    locations = _values(source_facts.get("locations"))
-    if not locations:
-        locations = _metadata_card_locations(metadata, "schedule")
-    times = _values(source_facts.get("times"))
-    items: list[dict[str, str]] = []
-
-    if dates:
-        date_item = {"text": _join_compact(dates)}
-        if times:
-            date_item["hint"] = _join_compact(times)
-        items.append(date_item)
-    elif times:
-        items.append({"text": _join_compact(times)})
-
-    for location in locations:
-        items.append({"text": f"장소: {location}"})
-
-    if not items:
-        metadata_items = _metadata_card_items(metadata, "schedule")
-        if metadata_items:
-            return metadata_items
-
-    if summary_ko and not items:
-        items.append({"text": summary_ko})
-
     return items
 
 
@@ -1844,39 +1774,72 @@ def _looks_like_admin_or_footer_date_value(raw_text: str | None, source_text: st
     if not compact_source or not tokens:
         return False
 
-    admin_keywords = ("작성일", "등록일", "게시일", "수정일", "배부일", "공지일", "발행일", "조회수", "댓글", "문의일자", "문서번호")
+    admin_keywords = (
+        "작성일",
+        "등록일",
+        "등록일시",
+        "게시일",
+        "게시일시",
+        "게시기간",
+        "수정일",
+        "수정일시",
+        "최종수정일",
+        "배부일",
+        "공지일",
+        "발행일",
+        "업로드일",
+        "업로드일시",
+        "조회수",
+        "댓글",
+        "문의일자",
+        "문서번호",
+        "첨부일",
+        "첨부일자",
+    )
     schedule_keywords = ("행사", "실시", "운영", "참여", "검사", "시험", "등교", "하교", "방문", "체험학습", "수학여행", "캠프", "설문", "조사", "신청", "제출", "마감", "납부", "회신", "대회", "설명회", "훈련", "공연", "발표")
+
+    saw_admin_context = False
+    saw_non_admin_context = False
 
     for token in tokens:
         footer_pattern = re.escape(token).replace(r"\ ", r"\s*")
         if re.search(
-            footer_pattern + r"\s*(?:[가-힣A-Za-z0-9·\s]+)?(?:초등학교장|중학교장|고등학교장|학교장|교장|원장)\s*$",
+            footer_pattern + r"(?:\s|[가-힣A-Za-z0-9·]){0,40}(?:학교장|교장|원장)\s*$",
             source_text,
             re.S,
         ):
-            return True
+            saw_admin_context = True
 
         compact_token = _compact_text(token)
         if not compact_token:
             continue
-        match_index = compact_source.find(compact_token)
-        if match_index < 0:
-            continue
+        start = 0
+        while True:
+            match_index = compact_source.find(compact_token, start)
+            if match_index < 0:
+                break
 
-        context_start = max(0, match_index - 40)
-        context_end = min(len(compact_source), match_index + len(compact_token) + 40)
-        context = compact_source[context_start:context_end]
-        trailing = compact_source[match_index + len(compact_token) :]
+            context_start = max(0, match_index - 40)
+            context_end = min(len(compact_source), match_index + len(compact_token) + 40)
+            context = compact_source[context_start:context_end]
+            trailing = compact_source[match_index + len(compact_token) :]
 
-        if any(keyword in context for keyword in admin_keywords) and not any(keyword in context for keyword in schedule_keywords):
-            return True
+            has_admin_keyword = any(keyword in context for keyword in admin_keywords)
+            has_schedule_keyword = any(keyword in context for keyword in schedule_keywords)
 
-        is_near_footer = match_index >= int(len(compact_source) * 0.8)
-        footer_tail = trailing[:24]
-        if is_near_footer and any(keyword in footer_tail for keyword in ("학교장", "교장", "원장")):
-            return True
+            footer_tail = trailing[:24]
+            is_footer_signature = any(
+                keyword in footer_tail for keyword in ("학교장", "교장", "원장")
+            )
 
-    return False
+            if is_footer_signature or (has_admin_keyword and not has_schedule_keyword):
+                saw_admin_context = True
+            else:
+                saw_non_admin_context = True
+
+            start = match_index + len(compact_token)
+
+    return saw_admin_context and not saw_non_admin_context
 
 
 def _date_search_tokens(raw_text: str | None) -> list[str]:

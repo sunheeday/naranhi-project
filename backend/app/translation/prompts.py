@@ -98,11 +98,39 @@ HARD_FACT_SCHEMA = """{
 }"""
 
 
+HARD_FACT_EXTRACTION_NORTH_STAR = """
+North star:
+- Extract facts so that a migrant parent can correctly understand WHAT must happen, WHEN it happens or is due, and HOW they must respond.
+- When a fact does not affect parent/student understanding or action, do not promote it into a critical fact field.
+- Prefer faithful structured extraction over elegant summarization. Read like an auditor, not a copywriter."""
+
+
+HARD_FACT_EXTRACTION_WORKFLOW = """
+Extraction workflow:
+1. Read the notice line by line and section by section. Treat tables, bullet lists, label-value rows, headers, and footers as structured data.
+2. For every date-like or time-like string, classify its role from nearby labels and context before extracting it:
+   - happens / attends / visits / takes place / exam / event / survey period / participation period -> `dates`
+   - submit / return / apply / pay / reply / deadline / due by / until / by / 마감 / 회신 / 납부 -> `deadlines`
+   - posting/admin/meta/header/footer/signature timestamp -> do not extract into `dates` or `deadlines`
+3. Preserve the concrete action chain that matters to a parent: what to bring, what to submit, who is targeted, where to go, when to act, and how to contact.
+4. If the same concrete fact appears more than once, keep the semantic fact once; do not multiply duplicates."""
+
+
+HARD_FACT_EXTRACTION_LEDGER = """
+Working ledger before JSON:
+- First separate the notice into: admin/meta, event schedule, parent/student actions, submissions/returns, materials, contacts, and warnings.
+- Then map only the actionable/event-bearing facts into schema fields.
+- Keep admin/meta facts out of critical action/date fields unless the notice explicitly tells the parent that the date itself is something to act on or attend.
+- If a line mixes multiple fact roles, split them: for example, one line can yield an action, a submission item, and a deadline at the same time."""
+
+
 def extract_source_hard_facts_prompt(source_text: str) -> str:
     return f"""{COMMON_SYSTEM_PROMPT}
 
 Task:
 Extract and normalize verifiable hard facts from a Korean school notice.
+
+{HARD_FACT_EXTRACTION_NORTH_STAR}
 
 Input:
 - source_language_code: ko
@@ -111,6 +139,9 @@ Input:
 <SOURCE_TEXT language="ko">
 {source_text}
 </SOURCE_TEXT>
+
+{HARD_FACT_EXTRACTION_WORKFLOW}
+{HARD_FACT_EXTRACTION_LEDGER}
 
 Extraction rules:
 - Extract only facts explicitly present in SOURCE_TEXT.
@@ -123,19 +154,30 @@ Extraction rules:
 - Preserve numbers, amounts, phone numbers, account numbers, and URLs exactly in raw_text.
 - For locations, materials, submissions, and actions, raw_text must preserve the Korean phrase from the source.
 - Ingredient and allergy items must remain raw Korean text unless an approved dictionary is provided in a later step.
+- For every date-like string, inspect the nearby context words before classifying it. Use the surrounding label, sentence, table header, and neighboring lines to decide whether it is an event date, a deadline, or just page/admin metadata.
 - `dates` must contain only real occurrence / participation / attendance / visit / exam / event dates, or other dates the parent or student must remember as "happens on this date".
 - Do NOT put board/admin metadata dates into `dates` or `deadlines`: examples include `작성일`, `등록일`, `게시일`, `수정일`, `배부일`, `조회수`, comment timestamps, file upload timestamps, or contact-log dates, unless the text explicitly says that date is an event date, attendance date, submission date, or deadline.
+- Dates that appear only in a notice header/footer or admin meta block are NOT event dates. This includes top-of-page meta rows or footer signatures such as `작성일 2026.05.22`, `등록일`, `게시일시`, `최종수정일`, or `2026.03.04. 부천부흥초등학교장`.
 - If a date is introduced as a due / until / by / 마감 / 제출 / 회신 / 납부 / 신청기한 / 신청 마감 expression, extract it into `deadlines` even if the same date also appears elsewhere.
 - If a date range describes an event period, camp period, exam period, survey period, or participation period, keep the visible boundary dates in `dates`. If a date range is purely a submission / payment / application window, keep the closing or due boundary in `deadlines`, and keep other visible boundary dates only when they are explicitly important for the parent to act on.
 - `materials` must contain only things the parent or student must actually bring, prepare, wear, carry, or have ready. Good cues: `준비물`, `지참`, `준비해 오기`, `가져오기`, `복장`.
 - Do NOT put prohibited / banned / confiscated / restricted items into `materials`. If the notice says `금지물품`, `반입금지`, `소지 금지`, `지참 금지`, `가져오지 마세요`, `허용되지 않음`, or similar, those items belong in `warnings` and/or the prohibition sentence belongs in `actions_required`, not in `materials`.
 - `submissions` is for items that must be submitted / returned / handed in, such as forms, consent slips, applications, or receipts. Do not mix these into `materials` unless the notice explicitly frames them as bring-along items rather than return/submit items.
-- `actions_required` should capture what the parent/student must do, including negative compliance instructions such as `소지하지 마세요`, `반입하지 마세요`, `제출하세요`, `신청하세요`, `확인 바랍니다`.
+- `actions_required` should capture what the parent/student must do as short task phrases, not just category nouns. Prefer action-shaped outputs such as `참가 신청서 제출`, `보호자 서명 후 회신`, `도시락 준비`, `실내화 지참`, `수익자부담금 납부`, `참가 여부 회신`, `소지하지 않기`, `반입하지 않기`, rather than vague labels like `신청서`, `준비물`, `안내 확인`.
+- Treat the following cue families as strong evidence for `actions_required` when they address the parent/student: submit/return/apply/register/pay/confirm/reply/consent/sign/check/read carefully/bring/prepare/wear/carry/install/access/join/attend/visit/do not bring/do not carry.
+- If the notice explicitly tells the parent/student to bring, prepare, wear, or carry something, extract the item into `materials` and also extract the task into `actions_required` when the sentence is clearly an instruction. Example: `도시락과 물을 준비해 주세요` -> materials: `도시락`, `물`; actions_required: `도시락과 물 준비`.
+- If the notice asks for a form, consent slip, survey, payment, online application, QR response, or signature, make sure `actions_required` includes the actual required act, not only the artifact name.
+- If a line answers a parent-facing "what / when / how" question, make sure the relevant fact lands in the correct field instead of being lost as prose.
+- If one sentence contains both an event date and a submission deadline, extract both facts separately into their correct fields.
+- If a line is only a title, section header, admin stamp, or footer marker, do not force it into `actions_required`, `dates`, or `deadlines`.
 - Before returning JSON, self-check for role confusion:
   1. If `dates` only contains posting/admin metadata dates, remove them.
   2. If an item in `materials` appears in the same phrase as `금지`, `반입금지`, `소지 금지`, or `지참 금지`, move it out of `materials`.
   3. If the notice has an explicit `준비물`/`지참물` section and `materials` is empty, revise.
   4. If the notice has an explicit `마감`/`제출`/`신청기한` phrase and `deadlines` is empty, revise.
+  5. If the notice makes a parent or student do something and `actions_required` is empty, revise.
+  6. If a visible line tells the parent what to do, when to do it, or how/where to do it, do not drop that concrete fact during normalization.
+  7. If `actions_required` contains only bare nouns like `신청서`, `동의서`, `준비물`, or `설문`, rewrite them as explicit tasks when the source provides the action.
 
 Return this JSON schema:
 {HARD_FACT_SCHEMA}"""
@@ -318,6 +360,8 @@ def extract_target_hard_facts_prompt(*, target_language: str, target_translation
 Task:
 Extract verifiable hard facts from the target-language translation for comparison with the Korean source facts.
 
+{HARD_FACT_EXTRACTION_NORTH_STAR}
+
 Input:
 - target_language_code: {target_language}
 - target_language_name: {target_name}
@@ -325,6 +369,9 @@ Input:
 <TARGET_TRANSLATION language="{target_language}">
 {target_translation}
 </TARGET_TRANSLATION>
+
+{HARD_FACT_EXTRACTION_WORKFLOW}
+{HARD_FACT_EXTRACTION_LEDGER}
 
 Extraction rules:
 - Extract facts as they actually appear in TARGET_TRANSLATION.
@@ -334,11 +381,18 @@ Extraction rules:
 - For translated semantic fields such as locations/materials/actions, keep raw_text in the target language and use normalized only if a language-independent canonical value is clear.
 - Do not infer source facts that are not present in TARGET_TRANSLATION.
 - Read each table, bullet list, schedule line, and label-value row as structured content. Inspect every row/cell/line before deciding an array is empty.
+- Preserve parent-action usability: if the translation clearly tells the parent what to do, when to do it, or how/where to do it, extract those facts into actions / deadlines / submissions / locations rather than leaving them implicit.
+- If the translation compresses multiple Korean facts into one natural sentence, recover each concrete fact separately in the schema rather than keeping them fused.
+- `actions_required` should contain short task phrases, not only object nouns. Prefer outputs like `Submit the consent form`, `Prepare lunch and water`, `Bring indoor shoes`, `Pay the fee`, `Reply by QR form`, `Do not bring scooters`.
+- Treat imperative/request/compliance cues as action signals even when the translation softens them politely: `please submit`, `please bring`, `make sure to`, `must`, `need to`, `by ...`, `until ...`, `do not bring`, `do not carry`, `reply using`, `sign and return`, `pay by`, `apply through`, `join/attend`.
+- If the translation instructs the parent/student to bring, prepare, wear, or carry something, keep the item in `materials` and also add the task to `actions_required` when the action is explicit.
+- Do not promote decorative headings, translated titles, or generic notice openers into hard facts unless they contain a real fact token.
 - If a line contains a due date, payment deadline, submission deadline, or other "by/until/до/بحلول/마감"-type phrasing, extract it into `deadlines` even if the same date also appears in `dates`.
 - If the translation visibly contains a date, time, fee, phone number, URL, submission item, or grade/class target, do not omit it from the corresponding array. When uncertain, keep the `raw_text` and leave `normalized` null instead of dropping the fact.
 - If the translation contains a time range, date range, or paired start/end facts on the same line, extract every visible component.
 - If the translation contains a parent response or form-return line, capture both the submission item and the action/deadline facts that appear on that line.
 - Before returning JSON, self-check for obvious omissions: if TARGET_TRANSLATION visibly contains dates, times, amounts, contacts, deadlines, submissions, or grade/class targets but the corresponding arrays are empty, revise the extraction and fill them.
+- Final self-check: a migrant parent reading only TARGET_TRANSLATION should still be able to identify WHAT to do, WHEN it matters, and HOW/WHERE to respond from the extracted fields.
 
 Return this JSON schema:
 {HARD_FACT_SCHEMA}"""
@@ -703,8 +757,12 @@ Rules:
 - summary_target_language must be in {target_name}.
 - actions_required, important_dates, and deadlines are canonical source-side fields and must stay in Korean even when target_language is not Korean.
 - actions_required and deadlines must be copied from hard facts when available.
+- actions_required is the primary canonical card input. It must list concrete parent/student tasks as short Korean task phrases, not bare nouns. Good patterns: `참가 신청서 제출`, `보호자 서명 후 회신`, `실내화 지참`, `도시락 준비`, `수익자부담금 납부`.
+- If hard facts contain materials that the parent/student is explicitly told to bring or prepare, reflect that obligation in actions_required as a task phrase as well as keeping the underlying material fact elsewhere.
 - card_sections_ko must be in Korean and formatted for direct canonical UI use.
 - card_sections_target_language must be in {target_name} and formatted for direct translated UI use.
+- `card_sections_ko.action` and `card_sections_target_language.action` are the canonical user-facing card sections. They must contain the concrete actionable tasks from actions_required / submissions / deadlines, one task per item, with hint used for due dates or short timing only.
+- `card_sections_ko.supplies`, `card_sections_target_language.supplies`, `card_sections_ko.schedule`, and `card_sections_target_language.schedule` are legacy compatibility sections. Keep them concise if genuinely useful, but leave them empty rather than inventing filler. Do not rely on them to carry the only actionable instruction.
 - both card_sections_ko and card_sections_target_language items must be concise, factual, and each item should contain one concrete action, supply, date/time, or location detail.
 - If validation is not safe, reflect that in validation_status and validation_failure_reason.
 - summary_ko and summary_target_language must use clean, readable line breaks: short paragraphs separated by one blank line, and each distinct date/deadline/action/fee/material/location on its own "- " line.

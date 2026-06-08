@@ -322,6 +322,7 @@ export interface Database {
           notice_id: string
           title: string
           event_date: string
+          event_kinds: Json
           location: string | null
           description: string | null
           source_language: string
@@ -334,6 +335,7 @@ export interface Database {
           notice_id: string
           title: string
           event_date: string
+          event_kinds?: Json
           location?: string | null
           description?: string | null
           source_language?: string
@@ -345,6 +347,7 @@ export interface Database {
           notice_id?: string
           title?: string
           event_date?: string
+          event_kinds?: Json
           location?: string | null
           description?: string | null
           source_language?: string
