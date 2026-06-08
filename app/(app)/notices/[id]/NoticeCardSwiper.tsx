@@ -52,6 +52,7 @@ interface Props {
   noticeId: string
   cards: NoticeCard[]
   labels: CardLabels
+  isRtl?: boolean
 }
 
 /**
@@ -116,8 +117,12 @@ const THEME: Record<NoticeCard['type'], CardTheme> = {
   },
 }
 
-export default function NoticeCardSwiper({ noticeId, cards, labels }: Props) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' })
+export default function NoticeCardSwiper({ noticeId, cards, labels, isRtl = false }: Props) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'center',
+    direction: isRtl ? 'rtl' : 'ltr',
+  })
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   // 카드 순서는 호출부(page.tsx)가 요약 → 구조화 → 본문/첨부 → 원본파일 순으로 정한다(여기선 재정렬 안 함).

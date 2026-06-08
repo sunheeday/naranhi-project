@@ -1403,6 +1403,49 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(next_metadata["actions_required"], [])
         self.assertEqual(next_metadata["card_sections_ko"]["action"]["items"], [])
 
+    def test_save_translation_filters_english_source_actions_from_canonical_notice_cards(self):
+        supabase = FakeSupabase()
+        pipeline_result = {
+            "status": "ready_to_save",
+            "source_text": "신청서를 제출하세요.",
+            "final_translation": "Submit the application form.",
+            "source_hard_facts": {
+                "hard_facts": {
+                    "actions_required": [
+                        {"raw_text": "Submit the application form", "normalized": "Submit the application form"},
+                    ],
+                    "submissions": [
+                        {"raw_text": "Application form", "normalized": "Application form"},
+                    ],
+                },
+            },
+            "target_hard_facts": {},
+            "metadata": {
+                "target_language": "en",
+                "summary_ko": "신청 안내",
+                "actions_required": ["Submit the application form"],
+                "card_sections_ko": {
+                    "action": {
+                        "items": [{"text": "Submit the application form", "hint": "2026-10-05"}],
+                    },
+                },
+            },
+            "admin_review": {"required": False, "reason": None},
+            "validation": {},
+            "raw_steps": {},
+        }
+
+        saved = NoticeService()._save_translation_result(
+            supabase=supabase,
+            notice={"school_id": "school-1", "title": "원본 제목"},
+            notice_id="notice-1",
+            target_language="ko",
+            pipeline_result=pipeline_result,
+            source_metadata={"school_id": "school-1"},
+        )
+
+        self.assertEqual(saved["cards"], [])
+
     def test_save_translation_filters_footer_dates_from_event_dates(self):
         supabase = FakeSupabase()
         pipeline_result = {
