@@ -22,6 +22,17 @@ class _FakeQueue:
 
 
 class WorkerCancellationTest(unittest.IsolatedAsyncioTestCase):
+    async def test_translation_worker_skips_ko_jobs_without_calling_translation(self) -> None:
+        job = {"id": "job-1", "payload": {"notice_id": "n1", "target_language": "ko"}}
+        with patch("app.jobs.translation_worker.NoticeService") as service_cls:
+            from app.jobs.translation_worker import _run_job
+
+            result = await _run_job(job)
+
+        service_cls.assert_not_called()
+        self.assertEqual(result["target_language"], "ko")
+        self.assertTrue(result["saved"]["skipped"])
+
     async def test_translation_worker_marks_job_failed_on_cancellation(self) -> None:
         queue = _FakeQueue([{"id": "job-1", "payload": {"notice_id": "n1", "target_language": "en"}}])
         with (

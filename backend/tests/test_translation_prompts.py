@@ -76,8 +76,9 @@ class TranslationPromptsTest(unittest.TestCase):
 
         self.assertIn("actions_required is the primary canonical card input", prompt)
         self.assertIn("card_sections_ko.action", prompt)
-        self.assertIn("legacy compatibility sections", prompt)
-        self.assertIn("Do not rely on them to carry the only actionable instruction.", prompt)
+        self.assertIn("Do not create parallel schedule/supplies sections", prompt)
+        self.assertNotIn('"supplies"', prompt)
+        self.assertNotIn('"schedule"', prompt)
 
 
 if __name__ == "__main__":

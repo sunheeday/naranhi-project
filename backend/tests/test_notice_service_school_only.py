@@ -171,10 +171,54 @@ class FakeTable:
                 saved.append(next_row)
             return FakeResult(saved)
         if self.name == "school_events" and self.action == "delete":
+            row_id = self.filters.get("id")
+            notice_id = self.filters.get("notice_id")
+            self.client.school_events = [
+                row
+                for row in self.client.school_events
+                if not (
+                    (row_id and row.get("id") == row_id)
+                    or (notice_id and row.get("notice_id") == notice_id)
+                )
+            ]
             return FakeResult([])
+        if self.name == "school_events" and self.action == "select":
+            notice_id = self.filters.get("notice_id")
+            rows = self.client.school_events
+            if notice_id:
+                rows = [row for row in rows if row.get("notice_id") == notice_id]
+            return FakeResult(rows)
         if self.name == "school_events" and self.action == "insert":
             rows = self.payload if isinstance(self.payload, list) else [self.payload]
-            return FakeResult(rows)
+            saved = []
+            for index, row in enumerate(rows, start=1):
+                next_row = dict(row)
+                next_row.setdefault("id", f"event-{len(self.client.school_events) + index}")
+                self.client.school_events.append(next_row)
+                saved.append(next_row)
+            return FakeResult(saved)
+        if self.name == "school_events" and self.action == "upsert":
+            rows = self.payload if isinstance(self.payload, list) else [self.payload]
+            saved = []
+            for index, row in enumerate(rows, start=1):
+                next_row = dict(row)
+                existing = next(
+                    (
+                        current
+                        for current in self.client.school_events
+                        if current.get("notice_id") == next_row.get("notice_id")
+                        and current.get("event_date") == next_row.get("event_date")
+                    ),
+                    None,
+                )
+                if existing:
+                    existing.update(next_row)
+                    saved.append(existing)
+                    continue
+                next_row.setdefault("id", f"event-{len(self.client.school_events) + index}")
+                self.client.school_events.append(next_row)
+                saved.append(next_row)
+            return FakeResult(saved)
         if self.action in {"insert", "update", "upsert"}:
             return FakeResult([self.payload])
         return FakeResult([])
@@ -186,6 +230,7 @@ class FakeSupabase:
         self.notice = None
         self.notice_cards = []
         self.notice_card_translations = []
+        self.school_events = []
         self.children = []
         self.translations = []
 
@@ -410,7 +455,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             "안녕하세요 선생님, 오늘 아이가 병원에 다녀와서 지각할 예정입니다.",
         )
 
-    async def test_translate_notice_ko_builds_canonical_cards_when_missing(self):
+    async def test_refresh_notice_canonical_artifacts_builds_canonical_cards_when_missing(self):
         supabase = FakeSupabase()
         supabase.notice = {
             "id": "notice-1",
@@ -457,9 +502,9 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
             patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
         ):
-            result = await NoticeService().translate_notice(
+            result = await NoticeService().refresh_notice_canonical_artifacts(
                 notice_id="notice-1",
-                target_language="ko",
+                source_text=None,
             )
 
         self.assertEqual(result["translation"], "한국어 원문")
@@ -1109,7 +1154,7 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         school_event_inserts = [
             op[2]
             for op in supabase.operations
-            if op[0] == "school_events" and op[1] == "insert"
+            if op[0] == "school_events" and op[1] == "upsert"
         ]
         self.assertEqual(len(school_event_inserts), 1)
         self.assertEqual(len(school_event_inserts[0]), 1)
@@ -1533,6 +1578,59 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(notice_updates[-1]["event_dates"], ["2026-05-22"])
         self.assertEqual(saved["school_events"][0]["event_date"], "2026-05-22")
         self.assertEqual(saved["school_events"][0]["event_kinds"], ["event"])
+
+    def test_save_translation_upserts_school_events_and_cleans_stale_dates(self):
+        supabase = FakeSupabase()
+        supabase.school_events = [
+            {
+                "id": "event-1",
+                "notice_id": "notice-1",
+                "school_id": "school-1",
+                "event_date": "2026-05-20",
+                "title": "기존 일정",
+                "event_kinds": ["event"],
+            },
+            {
+                "id": "event-2",
+                "notice_id": "notice-1",
+                "school_id": "school-1",
+                "event_date": "2026-05-21",
+                "title": "사라질 일정",
+                "event_kinds": ["event"],
+            },
+        ]
+        pipeline_result = {
+            "status": "ready_to_save",
+            "source_text": "행사일은 2026년 5월 20일입니다.",
+            "final_translation": "행사일은 2026년 5월 20일입니다.",
+            "source_hard_facts": {
+                "hard_facts": {
+                    "dates": [{"raw_text": "2026년 5월 20일", "normalized": "2026-05-20"}],
+                },
+            },
+            "target_hard_facts": {},
+            "metadata": {"title": "새 일정 제목"},
+            "admin_review": {"required": False, "reason": None},
+            "validation": {},
+            "raw_steps": {},
+        }
+
+        saved = NoticeService()._save_translation_result(
+            supabase=supabase,
+            notice={"school_id": "school-1", "title": "원본 제목"},
+            notice_id="notice-1",
+            target_language="ko",
+            pipeline_result=pipeline_result,
+            source_metadata={"school_id": "school-1"},
+        )
+
+        self.assertEqual(len(saved["school_events"]), 1)
+        self.assertEqual(saved["school_events"][0]["event_date"], "2026-05-20")
+        self.assertEqual(saved["school_events"][0]["title"], "새 일정 제목")
+        self.assertEqual(
+            {row["event_date"] for row in supabase.school_events if row.get("notice_id") == "notice-1"},
+            {"2026-05-20"},
+        )
 
     def test_save_translation_filters_prohibited_materials(self):
         supabase = FakeSupabase()

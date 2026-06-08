@@ -93,6 +93,22 @@ async def translate_notice(
     payload: NoticeTranslateRequest,
     service: NoticeService = Depends(get_notice_service),
 ) -> dict[str, object]:
+    normalized_target_language = payload.target_language.strip().lower()
+    if not normalized_target_language or normalized_target_language == "ko":
+        try:
+            return await service.translate_notice(
+                notice_id=notice_id,
+                target_language="ko",
+                source_text=payload.source_text,
+                approved_ingredient_dictionary=payload.approved_ingredient_dictionary,
+                approved_ingredient_dictionary_target=payload.approved_ingredient_dictionary_target,
+            )
+        except RuntimeError as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(error),
+            ) from error
+
     if payload.background:
         key = _background_translation_task_key(
             notice_id=notice_id,

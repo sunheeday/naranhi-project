@@ -72,7 +72,7 @@ class NoticeService:
         approved_ingredient_dictionary_target: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
         if not target_language or target_language.strip().lower() == "ko":
-            return await self._translate_notice_for_korean(
+            return await self._return_korean_notice(
                 notice_id=notice_id,
                 source_text=source_text,
             )
@@ -359,7 +359,7 @@ class NoticeService:
             "saved": {},
         }
 
-    async def _translate_notice_for_korean(
+    async def refresh_notice_canonical_artifacts(
         self,
         *,
         notice_id: str,
@@ -394,7 +394,7 @@ class NoticeService:
             _optional_str(source_text),
         )
         if not resolved_source_text:
-            raise RuntimeError("번역할 원문이 없습니다.")
+            raise RuntimeError("구조화할 원문이 없습니다.")
 
         if _notice_has_canonical_artifacts(supabase=supabase, notice=notice):
             return {
@@ -411,10 +411,18 @@ class NoticeService:
             }
 
         if not settings.gemini_configured:
-            return await self._return_korean_notice(
-                notice_id=notice_id,
-                source_text=resolved_source_text,
-            )
+            return {
+                "ok": True,
+                "notice_id": notice_id,
+                "target_language": "ko",
+                "status": "ready_to_save",
+                "admin_review": {
+                    "required": False,
+                    "reason": None,
+                },
+                "translation": resolved_source_text,
+                "saved": {},
+            }
 
         gemini = GeminiJsonClient.from_settings(settings)
         pipeline_result = await self._build_korean_notice_artifacts(
@@ -1029,9 +1037,19 @@ class NoticeService:
         if not school_id:
             return []
 
-        supabase.table("school_events").delete().eq("notice_id", notice_id).execute()
+        existing_rows = (
+            supabase.table("school_events")
+            .select("id,event_date")
+            .eq("notice_id", notice_id)
+            .execute()
+            .data
+            or []
+        )
         event_entries = _school_event_entries_from_pipeline(pipeline_result)
         if not event_entries:
+            for row in existing_rows:
+                if row.get("id"):
+                    supabase.table("school_events").delete().eq("id", row["id"]).execute()
             return []
 
         title = (
@@ -1061,8 +1079,20 @@ class NoticeService:
             }
             for entry in event_entries
         ]
-        result = supabase.table("school_events").insert(rows).execute()
-        return result.data or []
+        result = (
+            supabase.table("school_events")
+            .upsert(rows, on_conflict="notice_id,event_date")
+            .execute()
+        )
+
+        next_dates = {entry["event_date"] for entry in event_entries}
+        for row in existing_rows:
+            row_id = row.get("id")
+            event_date = _optional_str(row.get("event_date"))
+            if row_id and event_date and event_date not in next_dates:
+                supabase.table("school_events").delete().eq("id", row_id).execute()
+
+        return result.data or rows
 
 
 def _optional_str(value: object) -> str | None:
@@ -1344,7 +1374,6 @@ def _due_date_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
         deadlines.extend(_normalized_iso_dates(container.get("deadlines")))
     deadlines.extend(_canonical_metadata_iso_dates(metadata, "deadlines"))
     deadlines.extend(_metadata_card_section_dates(metadata, "action"))
-    deadlines.extend(_metadata_card_section_dates(metadata, "schedule"))
     deadlines = _dedupe(deadlines)
     if not deadlines:
         return None
@@ -1383,7 +1412,6 @@ def _school_event_entries_from_pipeline(pipeline_result: dict[str, Any]) -> list
         add(_normalized_iso_dates(container.get("deadlines")), "deadline")
     add(_canonical_metadata_iso_dates(metadata, "important_dates"), "event")
     add(_canonical_metadata_iso_dates(metadata, "deadlines"), "deadline")
-    add(_metadata_card_section_dates(metadata, "schedule"), "event")
     add(_metadata_card_section_dates(metadata, "action"), "deadline")
 
     return [

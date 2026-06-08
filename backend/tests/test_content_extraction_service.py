@@ -427,7 +427,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(locales, ["ko"])
 
-    def test_missing_translation_locales_skips_any_cached_translated_rows(self) -> None:
+    def test_missing_translation_locales_retries_failed_translated_rows(self) -> None:
         client = FakeSupabaseClient()
         client.translations = [
             {
@@ -447,7 +447,7 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
             missing = _missing_translation_locales("notice-1", ["vi", "en", "ru"])
 
-        self.assertEqual(missing, ["ru"])
+        self.assertEqual(missing, ["en", "ru"])
 
     def test_auto_translate_notice_locales_translates_only_missing_locales(self) -> None:
         client = FakeSupabaseClient()
@@ -469,8 +469,13 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
         ]
         settings = type("FakeSettings", (), {"gemini_configured": True})()
         translated: list[tuple[str, str]] = []
+        refreshed: list[str] = []
 
         class FakeNoticeService:
+            async def refresh_notice_canonical_artifacts(self, *, notice_id: str, source_text=None):
+                refreshed.append(notice_id)
+                return {"ok": True}
+
             async def translate_notice(self, *, notice_id: str, target_language: str, **kwargs):
                 translated.append((notice_id, target_language))
                 return {"ok": True}
@@ -485,7 +490,8 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
             asyncio.run(_auto_translate_notice_locales({"id": "notice-1", "school_id": "school-1"}))
 
-        self.assertEqual(translated, [("notice-1", "ko"), ("notice-1", "en")])
+        self.assertEqual(refreshed, ["notice-1"])
+        self.assertEqual(translated, [("notice-1", "en")])
 
     def test_normalized_locale_rejects_korean_and_invalid_values(self) -> None:
         self.assertIsNone(_normalized_locale("ko"))

@@ -837,9 +837,8 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
 
     service = NoticeService()
     try:
-        await service.translate_notice(
+        await service.refresh_notice_canonical_artifacts(
             notice_id=notice_id,
-            target_language="ko",
             source_text=notice_text,
         )
     except Exception as exc:  # noqa: BLE001 - canonical refresh must not fail extraction.
@@ -1030,6 +1029,7 @@ def _missing_translation_locales(notice_id: str, locales: list[str]) -> list[str
         for row in existing_rows
         if _normalized_locale(row.get("target_language"))
         and str(row.get("translated_text") or "").strip()
+        and str(row.get("validation_status") or "").strip().lower() != "failed"
     }
     return [locale for locale in locales if locale not in completed]
 
