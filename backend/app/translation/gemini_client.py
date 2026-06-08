@@ -44,9 +44,10 @@ class GeminiJsonClient:
     @classmethod
     def from_settings(cls, settings: "Settings") -> "GeminiJsonClient":
         """Build a client based on app settings, preferring Vertex AI when configured."""
+        model = settings.gemini_translation_model or settings.gemini_model
         if settings.use_vertex:
             return cls(
-                model=settings.gemini_model,
+                model=model,
                 timeout_seconds=settings.gemini_timeout_seconds,
                 use_vertex=True,
                 project=settings.vertex_ai_project_id,
@@ -54,7 +55,7 @@ class GeminiJsonClient:
             )
         return cls(
             api_key=settings.gemini_key_material,
-            model=settings.gemini_model,
+            model=model,
             timeout_seconds=settings.gemini_timeout_seconds,
         )
 

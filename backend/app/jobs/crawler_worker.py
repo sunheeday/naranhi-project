@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import sys
+
+from app.services.content_extraction_service import ContentExtractionService
+from app.services.job_queue_service import JobQueueService, serialize_job_result
+from app.services.school_crawler_service import SchoolCrawlerService
+
+LOGGER = logging.getLogger(__name__)
+JOB_TYPE_DISCOVERY = "school_board_discovery"
+JOB_TYPE_EXTRACTION = "school_notice_extraction"
+
+
+async def _run_discovery_job(job: dict[str, object], queue: JobQueueService) -> dict[str, object]:
+    payload = job.get("payload") if isinstance(job.get("payload"), dict) else {}
+    school_id = str(payload.get("school_id") or "").strip()
+    if not school_id:
+        raise RuntimeError("Missing school_id in discovery job payload.")
+    max_posts = int(payload.get("max_posts") or 0) or None
+    result = await SchoolCrawlerService().discover_and_save_school_board(school_id, max_posts=max_posts)
+    if result.status == "success" and result.success_count > 0:
+        queue.enqueue(
+            job_type=JOB_TYPE_EXTRACTION,
+            job_key=f"school-extraction:{school_id}",
+            payload={"school_id": school_id, "max_notices": result.success_count},
+            max_attempts=5,
+        )
+    return result.to_dict()
+
+
+async def _run_extraction_job(job: dict[str, object]) -> dict[str, object]:
+    payload = job.get("payload") if isinstance(job.get("payload"), dict) else {}
+    school_id = str(payload.get("school_id") or "").strip()
+    if not school_id:
+        raise RuntimeError("Missing school_id in extraction job payload.")
+    max_notices = int(payload.get("max_notices") or 0) or 5
+    summary = await ContentExtractionService().run_for_school(school_id, max_notices=max_notices)
+    return summary.to_dict()
+
+
+async def process_jobs(
+    *,
+    max_jobs: int,
+    batch_size: int,
+    retry_delay_seconds: int,
+) -> int:
+    queue = JobQueueService()
+    processed = 0
+    while processed < max_jobs:
+        jobs = queue.claim(
+            job_types=[JOB_TYPE_DISCOVERY, JOB_TYPE_EXTRACTION],
+            limit=min(batch_size, max_jobs - processed),
+        )
+        if not jobs:
+            break
+
+        for job in jobs:
+            try:
+                job_type = str(job.get("job_type") or "")
+                if job_type == JOB_TYPE_DISCOVERY:
+                    result = await _run_discovery_job(job, queue)
+                elif job_type == JOB_TYPE_EXTRACTION:
+                    result = await _run_extraction_job(job)
+                else:
+                    raise RuntimeError(f"Unsupported crawler job type: {job_type}")
+                queue.complete(str(job["id"]), result=serialize_job_result(result))
+            except asyncio.CancelledError as exc:
+                LOGGER.warning("crawler worker job cancelled: job_id=%s", job.get("id"))
+                queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
+                raise
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.exception("crawler worker job failed: job_id=%s", job.get("id"))
+                queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
+            processed += 1
+    return processed
+
+
+async def run_async(args: argparse.Namespace) -> int:
+    processed = await process_jobs(
+        max_jobs=args.max_jobs,
+        batch_size=args.batch_size,
+        retry_delay_seconds=args.retry_delay_seconds,
+    )
+    print(json.dumps({"ok": True, "processed": processed}, ensure_ascii=False))
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run queued crawler and extraction jobs.")
+    parser.add_argument("--max-jobs", type=int, default=10)
+    parser.add_argument("--batch-size", type=int, default=3)
+    parser.add_argument("--retry-delay-seconds", type=int, default=120)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return asyncio.run(run_async(args))
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("crawler worker failed")
+        print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

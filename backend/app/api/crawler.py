@@ -3,14 +3,12 @@ from __future__ import annotations
 import logging
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.services.content_extraction_service import ContentExtractionService
-from app.services.school_crawler_service import (
-    SchoolCrawlerService,
-    get_school_crawler_service,
-)
+from app.services.job_queue_service import JobQueueService
+from app.services.school_crawler_service import _fetch_school_row
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
@@ -44,39 +42,24 @@ def _require_internal_token(
 )
 async def discover_school_board(
     school_id: str,
-    background_tasks: BackgroundTasks,
-    service: SchoolCrawlerService = Depends(get_school_crawler_service),
 ) -> dict[str, object]:
-    try:
-        result = await service.discover_and_save_school_board(school_id)
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        ) from exc
-
-    if result.status == "school_not_found":
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="School row was not found.",
-        )
-
-    extraction_queued = result.status == "success" and result.success_count > 0
-    if extraction_queued:
-        background_tasks.add_task(
-            _extract_initial_school_notices,
-            school_id,
-            result.success_count,
-        )
-
-    return {
-        "ok": True,
-        "result": result.to_api_dict(),
-        "extraction": {
-            "queued": extraction_queued,
-            "max_notices": result.success_count if extraction_queued else 0,
+    _preflight_school_discovery(school_id)
+    enqueue = JobQueueService().enqueue(
+        job_type="school_board_discovery",
+        job_key=f"school-discovery:{school_id}",
+        payload={"school_id": school_id, "max_posts": get_settings().crawler_initial_notice_count},
+        max_attempts=5,
+    )
+    return JSONResponse(
+        {
+            "ok": True,
+            "accepted": True,
+            "already_running": enqueue.already_running,
+            "job_id": enqueue.job_id,
+            "school_id": school_id,
         },
-    }
+        status_code=status.HTTP_202_ACCEPTED,
+    )
 
 
 @router.post(
@@ -85,42 +68,49 @@ async def discover_school_board(
 )
 async def extract_pending_school_notices(
     school_id: str,
-    background_tasks: BackgroundTasks,
     max_notices: int | None = Query(default=None, ge=1, le=50),
 ) -> dict[str, object]:
+    _preflight_school_discovery(school_id)
     notice_limit = max_notices or get_settings().extractor_max_notices_per_run
-    background_tasks.add_task(
-        _extract_initial_school_notices,
-        school_id,
-        notice_limit,
+    enqueue = JobQueueService().enqueue(
+        job_type="school_notice_extraction",
+        job_key=f"school-extraction:{school_id}",
+        payload={"school_id": school_id, "max_notices": notice_limit},
+        max_attempts=5,
     )
-    return {
-        "ok": True,
-        "extraction": {
-            "queued": True,
-            "max_notices": notice_limit,
+    return JSONResponse(
+        {
+            "ok": True,
+            "accepted": True,
+            "already_running": enqueue.already_running,
+            "job_id": enqueue.job_id,
+            "extraction": {
+                "queued": True,
+                "max_notices": notice_limit,
+            },
         },
-    }
+        status_code=status.HTTP_202_ACCEPTED,
+    )
 
 
-async def _extract_initial_school_notices(school_id: str, max_notices: int) -> None:
-    try:
-        summary = await ContentExtractionService().run_for_school(
-            school_id,
-            max_notices=max_notices,
+def _preflight_school_discovery(school_id: str) -> None:
+    settings = get_settings()
+    if not settings.supabase_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Supabase is not configured.",
         )
-        if summary.error_count:
-            # Extraction failures are already persisted per notice. This log is only
-            # for operational visibility; the crawler result itself remains success.
-            LOGGER.warning(
-                "Initial content extraction completed with errors: school_id=%s processed=%s success=%s error=%s",
-                school_id,
-                summary.processed_count,
-                summary.success_count,
-                summary.error_count,
-            )
-    except Exception:  # noqa: BLE001 - background task must not affect crawler response.
-        LOGGER.exception(
-            "Initial content extraction failed: school_id=%s",
-            school_id,
+
+    try:
+        school_row = _fetch_school_row(school_id)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    if not school_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="School row was not found.",
         )

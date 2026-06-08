@@ -26,6 +26,7 @@ _HAYSTACK_ERROR_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("unsupported_file", ("unsupported_or_spoofed_file", "unsupported_file_type", "unsupported_file", "file_type_check")),
     ("transient_network", ("timeout", "timed out", "connecterror", "readerror", "network", "content_fetch_failed", "download_failed")),
 )
+_SOURCE_TRANSLATION_LOCKS: dict[str, asyncio.Lock] = {}
 
 
 @dataclass(frozen=True)
@@ -97,33 +98,48 @@ class ContentExtractionService:
         total_gemini_calls = 0
         gemini_call_cap_reached = False
         async with GeminiDocumentExtractor() as gemini_client:
-            for _ in range(max_count):
+            remaining = max_count
+            while remaining > 0:
                 if _cap_reached(total_gemini_calls, settings.extractor_max_gemini_calls_per_run):
                     gemini_call_cap_reached = True
                     break
 
-                notice = _claim_notice(
-                    notice_id=notice_id,
-                    force=force,
-                    stale_minutes=settings.extractor_stale_minutes,
-                )
-                if notice is None:
+                batch_size = 1 if notice_id else min(settings.extractor_notice_concurrency, remaining)
+                if settings.extractor_max_gemini_calls_per_run > 0:
+                    batch_size = 1
+                claimed_notices: list[dict[str, Any]] = []
+                for _ in range(batch_size):
+                    notice = _claim_notice(
+                        notice_id=notice_id,
+                        force=force,
+                        stale_minutes=settings.extractor_stale_minutes,
+                    )
+                    if notice is None:
+                        break
+                    claimed_notices.append(notice)
+                    if notice_id:
+                        break
+
+                if not claimed_notices:
                     break
 
-                item = await self._process_notice(
-                    notice,
+                processed = await self._process_notice_batch(
+                    claimed_notices,
                     gemini_client=gemini_client,
                     notice_timeout_seconds=settings.extractor_notice_timeout_seconds,
+                    concurrency=settings.extractor_notice_concurrency,
                 )
-                total_gemini_calls += item.gemini_calls_used
-                results.append(item)
-                LOGGER.info(
-                    "content extractor result: notice_id=%s status=%s error_code=%s gemini_calls=%s",
-                    item.notice_id,
-                    item.status,
-                    item.extraction_error_code,
-                    item.gemini_calls_used,
-                )
+                remaining -= len(claimed_notices)
+                for item in processed:
+                    total_gemini_calls += item.gemini_calls_used
+                    results.append(item)
+                    LOGGER.info(
+                        "content extractor result: notice_id=%s status=%s error_code=%s gemini_calls=%s",
+                        item.notice_id,
+                        item.status,
+                        item.extraction_error_code,
+                        item.gemini_calls_used,
+                    )
                 if notice_id:
                     break
 
@@ -154,34 +170,48 @@ class ContentExtractionService:
         total_gemini_calls = 0
         gemini_call_cap_reached = False
         async with GeminiDocumentExtractor() as gemini_client:
-            for notice_id in notice_ids:
+            queue = list(notice_ids)
+            while queue:
                 if _cap_reached(total_gemini_calls, settings.extractor_max_gemini_calls_per_run):
                     gemini_call_cap_reached = True
                     break
 
-                notice = _claim_notice(
-                    notice_id=notice_id,
-                    force=True,
-                    stale_minutes=settings.extractor_stale_minutes,
-                )
-                if notice is None:
+                batch_size = min(settings.extractor_notice_concurrency, len(queue))
+                if settings.extractor_max_gemini_calls_per_run > 0:
+                    batch_size = 1
+                batch_ids = [queue.pop(0) for _ in range(batch_size)]
+
+                claimed_notices: list[dict[str, Any]] = []
+                for queued_notice_id in batch_ids:
+                    notice = _claim_notice(
+                        notice_id=queued_notice_id,
+                        force=True,
+                        stale_minutes=settings.extractor_stale_minutes,
+                    )
+                    if notice is None:
+                        continue
+                    claimed_notices.append(notice)
+
+                if not claimed_notices:
                     continue
 
-                item = await self._process_notice(
-                    notice,
+                processed = await self._process_notice_batch(
+                    claimed_notices,
                     gemini_client=gemini_client,
                     notice_timeout_seconds=settings.extractor_notice_timeout_seconds,
+                    concurrency=settings.extractor_notice_concurrency,
                 )
-                total_gemini_calls += item.gemini_calls_used
-                results.append(item)
-                LOGGER.info(
-                    "school content extractor result: school_id=%s notice_id=%s status=%s error_code=%s gemini_calls=%s",
-                    school_id,
-                    item.notice_id,
-                    item.status,
-                    item.extraction_error_code,
-                    item.gemini_calls_used,
-                )
+                for item in processed:
+                    total_gemini_calls += item.gemini_calls_used
+                    results.append(item)
+                    LOGGER.info(
+                        "school content extractor result: school_id=%s notice_id=%s status=%s error_code=%s gemini_calls=%s",
+                        school_id,
+                        item.notice_id,
+                        item.status,
+                        item.extraction_error_code,
+                        item.gemini_calls_used,
+                    )
 
         return _build_summary(
             started_at=started_at,
@@ -192,6 +222,34 @@ class ContentExtractionService:
             results=results,
             gemini_call_cap_reached=gemini_call_cap_reached,
         )
+
+    async def _process_notice_batch(
+        self,
+        notices: list[dict[str, Any]],
+        *,
+        gemini_client: Any,
+        notice_timeout_seconds: float,
+        concurrency: int,
+    ) -> list[ContentExtractionItem]:
+        if not notices:
+            return []
+
+        semaphore = asyncio.Semaphore(max(1, concurrency))
+
+        async def run_one(index: int, notice: dict[str, Any]) -> tuple[int, ContentExtractionItem]:
+            async with semaphore:
+                item = await self._process_notice(
+                    notice,
+                    gemini_client=gemini_client,
+                    notice_timeout_seconds=notice_timeout_seconds,
+                )
+                return index, item
+
+        completed = await asyncio.gather(
+            *(run_one(index, notice) for index, notice in enumerate(notices))
+        )
+        completed.sort(key=lambda pair: pair[0])
+        return [item for _, item in completed]
 
     async def _process_notice(
         self,
@@ -784,22 +842,27 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
     if not target_locales:
         return
 
-    for locale in target_locales:
-        try:
-            await service.translate_notice(
-                notice_id=notice_id,
-                target_language=locale,
-            )
-            # 요약·본문·첨부도 같은 번역 함수(translate_text)로 채운다(표시용).
-            await translate_sources_for_locale(service, notice_id, locale)
-        except Exception as exc:  # noqa: BLE001 - translation backfill must not fail extraction.
-            LOGGER.warning(
-                "auto translation failed: notice_id=%s school_id=%s locale=%s error=%s",
-                notice_id,
-                school_id,
-                locale,
-                sanitize_error(exc),
-            )
+    semaphore = asyncio.Semaphore(max(1, int(getattr(settings, "auto_translation_locale_concurrency", 3) or 3)))
+
+    async def _run_locale(locale: str) -> None:
+        async with semaphore:
+            try:
+                await service.translate_notice(
+                    notice_id=notice_id,
+                    target_language=locale,
+                )
+                # 요약·본문·첨부도 같은 번역 함수(translate_text)로 채운다(표시용).
+                await translate_sources_for_locale(service, notice_id, locale)
+            except Exception as exc:  # noqa: BLE001 - translation backfill must not fail extraction.
+                LOGGER.warning(
+                    "auto translation failed: notice_id=%s school_id=%s locale=%s error=%s",
+                    notice_id,
+                    school_id,
+                    locale,
+                    sanitize_error(exc),
+                )
+
+    await asyncio.gather(*(_run_locale(locale) for locale in target_locales))
 
 
 async def translate_sources_for_locale(service: Any, notice_id: str, target_language: str) -> None:
@@ -835,15 +898,14 @@ async def translate_sources_for_locale(service: Any, notice_id: str, target_lang
         return translated.strip() if isinstance(translated, str) and translated.strip() else ""
 
     changed = False
+    settings = get_settings()
+    pending_jobs: list[tuple[str, str | int, str, str]] = []
     if summary and isinstance(summary.get("rendered"), str) and summary["rendered"].strip():
         existing = summary.get("translations") if isinstance(summary.get("translations"), dict) else {}
         if target_language not in existing:
-            translated = await _translate(summary["rendered"], translation_kind="notice_summary")
-            if translated:
-                summary.setdefault("translations", {})[target_language] = translated
-                changed = True
+            pending_jobs.append(("summary", "summary", summary["rendered"], "notice_summary"))
 
-    for src in sources:
+    for index, src in enumerate(sources):
         if not isinstance(src, dict):
             continue
         text = src.get("refined_text")
@@ -852,10 +914,45 @@ async def translate_sources_for_locale(service: Any, notice_id: str, target_lang
         existing = src.get("translations") if isinstance(src.get("translations"), dict) else {}
         if target_language in existing:
             continue
-        translated = await _translate(text, translation_kind="notice_source")
-        if translated:
-            src.setdefault("translations", {})[target_language] = translated
-            changed = True
+        pending_jobs.append(("source", index, text, "notice_source"))
+
+    if pending_jobs:
+        semaphore = asyncio.Semaphore(max(1, int(getattr(settings, "source_translation_concurrency", 4) or 4)))
+
+        async def run_job(job: tuple[str, str | int, str, str]) -> tuple[str, str | int, str]:
+            job_type, key, text, translation_kind = job
+            async with semaphore:
+                translated = await _translate(text, translation_kind=translation_kind)
+                return job_type, key, translated
+
+        completed = await asyncio.gather(*(run_job(job) for job in pending_jobs))
+        lock = _SOURCE_TRANSLATION_LOCKS.setdefault(notice_id, asyncio.Lock())
+        async with lock:
+            latest_row = sb.table("notices").select("extracted_content").eq("id", notice_id).single().execute().data
+            latest_extracted = (latest_row or {}).get("extracted_content") or extracted
+            latest_summary = latest_extracted.get("summary") if isinstance(latest_extracted.get("summary"), dict) else None
+            latest_sources = latest_extracted.get("sources") if isinstance(latest_extracted.get("sources"), list) else []
+
+            for job_type, key, translated in completed:
+                if not translated:
+                    continue
+                if job_type == "summary" and latest_summary is not None:
+                    translations = latest_summary.get("translations") if isinstance(latest_summary.get("translations"), dict) else {}
+                    if target_language not in translations:
+                        latest_summary.setdefault("translations", {})[target_language] = translated
+                        changed = True
+                    continue
+                if job_type == "source" and isinstance(key, int) and 0 <= key < len(latest_sources):
+                    src = latest_sources[key]
+                    if isinstance(src, dict):
+                        translations = src.get("translations") if isinstance(src.get("translations"), dict) else {}
+                        if target_language not in translations:
+                            src.setdefault("translations", {})[target_language] = translated
+                            changed = True
+
+            if changed:
+                sb.table("notices").update({"extracted_content": latest_extracted}).eq("id", notice_id).execute()
+            return
 
     if changed:
         sb.table("notices").update({"extracted_content": extracted}).eq("id", notice_id).execute()
