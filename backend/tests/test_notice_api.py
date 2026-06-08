@@ -71,6 +71,19 @@ class NoticeApiBackgroundTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["already_running"])
         service.translate_notice.assert_not_awaited()
 
+    async def test_translate_notice_background_ko_does_not_enqueue(self):
+        service = type("FakeService", (), {"translate_notice": AsyncMock(return_value={"ok": True, "target_language": "ko"})})()
+        with patch("app.api.notices.JobQueueService.enqueue") as enqueue_mock:
+            response = await translate_notice(
+                "notice-1",
+                NoticeTranslateRequest(target_language="ko", background=True),
+                service,
+            )
+
+        self.assertEqual(response, {"ok": True, "target_language": "ko"})
+        service.translate_notice.assert_awaited_once()
+        enqueue_mock.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -43,6 +43,10 @@ class TranslationPipeline:
             temperature=0.0,
             model=getattr(self.gemini, "source_hard_fact_model", None),
         )
+        risk_profile = _risk_profile_from_source(
+            source_text=payload.source_text,
+            source_hard_facts=source_hard_facts,
+        )
 
         ingredient_map = await self._map_ingredients_if_needed(
             payload=payload,
@@ -137,6 +141,53 @@ class TranslationPipeline:
                 context_tone_validation={"status": "skipped", "issues": []},
                 reason="hard_fact_validation_failed",
             )
+
+        if risk_profile["level"] == "low":
+            validation_results = {
+                "hard_fact": {
+                    "status": "passed",
+                    "attempts": hard_fact_attempts,
+                    "issues": [],
+                },
+                "context_tone": {
+                    "status": "skipped",
+                    "attempts": 0,
+                    "issues": list(risk_profile.get("reasons") or []),
+                },
+            }
+            metadata = await self.gemini.generate_json(
+                prompt=build_supabase_payload_prompt(
+                    source_text=payload.source_text,
+                    final_target_translation=target_translation,
+                    source_hard_facts=source_hard_facts,
+                    validation_results=validation_results,
+                    target_language=payload.target_language,
+                ),
+                temperature=0.0,
+            )
+
+            return {
+                "status": "ready_to_save",
+                "source_language": "ko",
+                "target_language": payload.target_language,
+                "source_text": payload.source_text,
+                "final_translation": target_translation,
+                "source_hard_facts": source_hard_facts,
+                "target_hard_facts": target_hard_facts,
+                "ingredient_identity_map": ingredient_map,
+                "validation": validation_results,
+                "admin_review": {
+                    "required": False,
+                    "reason": None,
+                    "priority": "normal",
+                },
+                "metadata": metadata,
+                "raw_steps": {
+                    "pivot": pivot,
+                    "target": target,
+                    "risk_profile": risk_profile,
+                },
+            }
 
         back_translation = await self.gemini.generate_json(
             prompt=back_translate_to_ko_prompt(
@@ -254,6 +305,7 @@ class TranslationPipeline:
                 "target": target,
                 "back_translation": back_translation,
                 "context_tone_validation": context_tone_validation,
+                "risk_profile": risk_profile,
             },
         }
 
@@ -408,6 +460,67 @@ def _validation_status(validation: dict[str, Any]) -> str:
     return "passed" if validation.get("verdict") == "PASS" else "failed"
 
 
+def _risk_profile_from_source(
+    *,
+    source_text: str,
+    source_hard_facts: dict[str, Any],
+) -> dict[str, Any]:
+    facts = _hard_facts(source_hard_facts)
+    meal = source_hard_facts.get("meal_and_allergy") or {}
+    reasons: list[str] = []
+
+    high_risk_fact_fields = (
+        "deadlines",
+        "fees",
+        "contacts",
+        "urls",
+        "submissions",
+        "warnings",
+    )
+    for field in high_risk_fact_fields:
+        if _field_has_values(facts.get(field)):
+            reasons.append(f"has_{field}")
+
+    action_count = len(_values(facts.get("actions_required")))
+    if action_count > 1:
+        reasons.append("has_multiple_actions_required")
+
+    if meal.get("has_meal_info") or meal.get("requires_dictionary_mapping"):
+        reasons.append("has_meal_or_dictionary_sensitive_content")
+
+    if len(_values(facts.get("dates"))) > 2 or len(_values(facts.get("times"))) > 2:
+        reasons.append("has_multiple_schedule_facts")
+
+    compact_source = source_text.strip()
+    if len(compact_source) > 1600:
+        reasons.append("long_notice")
+
+    high_risk_text_cues = (
+        "첨부",
+        "붙임",
+        "별첨",
+        "양식",
+        "서식",
+        "qr",
+        "링크",
+        "계좌",
+        "스쿨뱅킹",
+        "납부",
+        "수납",
+        "동의서",
+        "서명",
+    )
+    lowered_source = compact_source.lower()
+    if any(cue in lowered_source for cue in high_risk_text_cues):
+        reasons.append("has_high_risk_text_cues")
+
+    level = "high" if reasons else "low"
+    return {
+        "level": level,
+        "reasons": reasons or ["simple_notice_without_actions_or_deadlines"],
+    }
+
+
 _CRITICAL_EXTRACTION_FIELDS = (
     "dates",
     "times",
@@ -417,6 +530,50 @@ _CRITICAL_EXTRACTION_FIELDS = (
     "urls",
     "grade_class_targets",
 )
+
+
+def _field_has_values(value: Any) -> bool:
+    return bool(_values(value))
+
+
+def _hard_facts(value: dict[str, Any]) -> dict[str, Any]:
+    facts = value.get("hard_facts")
+    return facts if isinstance(facts, dict) else {}
+
+
+def _values(value: object) -> list[str]:
+    if value is None:
+        return []
+    raw = value if isinstance(value, list) else [value]
+    values: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            text = (
+                item.get("normalized")
+                or item.get("value")
+                or item.get("text")
+                or item.get("raw_text")
+                or item.get("date")
+                or item.get("time")
+                or item.get("name")
+            )
+        else:
+            text = item
+        optional = str(text).strip() if text is not None else ""
+        if optional:
+            values.append(optional)
+    return _dedupe(values)
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered
 
 
 def _target_hard_facts_need_retry(

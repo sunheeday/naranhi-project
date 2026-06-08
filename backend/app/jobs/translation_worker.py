@@ -20,6 +20,21 @@ async def _run_job(job: dict[str, object]) -> dict[str, object]:
     target_language = str(payload.get("target_language") or "").strip()
     if not notice_id or not target_language:
         raise RuntimeError("Missing notice_id or target_language in translation job payload.")
+    normalized_target_language = target_language.lower()
+    if normalized_target_language == "ko":
+        LOGGER.info(
+            "translation job skipped for canonical ko target: job_id=%s notice_id=%s",
+            job.get("id"),
+            notice_id,
+        )
+        return {
+            "ok": True,
+            "notice_id": notice_id,
+            "target_language": "ko",
+            "status": "ready_to_save",
+            "translation": None,
+            "saved": {"skipped": True, "reason": "korean_not_queued"},
+        }
     LOGGER.info(
         "translation job started: job_id=%s notice_id=%s target_language=%s",
         job.get("id"),

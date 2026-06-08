@@ -97,7 +97,7 @@ export async function backfillSchoolEventsForSchool({
 
   const { error: insertError } = await serviceClient
     .from('school_events')
-    .insert(rows)
+    .upsert(rows, { onConflict: 'notice_id,event_date' })
 
   if (insertError) {
     throw new Error('기존 학교 일정 생성 실패: ' + insertError.message)

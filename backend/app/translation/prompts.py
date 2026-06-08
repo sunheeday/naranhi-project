@@ -762,8 +762,8 @@ Rules:
 - card_sections_ko must be in Korean and formatted for direct canonical UI use.
 - card_sections_target_language must be in {target_name} and formatted for direct translated UI use.
 - `card_sections_ko.action` and `card_sections_target_language.action` are the canonical user-facing card sections. They must contain the concrete actionable tasks from actions_required / submissions / deadlines, one task per item, with hint used for due dates or short timing only.
-- `card_sections_ko.supplies`, `card_sections_target_language.supplies`, `card_sections_ko.schedule`, and `card_sections_target_language.schedule` are legacy compatibility sections. Keep them concise if genuinely useful, but leave them empty rather than inventing filler. Do not rely on them to carry the only actionable instruction.
-- both card_sections_ko and card_sections_target_language items must be concise, factual, and each item should contain one concrete action, supply, date/time, or location detail.
+- Keep card sections minimal. Do not create parallel schedule/supplies sections just to restate the same facts in another shape.
+- action card items must be concise and factual. Each item should contain one concrete task, with an optional due/timing hint only when it helps the parent act.
 - If validation is not safe, reflect that in validation_status and validation_failure_reason.
 - summary_ko and summary_target_language must use clean, readable line breaks: short paragraphs separated by one blank line, and each distinct date/deadline/action/fee/material/location on its own "- " line.
 {READABILITY_RULES}
@@ -780,24 +780,12 @@ Return JSON:
   "deadlines": [],
   "actions_required": [],
   "card_sections_ko": {{
-    "supplies": {{
-      "items": [{{"text": "", "hint": null}}]
-    }},
     "action": {{
-      "items": [{{"text": "", "hint": null}}]
-    }},
-    "schedule": {{
       "items": [{{"text": "", "hint": null}}]
     }}
   }},
   "card_sections_target_language": {{
-    "supplies": {{
-      "items": [{{"text": "", "hint": null}}]
-    }},
     "action": {{
-      "items": [{{"text": "", "hint": null}}]
-    }},
-    "schedule": {{
       "items": [{{"text": "", "hint": null}}]
     }}
   }},
