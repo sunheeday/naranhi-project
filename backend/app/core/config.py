@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     )
 
     environment: str = Field(default="local", alias="ENVIRONMENT")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     cors_origins_raw: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
 
     supabase_url: str | None = Field(default=None, alias="SUPABASE_URL")

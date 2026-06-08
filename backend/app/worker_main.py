@@ -70,7 +70,12 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
 
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    level_name = get_settings().log_level.upper()
+    logging.basicConfig(
+        level=getattr(logging, level_name, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        force=True,
+    )
     stop_event = asyncio.Event()
     task = asyncio.create_task(_worker_loop(stop_event))
     try:
