@@ -34,6 +34,7 @@ class GeminiDocumentExtractor:
         api_keys: str | None = None,
         *,
         model: str | None = None,
+        ocr_models: list[str] | None = None,
         timeout: float = 90.0,
         max_inline_mb: int = 20,
         client: httpx.AsyncClient | None = None,
@@ -41,7 +42,7 @@ class GeminiDocumentExtractor:
         vertex_location: str | None = None,
     ) -> None:
         self.api_keys = _split_api_keys(api_keys or os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or "")
-        self.models = _ocr_model_candidates(model)
+        self.models = _ocr_model_candidates(model, ocr_models=ocr_models)
         self.timeout = _float_env("GEMINI_TIMEOUT_SECONDS", timeout)
         self.max_inline_mb = max_inline_mb
         self._client = client
@@ -377,12 +378,11 @@ def _split_api_keys(value: str) -> list[str]:
     return keys
 
 
-def _ocr_model_candidates(model: str | None) -> list[str]:
+def _ocr_model_candidates(model: str | None, *, ocr_models: list[str] | None = None) -> list[str]:
     if model:
         return [model]
-    legacy_model = os.getenv("GEMINI_MODEL")
-    if legacy_model:
-        return [legacy_model]
+    if ocr_models:
+        return _dedupe(ocr_models)
     return _dedupe(
         [
             os.getenv("GEMINI_OCR_MODEL_PRIMARY", "gemini-2.5-flash-lite"),

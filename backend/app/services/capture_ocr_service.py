@@ -53,7 +53,10 @@ class GeminiCaptureOcrProvider:
         settings = get_settings()
         async with GeminiDocumentExtractor(
             api_keys=settings.gemini_key_material,
-            model=settings.gemini_model,
+            ocr_models=[
+                settings.gemini_ocr_model_primary,
+                settings.gemini_ocr_model_fallback,
+            ],
             timeout=settings.gemini_timeout_seconds,
             vertex_project=settings.vertex_ai_project_id,
             vertex_location=settings.vertex_ai_location,

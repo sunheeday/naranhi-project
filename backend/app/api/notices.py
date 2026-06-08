@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.services.job_queue_service import JobQueueService
 from app.services.notice_service import NoticeService, get_notice_service
 
 router = APIRouter()
@@ -27,9 +28,6 @@ class NoticeAnalyzeRequest(BaseModel):
 
 class NoticeTranslateRequest(NoticeAnalyzeRequest):
     background: bool = False
-
-
-_BACKGROUND_TRANSLATION_TASKS: dict[str, asyncio.Task[None]] = {}
 
 
 class TextTranslateRequest(BaseModel):
@@ -100,33 +98,23 @@ async def translate_notice(
             notice_id=notice_id,
             target_language=payload.target_language,
         )
-        existing_task = _BACKGROUND_TRANSLATION_TASKS.get(key)
-        if existing_task and not existing_task.done():
-            return JSONResponse(
-                {
-                    "ok": True,
-                    "accepted": True,
-                    "already_running": True,
-                    "notice_id": notice_id,
-                    "target_language": payload.target_language,
-                },
-                status_code=status.HTTP_202_ACCEPTED,
-            )
-
-        task = asyncio.create_task(
-            _run_notice_translation_background(
-                key=key,
-                service=service,
-                notice_id=notice_id,
-                payload=payload,
-            )
+        enqueue = JobQueueService().enqueue(
+            job_type="notice_translation",
+            job_key=key,
+            payload={
+                "notice_id": notice_id,
+                "target_language": payload.target_language,
+                "source_text": payload.source_text,
+                "approved_ingredient_dictionary": payload.approved_ingredient_dictionary,
+                "approved_ingredient_dictionary_target": payload.approved_ingredient_dictionary_target,
+            },
         )
-        _BACKGROUND_TRANSLATION_TASKS[key] = task
         return JSONResponse(
             {
                 "ok": True,
                 "accepted": True,
-                "already_running": False,
+                "already_running": enqueue.already_running,
+                "job_id": enqueue.job_id,
                 "notice_id": notice_id,
                 "target_language": payload.target_language,
             },
@@ -147,9 +135,6 @@ async def translate_notice(
             detail=str(error),
         ) from error
 
-    # 요약·본문·첨부 번역은 응답 뒤 background로 보낸다.
-    # full notice translation(본문 + notice_cards + notice_card_translations)만 먼저 저장하고
-    # source-card 번역은 후속 처리해서 /api/notices/[id]/process 가 45s proxy timeout에 걸리지 않게 한다.
     asyncio.create_task(
         _translate_sources_for_locale_background(
             service=service,
@@ -163,39 +148,6 @@ async def translate_notice(
 
 def _background_translation_task_key(*, notice_id: str, target_language: str) -> str:
     return f"{notice_id}:{target_language.strip().lower()}"
-
-
-async def _run_notice_translation_background(
-    *,
-    key: str,
-    service: NoticeService,
-    notice_id: str,
-    payload: NoticeTranslateRequest,
-) -> None:
-    try:
-        await service.translate_notice(
-            notice_id=notice_id,
-            target_language=payload.target_language,
-            source_text=payload.source_text,
-            approved_ingredient_dictionary=payload.approved_ingredient_dictionary,
-            approved_ingredient_dictionary_target=payload.approved_ingredient_dictionary_target,
-        )
-        await _translate_sources_for_locale_background(
-            service=service,
-            notice_id=notice_id,
-            target_language=payload.target_language,
-        )
-    except Exception as exc:  # noqa: BLE001 - background notice translation is best effort.
-        LOGGER.warning(
-            "background notice translation failed: notice_id=%s target_language=%s error=%s",
-            notice_id,
-            payload.target_language,
-            exc,
-        )
-    finally:
-        task = _BACKGROUND_TRANSLATION_TASKS.get(key)
-        if task is asyncio.current_task():
-            _BACKGROUND_TRANSLATION_TASKS.pop(key, None)
 
 
 async def _translate_sources_for_locale_background(

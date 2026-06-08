@@ -516,6 +516,82 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
     ],
   },
   {
+    id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2008',
+    detailUrl: 'demo://naranhi-school/june-academic-calendar',
+    titleKo: '6월 학사 일정 안내',
+    translatedTitle: {
+      en: 'June School Calendar Notice',
+      ar: 'إشعار الجدول المدرسي لشهر يونيو',
+      ru: 'Уведомление о школьном расписании на июнь',
+    },
+    originalText:
+      '6월 학사 일정을 안내드립니다.\n' +
+      '6월 12일 금요일은 공개수업의 날이며, 6월 19일 금요일은 학급 사진 촬영이 진행됩니다.\n' +
+      '행사 시간과 장소는 아래 안내를 참고해 주세요.',
+    translatedBody: {
+      en:
+        'Here is the school calendar for June.\n' +
+        'Open Class Day will be held on Friday, June 12, and class photo day will take place on Friday, June 19.\n' +
+        'Please refer to the information below for the event time and location.',
+      ar:
+        'إليكم الجدول المدرسي لشهر يونيو.\n' +
+        'سيُقام يوم الصف المفتوح يوم الجمعة 12 يونيو، وسيتم تصوير صور الصف يوم الجمعة 19 يونيو.\n' +
+        'يُرجى الرجوع إلى المعلومات أدناه لمعرفة وقت ومكان الفعالية.',
+      ru:
+        'Ниже школьное расписание на июнь.\n' +
+        'День открытого класса пройдет в пятницу, 12 июня, а фотосъемка класса состоится в пятницу, 19 июня.\n' +
+        'Пожалуйста, смотрите информацию ниже о времени и месте мероприятий.',
+    },
+    summaryKo: '6월 공개수업과 학급 사진 촬영 일정만 정리한 안내 공지입니다.',
+    translatedSummary: {
+      en: 'This notice shares the June schedule for open class day and class photo day.',
+      ar: 'يشارك هذا الإشعار جدول يونيو ليوم الصف المفتوح ويوم تصوير الصف.',
+      ru: 'В этом уведомлении указаны июньские даты дня открытого класса и фотосъемки класса.',
+    },
+    refinedBodyKo:
+      '공개수업: 2026년 6월 12일 금요일 10:00, 2층 열린교실\n' +
+      '학급 사진 촬영: 2026년 6월 19일 금요일 09:30, 강당',
+    translatedSourceBody: {
+      en:
+        'Open class: Friday, June 12, 2026 at 10:00, 2F Open Classroom\n' +
+        'Class photo day: Friday, June 19, 2026 at 09:30, Auditorium',
+      ar:
+        'الصف المفتوح: الجمعة 12 يونيو 2026 الساعة 10:00، الفصل المفتوح في الطابق الثاني\n' +
+        'تصوير الصف: الجمعة 19 يونيو 2026 الساعة 09:30، القاعة',
+      ru:
+        'Открытый класс: пятница, 12 июня 2026 года, 10:00, открытый класс на 2-м этаже\n' +
+        'Фотосъемка класса: пятница, 19 июня 2026 года, 09:30, актовый зал',
+    },
+    dueDate: null,
+    eventDates: ['2026-06-12', '2026-06-19'],
+    eventLocation: '2층 열린교실 / 강당',
+    cards: [
+      {
+        id: '7d27f255-3c41-44fd-8bf4-daa3415a4081',
+        type: 'schedule',
+        order: 0,
+        koItems: [
+          { text: '공개수업: 2026-06-12', hint: '10:00 · 2층 열린교실' },
+          { text: '학급 사진 촬영: 2026-06-19', hint: '09:30 · 강당' },
+        ],
+        translatedItems: {
+          en: [
+            { text: 'Open class: 2026-06-12', hint: '10:00 · 2F Open Classroom' },
+            { text: 'Class photo day: 2026-06-19', hint: '09:30 · Auditorium' },
+          ],
+          ar: [
+            { text: 'الصف المفتوح: 2026-06-12', hint: '10:00 · الفصل المفتوح في الطابق الثاني' },
+            { text: 'تصوير الصف: 2026-06-19', hint: '09:30 · القاعة' },
+          ],
+          ru: [
+            { text: 'Открытый класс: 2026-06-12', hint: '10:00 · открытый класс на 2-м этаже' },
+            { text: 'Фотосъемка класса: 2026-06-19', hint: '09:30 · актовый зал' },
+          ],
+        },
+      },
+    ],
+  },
+  {
     id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2005',
     sourcePostUid: 'bcbh-2026-homepage-signup',
     detailUrl: 'https://www.bcbh.es.kr/board/notice/2026-homepage-signup',
