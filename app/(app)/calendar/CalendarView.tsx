@@ -10,9 +10,9 @@ export interface ScheduleEvent {
   noticeId: string
   title: string
   eventDate: string  // YYYY-MM-DD
+  eventKinds: ('event' | 'deadline')[]
   location: string | null
   description?: string | null
-  cardType: 'supplies' | 'action' | 'schedule'
 }
 
 interface Props {
@@ -27,18 +27,20 @@ interface Props {
   monthEventsTitle: string        // e.g. "{month}월 일정"
   daySheetTitle: string           // e.g. "{month}월 {day}일 일정"
   closeLabel: string
+  eventKindLabels: {
+    event: string
+    deadline: string
+  }
 }
 
 const DOT_COLOR = {
-  supplies: 'bg-card-supply',
-  action:   'bg-card-action',
-  schedule: 'bg-card-schedule',
+  deadline: 'bg-card-action',
+  event: 'bg-card-schedule',
 }
 
-const BADGE_DOT = {
-  supplies: 'bg-card-supply',
-  action:   'bg-card-action',
-  schedule: 'bg-card-schedule',
+const BADGE_THEME = {
+  deadline: 'bg-card-action text-white',
+  event: 'bg-card-schedule text-white',
 }
 
 export default function CalendarView({
@@ -53,6 +55,7 @@ export default function CalendarView({
   monthEventsTitle,
   daySheetTitle,
   closeLabel,
+  eventKindLabels,
 }: Props) {
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
@@ -151,8 +154,8 @@ export default function CalendarView({
               {/* 6×6px 도트 */}
               {dayEvents.length > 0 && (
                 <div className="flex gap-[3px] mt-0.5">
-                  {dayEvents.slice(0, 3).map((e, i) => (
-                    <span key={i} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[e.cardType]}`} aria-hidden="true" />
+                  {dayEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
+                    <span key={`${kind}-${i}`} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[kind]}`} aria-hidden="true" />
                   ))}
                 </div>
               )}
@@ -168,7 +171,7 @@ export default function CalendarView({
           <CharacterEmptyState character="walk" title={noEventsLabel} size="compact" />
         ) : (
           currentMonthEvents.map(e => (
-            <EventCard key={e.id} event={e} />
+            <EventCard key={e.id} event={e} eventKindLabels={eventKindLabels} />
           ))
         )}
       </div>
@@ -216,7 +219,7 @@ export default function CalendarView({
           ) : (
             <div className="flex flex-col gap-3 pb-2">
               {sheetEvents.map(e => (
-                <EventCard key={e.id} event={e} onPress={closeSheet} />
+                <EventCard key={e.id} event={e} onPress={closeSheet} eventKindLabels={eventKindLabels} />
               ))}
             </div>
           )}
@@ -232,7 +235,15 @@ export default function CalendarView({
   )
 }
 
-function EventCard({ event, onPress }: { event: ScheduleEvent; onPress?: () => void }) {
+function EventCard({
+  event,
+  onPress,
+  eventKindLabels,
+}: {
+  event: ScheduleEvent
+  onPress?: () => void
+  eventKindLabels: { event: string; deadline: string }
+}) {
   const googleCalendarUrl = buildGoogleCalendarEventUrl({
     title: event.title,
     isoDate: event.eventDate,
@@ -243,7 +254,11 @@ function EventCard({ event, onPress }: { event: ScheduleEvent; onPress?: () => v
   return (
     <div className="bg-bg rounded-card p-3">
       <div className="flex items-center gap-3">
-        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${BADGE_DOT[event.cardType]}`} aria-hidden="true" />
+        <div className="flex items-center gap-1.5 flex-shrink-0" aria-hidden="true">
+          {event.eventKinds.map(kind => (
+            <span key={kind} className={`w-3 h-3 rounded-full ${DOT_COLOR[kind]}`} />
+          ))}
+        </div>
         <Link
           href={`/notices/${event.noticeId}`}
           onClick={onPress}
@@ -251,6 +266,16 @@ function EventCard({ event, onPress }: { event: ScheduleEvent; onPress?: () => v
         >
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-text-primary truncate">{event.title}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {event.eventKinds.map(kind => (
+                <span
+                  key={kind}
+                  className={`inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-semibold ${BADGE_THEME[kind]}`}
+                >
+                  {eventKindLabels[kind]}
+                </span>
+              ))}
+            </div>
             <p className="text-xs text-text-secondary mt-0.5">
               {event.eventDate.slice(5).replace('-', '/')}
               {event.location ? ` · ${event.location}` : ''}

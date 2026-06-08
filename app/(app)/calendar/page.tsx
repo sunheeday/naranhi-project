@@ -105,7 +105,7 @@ export default async function CalendarPage({ searchParams }: Props) {
       if (schoolIds.length > 0) {
         let { data: rows, error } = await supabase
           .from('school_events')
-          .select('id, notice_id, title, event_date, location, description')
+          .select('id, notice_id, title, event_date, event_kinds, location, description')
           .in('school_id', schoolIds)
           .gte('event_date', from)
           .lt('event_date', to)
@@ -123,7 +123,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
           const retry = await supabase
             .from('school_events')
-            .select('id, notice_id, title, event_date, location, description')
+            .select('id, notice_id, title, event_date, event_kinds, location, description')
             .in('school_id', schoolIds)
             .gte('event_date', from)
             .lt('event_date', to)
@@ -138,9 +138,9 @@ export default async function CalendarPage({ searchParams }: Props) {
           noticeId: row.notice_id,
           title: row.title,
           eventDate: row.event_date,
+          eventKinds: parseEventKinds(row.event_kinds),
           location: row.location,
           description: row.description,
-          cardType: 'schedule',
         }))
       }
 
@@ -205,6 +205,10 @@ export default async function CalendarPage({ searchParams }: Props) {
           monthEventsTitle: messages.calendar.month_events_title,
           daySheetTitle: messages.calendar.day_sheet_title,
           closeLabel: messages.common.close,
+          eventKindLabels: {
+            event: messages.notice_detail.schedule_badge,
+            deadline: messages.notice_detail.action_badge,
+          },
         }}
         weekStartIso={monday}
         timetableDays={timetableDays}
@@ -252,29 +256,35 @@ function previewEvents(year: number, month: number): ScheduleEvent[] {
       noticeId: 'preview-action',
       title: '체험학습 동의서 제출',
       eventDate: `${base}-08`,
+      eventKinds: ['deadline'],
       location: '각 반 교실',
       description: '체험학습 동의서 제출 마감일',
-      cardType: 'action',
     },
     {
       id: 'preview-calendar-2',
       noticeId: 'preview-schedule',
       title: '학부모 상담주간',
       eventDate: `${base}-14`,
+      eventKinds: ['event'],
       location: '상담실',
       description: '학부모 상담 일정',
-      cardType: 'schedule',
     },
     {
       id: 'preview-calendar-3',
       noticeId: 'preview-supplies',
       title: '봄 소풍',
       eventDate: `${base}-21`,
+      eventKinds: ['event'],
       location: '서울숲',
       description: '봄 소풍 행사일',
-      cardType: 'supplies',
     },
   ]
+}
+
+function parseEventKinds(value: unknown): ('event' | 'deadline')[] {
+  if (!Array.isArray(value)) return ['event']
+  const kinds = value.filter((item): item is 'event' | 'deadline' => item === 'event' || item === 'deadline')
+  return kinds.length > 0 ? kinds : ['event']
 }
 
 function previewTimetableEntries(monday: string): TimetableDayEntry[] {

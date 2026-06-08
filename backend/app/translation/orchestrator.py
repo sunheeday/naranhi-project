@@ -41,6 +41,7 @@ class TranslationPipeline:
         source_hard_facts = await self.gemini.generate_json(
             prompt=extract_source_hard_facts_prompt(payload.source_text),
             temperature=0.0,
+            model=getattr(self.gemini, "source_hard_fact_model", None),
         )
 
         ingredient_map = await self._map_ingredients_if_needed(

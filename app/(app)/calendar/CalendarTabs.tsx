@@ -13,6 +13,10 @@ interface CalendarLabels {
   monthEventsTitle: string
   daySheetTitle: string
   closeLabel: string
+  eventKindLabels: {
+    event: string
+    deadline: string
+  }
 }
 
 interface TimetableLabels {
@@ -110,6 +114,7 @@ export default function CalendarTabs({
           monthEventsTitle={calendarLabels.monthEventsTitle}
           daySheetTitle={calendarLabels.daySheetTitle}
           closeLabel={calendarLabels.closeLabel}
+          eventKindLabels={calendarLabels.eventKindLabels}
         />
       ) : (
         <TimetableWeekView

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
         default=None,
         alias="GEMINI_TRANSLATION_MODEL",
     )
+    gemini_source_hard_fact_model: str | None = Field(
+        default=None,
+        alias="GEMINI_SOURCE_HARD_FACT_MODEL",
+    )
     gemini_ocr_model_primary: str = Field(
         default="gemini-2.5-flash-lite",
         alias="GEMINI_OCR_MODEL_PRIMARY",

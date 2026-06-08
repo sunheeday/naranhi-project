@@ -18,7 +18,7 @@ export async function backfillSchoolEventsForSchool({
 }) {
   const { data: notices, error: noticeError } = await serviceClient
     .from('notices')
-    .select('id,title,original_text,school_id,event_dates,event_location,created_at')
+    .select('id,title,original_text,school_id,due_date,event_dates,event_location,created_at')
     .eq('school_id', schoolId)
     .order('created_at', { ascending: false })
 
@@ -28,7 +28,7 @@ export async function backfillSchoolEventsForSchool({
 
   const noticeRows = (notices ?? []) as Pick<
     NoticeRow,
-    'id' | 'title' | 'original_text' | 'school_id' | 'event_dates' | 'event_location' | 'created_at'
+    'id' | 'title' | 'original_text' | 'school_id' | 'due_date' | 'event_dates' | 'event_location' | 'created_at'
   >[]
   const noticeIds = noticeRows.map(notice => notice.id)
   if (noticeIds.length === 0) return
@@ -65,24 +65,27 @@ export async function backfillSchoolEventsForSchool({
 
   const rows: SchoolEventInsert[] = []
   for (const notice of noticeRows) {
-    const eventDates = noticeEventDates(notice.event_dates).length > 0
-      ? noticeEventDates(notice.event_dates)
-      : parseScheduleCardDates(scheduleCardsByNoticeId.get(notice.id) ?? [])
-    if (eventDates.length === 0) continue
+    const eventEntries = noticeEventEntries(
+      notice.event_dates,
+      optionalString(notice.due_date),
+      parseScheduleCardDates(scheduleCardsByNoticeId.get(notice.id) ?? []),
+    )
+    if (eventEntries.length === 0) continue
 
     const title = optionalString(notice.title) ?? '학교 일정'
     const scheduleCardLocation = parseScheduleCardLocation(scheduleCardsByNoticeId.get(notice.id) ?? [])
     const description = firstNonEmptyLine(notice.original_text) ?? title
 
-    for (const eventDate of eventDates) {
-      const key = `${notice.id}:${eventDate}`
+    for (const entry of eventEntries) {
+      const key = `${notice.id}:${entry.eventDate}`
       if (existingKeys.has(key)) continue
       existingKeys.add(key)
       rows.push({
         school_id: schoolId,
         notice_id: notice.id,
         title,
-        event_date: eventDate,
+        event_date: entry.eventDate,
+        event_kinds: entry.eventKinds satisfies Json,
         location: optionalString(notice.event_location) ?? scheduleCardLocation,
         description,
         source_language: 'ko',
@@ -127,6 +130,23 @@ function noticeEventDates(value: Json): string[] {
       .map(item => item.trim())
       .filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item)),
   ))
+}
+
+function noticeEventEntries(
+  value: Json,
+  dueDate: string | null,
+  fallbackDates: string[],
+): Array<{ eventDate: string; eventKinds: ('event' | 'deadline')[] }> {
+  const orderedDates = noticeEventDates(value)
+  const dates = orderedDates.length > 0 ? orderedDates : fallbackDates
+  const rows = dates.map(eventDate => ({
+    eventDate,
+    eventKinds: [eventDate === dueDate ? 'deadline' : 'event'] as ('event' | 'deadline')[],
+  }))
+  if (dueDate && !dates.includes(dueDate)) {
+    rows.push({ eventDate: dueDate, eventKinds: ['deadline'] })
+  }
+  return rows
 }
 
 function parseScheduleCardDates(rows: NoticeCardRow[]): string[] {

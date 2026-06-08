@@ -29,12 +29,12 @@ interface NoticeRow {
 
 interface DisplayNotice {
   id: string
-  cardType: 'supplies' | 'action' | 'schedule' | null
+  cardType: 'action' | null
   title: string
   status: NoticeStatus
   arrivedAt: string
   needsTranslation: boolean
-  /** 학부모 행동이 필요한 공지(제출·납부·준비물 등)인지 — 홈 섹션 구분 기준 */
+  /** 홈 분류 기준: action 카드가 있으면 '해야 할 일', 없으면 '공지' */
   actionRequired: boolean
   /** 연결된 일정이 있을 때의 마감/일정 칩 (예: 'D-3 · 4/18'), 없으면 null */
   dueLabel: string | null
@@ -42,13 +42,9 @@ interface DisplayNotice {
 }
 
 type CategoryLabels = Record<Locale, string>
-const BADGE: Record<'supplies' | 'action' | 'schedule' | 'null', { bar: string; bg: string; text: string; label: CategoryLabels }> = {
-  supplies: { bar: 'bg-cat-supply',   bg: 'bg-cat-supply-bg',   text: 'text-cat-supply',
-    label: { ko: '준비물', en: 'Supplies', zh: '准备物品', vi: 'Đồ dùng', ru: 'Принадлежности', ar: 'المستلزمات', fr: 'Fournitures', id: 'Perlengkapan', th: 'อุปกรณ์' } },
+const BADGE: Record<'action' | 'null', { bar: string; bg: string; text: string; label: CategoryLabels }> = {
   action:   { bar: 'bg-cat-action',   bg: 'bg-cat-action-bg',   text: 'text-cat-action',
     label: { ko: '해야 할 일', en: 'To-do', zh: '待办事项', vi: 'Việc cần làm', ru: 'Дела', ar: 'المهام', fr: 'À faire', id: 'Tugas', th: 'งานที่ต้องทำ' } },
-  schedule: { bar: 'bg-cat-schedule', bg: 'bg-cat-schedule-bg', text: 'text-cat-schedule',
-    label: { ko: '일정', en: 'Schedule', zh: '日程', vi: 'Lịch', ru: 'Расписание', ar: 'الجدول', fr: 'Planning', id: 'Jadwal', th: 'ตารางเวลา' } },
   null:     { bar: 'bg-ink',          bg: 'bg-surface-card',    text: 'text-ink',
     label: { ko: '공지', en: 'Notice', zh: '通知', vi: 'Thông báo', ru: 'Объявление', ar: 'إشعار', fr: 'Annonce', id: 'Pemberitahuan', th: 'ประกาศ' } },
 }
@@ -56,7 +52,7 @@ const BADGE: Record<'supplies' | 'action' | 'schedule' | 'null', { bar: string; 
 // 홈 상단 섹션 라벨 (행동 필요 / 단순 안내)
 const SECTION_LABELS: { todo: CategoryLabels; news: CategoryLabels } = {
   todo: { ko: '해야 할 일', en: 'To-do', zh: '待办事项', vi: 'Việc cần làm', ru: 'Нужно сделать', ar: 'مهام مطلوبة', fr: 'À faire', id: 'Perlu dilakukan', th: 'สิ่งที่ต้องทำ' },
-  news: { ko: '소식', en: 'News', zh: '通知消息', vi: 'Tin tức', ru: 'Новости', ar: 'أخبار', fr: 'Actualités', id: 'Kabar', th: 'ข่าวสาร' },
+  news: { ko: '공지', en: 'Notice', zh: '通知', vi: 'Thông báo', ru: 'Объявление', ar: 'إشعار', fr: 'Annonce', id: 'Pemberitahuan', th: 'ประกาศ' },
 }
 
 interface HomeMessages {
@@ -147,18 +143,13 @@ function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
   return ko.split('\n')[0].slice(0, 40) || m.fallback_title
 }
 
-function dominantCardType(cards: { type: string }[]): 'supplies' | 'action' | 'schedule' | null {
-  // 홈 badge는 행동 힌트용 3가지 type만 사용한다. summary는 상세 화면에서만 표시한다.
-  const order: Array<'action' | 'schedule' | 'supplies'> = ['action', 'schedule', 'supplies']
-  for (const t of order) {
-    if (cards.some(c => c.type === t)) return t
-  }
-  return null
+function dominantCardType(cards: { type: string }[]): 'action' | null {
+  return cards.some(c => c.type === 'action') ? 'action' : null
 }
 
-// 학부모가 뭔가 해야 하는 공지(제출·납부·준비물)면 '해야 할 일', 그 외(단순 일정/안내)는 '소식'.
+// 홈 분류는 2가지만 유지한다: action 카드가 있으면 '해야 할 일', 없으면 '공지'.
 function isActionRequired(cards: { type: string }[]): boolean {
-  return cards.some(c => c.type === 'action' || c.type === 'supplies')
+  return cards.some(c => c.type === 'action')
 }
 
 function isoToUtcMs(iso: string): number {
@@ -204,19 +195,8 @@ function previewNotices(): DisplayNotice[] {
       dueUrgent: true,
     },
     {
-      id: 'preview-supplies',
-      cardType: 'supplies',
-      title: '봄 소풍 준비물 안내',
-      status: 'done',
-      arrivedAt: '2시간 전',
-      needsTranslation: false,
-      actionRequired: true,
-      dueLabel: 'D-9 · 4/24',
-      dueUrgent: false,
-    },
-    {
       id: 'preview-schedule',
-      cardType: 'schedule',
+      cardType: null,
       title: '학부모 상담주간 일정 안내',
       status: 'done',
       arrivedAt: '어제',
