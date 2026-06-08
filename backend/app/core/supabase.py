@@ -13,3 +13,7 @@ def get_supabase_client():
     from supabase import create_client
 
     return create_client(settings.supabase_url, settings.supabase_service_role_key)
+
+
+def reset_supabase_client() -> None:
+    get_supabase_client.cache_clear()
