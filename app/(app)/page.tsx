@@ -95,6 +95,11 @@ function jsonString(value: Json | undefined): string | null {
 function summaryTranslationFirstLine(extracted: Json | null | undefined, locale: Locale): string | null {
   const extractedObj = jsonObject(extracted)
   const summary = jsonObject(extractedObj.summary)
+  if (locale === 'ko') {
+    const rendered = jsonString(summary.rendered)
+    if (!rendered) return null
+    return rendered.split('\n')[0].trim().slice(0, 60) || null
+  }
   const translations = jsonObject(summary.translations)
   const localized = jsonString(translations[locale])
   if (!localized) return null
@@ -126,21 +131,36 @@ function compareNoticeRows(a: NoticeRow, b: NoticeRow): number {
 }
 
 function pickTitle(row: NoticeRow, locale: Locale, m: HomeMessages): string {
+  const cleanTitle = (value: string, maxLength: number) =>
+    value
+      .replace(/^\s{0,3}#{1,6}\s+/, '')
+      .trim()
+      .slice(0, maxLength)
+
+  // 한국어 홈은 canonical 한국어 제목/요약을 우선한다.
+  if (locale === 'ko') {
+    if (row.title && row.title.trim()) return cleanTitle(row.title, 60)
+    const koSummaryTitle = summaryTranslationFirstLine(row.extracted_content, 'ko')
+    if (koSummaryTitle) return cleanTitle(koSummaryTitle, 60)
+    const ko = (row.ai_translations?.ko ?? '').trim()
+    return cleanTitle(ko.split('\n')[0] || m.fallback_title, 40) || m.fallback_title
+  }
+
   // 1순위: 백엔드 파이프라인이 저장한 사용자 locale 번역문의 첫 줄
   const t = row.ai_translations ?? {}
   const localized = t[locale]?.trim()
-  if (localized) return localized.split('\n')[0].slice(0, 40)
+  if (localized) return cleanTitle(localized.split('\n')[0], 40)
 
   // 2순위: extracted_content.summary.translations 의 locale 요약 첫 줄
   const localizedSummaryTitle = summaryTranslationFirstLine(row.extracted_content, locale)
-  if (localizedSummaryTitle) return localizedSummaryTitle
+  if (localizedSummaryTitle) return cleanTitle(localizedSummaryTitle, 60)
 
   // 3순위: 한국어 title (Gemini가 만든 짧은 제목, 한국어)
-  if (row.title && row.title.trim()) return row.title.trim().slice(0, 60)
+  if (row.title && row.title.trim()) return cleanTitle(row.title, 60)
 
   // 4순위: ko summary 첫 줄
   const ko = (t.ko ?? '').trim()
-  return ko.split('\n')[0].slice(0, 40) || m.fallback_title
+  return cleanTitle(ko.split('\n')[0] || m.fallback_title, 40) || m.fallback_title
 }
 
 function dominantCardType(cards: { type: string }[]): 'action' | null {

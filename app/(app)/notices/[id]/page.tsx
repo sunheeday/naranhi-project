@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
+import { isRtl, isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { getNoticeDetail, type NoticeCardDto } from '@/lib/notices'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import type { CardType } from '@/types/database'
@@ -192,6 +192,7 @@ export default async function NoticePage({ params }: Props) {
           <NoticeCardSwiper
             noticeId={id}
             cards={previewCards}
+            isRtl={isRtl(locale)}
             labels={{
               supplies: messages.notice_detail.supplies_badge,
               action: messages.notice_detail.action_badge,
@@ -332,6 +333,7 @@ export default async function NoticePage({ params }: Props) {
       <NoticeCardSwiper
         noticeId={id}
         cards={cards}
+        isRtl={isRtl(locale)}
         labels={{
           supplies: messages.notice_detail.supplies_badge,
           action: messages.notice_detail.action_badge,

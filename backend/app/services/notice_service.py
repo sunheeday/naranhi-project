@@ -1707,10 +1707,14 @@ def _sanitize_source_hard_facts(source_hard_facts: object, source_text: str) -> 
         for item in _list_of_dicts(hard_facts.get("materials"))
         if not _looks_like_prohibited_material(item, source_text)
     ]
+    submissions = _sanitize_canonical_source_fact_items(hard_facts.get("submissions"))
+    actions_required = _sanitize_canonical_source_fact_items(hard_facts.get("actions_required"))
 
     sanitized_hard_facts["dates"] = dates
     sanitized_hard_facts["deadlines"] = deadlines
     sanitized_hard_facts["materials"] = materials
+    sanitized_hard_facts["submissions"] = submissions
+    sanitized_hard_facts["actions_required"] = actions_required
 
     sanitized = dict(source_hard_facts)
     sanitized["hard_facts"] = sanitized_hard_facts
@@ -1919,6 +1923,29 @@ def _looks_like_non_korean_canonical_text(value: str | None) -> bool:
 
     # Pure Latin text in canonical Korean slots is suspicious and should not drive ko card generation.
     return bool(re.search(r"[A-Za-z]", text))
+
+
+def _looks_like_non_korean_canonical_fact(item: dict[str, Any]) -> bool:
+    for key in ("normalized", "value", "text", "raw_text", "name"):
+        if _looks_like_non_korean_canonical_text(_optional_str(item.get(key))):
+            return True
+    return False
+
+
+def _sanitize_canonical_source_fact_items(value: object) -> list[object]:
+    if not isinstance(value, list):
+        return []
+
+    sanitized: list[object] = []
+    for item in value:
+        if isinstance(item, dict):
+            if not _looks_like_non_korean_canonical_fact(item):
+                sanitized.append(item)
+            continue
+        text = _optional_str(item)
+        if text and not _looks_like_non_korean_canonical_text(text):
+            sanitized.append(text)
+    return sanitized
 
 
 def _first_value(value: object) -> str | None:
