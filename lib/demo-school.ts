@@ -11,9 +11,9 @@ export const DEMO_SCHOOL_OFFICE_CODE = 'DEMO'
 export const DEMO_SCHOOL_CODE = 'NARANHI001'
 export const DEMO_SCHOOL_HOMEPAGE_URL = 'https://demo.naranhi.school'
 export const DEMO_MEAL_DONOR_SCHOOL_NAMES = ['부천부흥초등학교', '부천부흥초']
-export const DEMO_NOTICE_DONOR_SCHOOL_NAMES = ['부천부흥중학교', '부천부흥중']
+export const DEMO_NOTICE_DONOR_SCHOOL_NAMES = ['부천부흥초등학교', '부천부흥초']
 const DEMO_MEAL_SEED_WINDOW_DAYS = 21
-const DEMO_NOTICE_REUSE_LIMIT = 2
+const DEMO_NOTICE_REUSE_LIMIT = 5
 
 type ServiceClient = SupabaseClient<Database>
 
@@ -959,8 +959,18 @@ function hasStorageAttachment(extractedContent: Json | null): boolean {
   return sources.some(source => {
     const sourceObj = jsonRecord(source)
     const role = typeof sourceObj.source_role === 'string' ? sourceObj.source_role : ''
+    const sourceType = typeof sourceObj.source_type === 'string' ? sourceObj.source_type : ''
+    const filename = typeof sourceObj.filename === 'string' ? sourceObj.filename.trim() : ''
     const publicUrl = typeof sourceObj.public_url === 'string' ? sourceObj.public_url.trim() : ''
-    return role === 'attachment' && Boolean(publicUrl)
+    return (
+      Boolean(publicUrl)
+      && (
+        role === 'attachment'
+        || role === 'primary'
+        || sourceType.startsWith('attachment_')
+        || Boolean(filename)
+      )
+    )
   })
 }
 
@@ -1032,7 +1042,7 @@ async function buildReusedDemoNotices(
       .in('notice_id', sourceNoticeIds),
   ])
 
-  const sourceCards = (cardRows ?? []).filter(card => card.type === 'action')
+  const sourceCards = cardRows ?? []
   const sourceCardIds = sourceCards.map(card => card.id)
   const { data: cardTranslationRows } = sourceCardIds.length > 0
     ? await serviceClient
@@ -1131,6 +1141,8 @@ export async function ensureDemoSchoolSeed(
   serviceClient: ServiceClient,
   schoolId: string,
 ): Promise<void> {
+  const reusedNotices = await buildReusedDemoNotices(serviceClient, schoolId)
+
   await serviceClient
     .from('schools')
     .update({
@@ -1152,178 +1164,74 @@ export async function ensureDemoSchoolSeed(
         crawl_status: 'completed',
         crawl_error_message: null,
         crawl_result: {
-          source: 'demo',
-          seeded_notice_count: DEMO_NOTICE_SEEDS.length,
+          source: 'demo_reused',
+          seeded_notice_count: reusedNotices.notices.length,
         } satisfies Json,
         crawl_last_checked_at: new Date().toISOString(),
       },
       { onConflict: 'school_id' },
     )
 
-  const reusedNotices = await buildReusedDemoNotices(serviceClient, schoolId)
-  const staticNoticeSeeds = DEMO_NOTICE_SEEDS.filter(isStaticDemoNoticeSeed)
-
-  const noticeRows = staticNoticeSeeds.map((seed, index) => ({
-    id: seed.id,
-    school_id: schoolId,
-    title: seed.titleKo,
-    original_text: seed.originalText,
-    source_post_uid: seed.sourcePostUid ?? null,
-    detail_url: seed.detailUrl,
-    crawl_result: (
-      seed.crawlResult ?? {
-        source: 'demo',
-        crawl_checked_at: '2026-06-07T09:00:00+09:00',
-        post_rank: index + 1,
-      }
-    ) satisfies Json,
-    extracted_content: {
-      summary: {
-        rendered: seed.summaryKo,
-        translations: seed.translatedSummary,
-      },
-      sources: [
-        {
-          source_id: `${seed.id}-body`,
-          source_type: 'html_body',
-          source_role: 'body_carrier',
-          refined_text: seed.refinedBodyKo,
-          translations: seed.translatedSourceBody,
-          needs_file: false,
-          filename: '',
-          origin_url: seed.detailUrl,
-          public_url: null,
-          metadata: { order_index: 0 },
-        },
-        ...(seed.attachmentSources ?? []).map((attachment, attachmentIndex) => ({
-          source_id: `${seed.id}-attachment-${attachmentIndex + 1}`,
-          source_type: attachment.sourceType,
-          source_role: 'attachment',
-          refined_text: attachment.refinedTextKo ?? '',
-          translations: attachment.translatedText ?? {},
-          needs_file: attachment.needsFile ?? attachment.fileType !== 'pdf',
-          filename: attachment.filename,
-          origin_url: attachment.originUrl,
-          public_url: null,
-          metadata: {
-            order_index: attachmentIndex + 1,
-            file_type: attachment.fileType === 'pdf' ? 'pdf' : 'document',
-          },
-        })),
-      ],
-      needs_file: Boolean(seed.attachmentSources?.some(source => source.needsFile)),
-    } satisfies Json,
-    status: 'done' as const,
-    error_message: null,
-    due_date: seed.dueDate,
-    event_dates: seed.eventDates,
-    event_location: seed.eventLocation,
-    source_hard_facts: {
-      hard_facts: {
-        dates: seed.eventDates.map(date => ({ raw_text: date, normalized: date })),
-        deadlines: seed.dueDate ? [{ raw_text: seed.dueDate, normalized: seed.dueDate }] : [],
-      },
-    } satisfies Json,
-    extraction_attempts: 1,
-    extraction_started_at: '2026-06-07T09:00:00+09:00',
-    extraction_next_run_at: null,
-    extraction_error_code: null,
-    created_at: `2026-06-07T0${Math.min(index + 7, 9)}:00:00+09:00`,
-    updated_at: `2026-06-07T0${Math.min(index + 7, 9)}:00:00+09:00`,
-  }))
-
-  await serviceClient
-    .from('notices')
-    .upsert([...noticeRows, ...reusedNotices.notices], { onConflict: 'id' })
-
-  const noticeTranslations = staticNoticeSeeds.flatMap(seed =>
-    DEMO_LANGUAGES.map(language => ({
-      notice_id: seed.id,
-      target_language: language,
-      source_language: 'ko',
-      translated_text: `${seed.translatedTitle[language]}\n\n${seed.translatedBody[language]}`,
-      validation_status: 'passed' as const,
-    })),
-  )
-
-  await serviceClient
-    .from('notice_ai_translations')
-    .upsert([...noticeTranslations, ...reusedNotices.translations], { onConflict: 'notice_id,target_language' })
-
-  const seededNoticeIds = [...staticNoticeSeeds.map(seed => seed.id), ...reusedNotices.notices.map(notice => notice.id)]
+  const reusedNoticeIds = reusedNotices.notices
+    .map(notice => notice.id)
     .filter((noticeId): noticeId is string => typeof noticeId === 'string' && noticeId.length > 0)
 
-  await serviceClient
-    .from('notice_cards')
-    .delete()
-    .in('notice_id', seededNoticeIds)
+  const { data: existingDemoNotices } = await serviceClient
+    .from('notices')
+    .select('id,detail_url,crawl_result')
+    .eq('school_id', schoolId)
 
-  const cardRows = staticNoticeSeeds.flatMap(seed =>
-    seed.cards
-      .filter(card => card.type === 'action')
-      .map(card => ({
-      id: card.id,
-      notice_id: seed.id,
-      type: card.type,
-      order: card.order,
-      content: {
-        ko: {
-          items: card.koItems,
-        },
-      } satisfies Json,
-    })),
-  )
+  const staleDemoNoticeIds = (existingDemoNotices ?? [])
+    .filter(notice => {
+      if (reusedNoticeIds.includes(notice.id)) return false
+      const detailUrl = typeof notice.detail_url === 'string' ? notice.detail_url : ''
+      const crawlResult = jsonRecord(notice.crawl_result)
+      const source = typeof crawlResult.source === 'string' ? crawlResult.source : ''
+      return detailUrl.startsWith('demo://') || source === 'demo' || source === 'demo_reused'
+    })
+    .map(notice => notice.id)
 
-  if (cardRows.length > 0) {
+  if (staleDemoNoticeIds.length > 0) {
+    await serviceClient
+      .from('notices')
+      .delete()
+      .in('id', staleDemoNoticeIds)
+  }
+
+  if (reusedNotices.notices.length > 0) {
+    await serviceClient
+      .from('notices')
+      .upsert(reusedNotices.notices, { onConflict: 'id' })
+  }
+
+  if (reusedNotices.translations.length > 0) {
+    await serviceClient
+      .from('notice_ai_translations')
+      .upsert(reusedNotices.translations, { onConflict: 'notice_id,target_language' })
+  }
+
+  if (reusedNoticeIds.length > 0) {
     await serviceClient
       .from('notice_cards')
-      .upsert([...cardRows, ...reusedNotices.cards], { onConflict: 'id' })
-  } else if (reusedNotices.cards.length > 0) {
+      .delete()
+      .in('notice_id', reusedNoticeIds)
+  }
+
+  if (reusedNotices.cards.length > 0) {
     await serviceClient
       .from('notice_cards')
       .upsert(reusedNotices.cards, { onConflict: 'id' })
   }
 
-  const cardTranslations = staticNoticeSeeds.flatMap(seed =>
-    seed.cards
-      .filter(card => card.type === 'action')
-      .flatMap(card =>
-      DEMO_LANGUAGES.map(language => ({
-        notice_card_id: card.id,
-        target_language: language,
-        translated_content: {
-          items: card.translatedItems[language],
-        } satisfies Json,
-      })),
-    ),
-  )
-
-  if (cardTranslations.length > 0) {
-    await serviceClient
-      .from('notice_card_translations')
-      .upsert([...cardTranslations, ...reusedNotices.cardTranslations], { onConflict: 'notice_card_id,target_language' })
-  } else if (reusedNotices.cardTranslations.length > 0) {
+  if (reusedNotices.cardTranslations.length > 0) {
     await serviceClient
       .from('notice_card_translations')
       .upsert(reusedNotices.cardTranslations, { onConflict: 'notice_card_id,target_language' })
   }
 
-  const schoolEvents = staticNoticeSeeds.flatMap(seed =>
-    buildDemoEventEntries(seed.eventDates, seed.dueDate).map(entry => ({
-      school_id: schoolId,
-      notice_id: seed.id,
-      title: seed.titleKo,
-      event_date: entry.eventDate,
-      event_kinds: entry.eventKinds satisfies Json,
-      location: seed.eventLocation,
-      description: seed.summaryKo,
-      source_language: 'ko',
-    })),
-  )
-
   await serviceClient
     .from('school_events')
-    .upsert([...schoolEvents, ...reusedNotices.events], { onConflict: 'notice_id,event_date' })
+    .upsert(reusedNotices.events, { onConflict: 'notice_id,event_date' })
 
   await seedDemoMeals(serviceClient)
 }
