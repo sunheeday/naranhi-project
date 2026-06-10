@@ -227,6 +227,7 @@ export interface Database {
           notice_id: string
           target_language: string
           source_language: string
+          translated_title: string | null
           translated_text: string
           validation_status: NoticeAiValidationStatus
           created_at: string
@@ -237,6 +238,7 @@ export interface Database {
           notice_id: string
           target_language: string
           source_language?: string
+          translated_title?: string | null
           translated_text: string
           validation_status?: NoticeAiValidationStatus
           created_at?: string
@@ -245,6 +247,7 @@ export interface Database {
         Update: {
           target_language?: string
           source_language?: string
+          translated_title?: string | null
           translated_text?: string
           validation_status?: NoticeAiValidationStatus
           updated_at?: string

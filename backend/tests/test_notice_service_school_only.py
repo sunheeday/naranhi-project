@@ -323,10 +323,16 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             for op in supabase.operations
             if op[0] == "notice_card_translations" and op[1] == "upsert"
         ]
+        translation_upserts = [
+            op[2]
+            for op in supabase.operations
+            if op[0] == "notice_ai_translations" and op[1] == "upsert"
+        ]
         self.assertEqual(
             card_translation_upserts[-1]["translated_content"]["items"],
             [{"text": "Nộp giấy đồng ý"}],
         )
+        self.assertEqual(translation_upserts[-1]["translated_title"], "동의서 안내")
 
     async def test_translate_notice_uses_cached_translation_before_ai_pipeline(self):
         supabase = FakeSupabase()
