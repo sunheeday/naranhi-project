@@ -228,6 +228,7 @@ export interface Database {
           target_language: string
           source_language: string
           translated_title: string | null
+          translated_location: string | null
           translated_text: string
           validation_status: NoticeAiValidationStatus
           created_at: string
@@ -239,6 +240,7 @@ export interface Database {
           target_language: string
           source_language?: string
           translated_title?: string | null
+          translated_location?: string | null
           translated_text: string
           validation_status?: NoticeAiValidationStatus
           created_at?: string
@@ -248,6 +250,7 @@ export interface Database {
           target_language?: string
           source_language?: string
           translated_title?: string | null
+          translated_location?: string | null
           translated_text?: string
           validation_status?: NoticeAiValidationStatus
           updated_at?: string
