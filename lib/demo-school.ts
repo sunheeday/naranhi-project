@@ -1030,7 +1030,7 @@ async function buildReusedDemoNotices(
   const [{ data: translationRows }, { data: cardRows }, { data: eventRows }] = await Promise.all([
     serviceClient
       .from('notice_ai_translations')
-      .select('notice_id,target_language,source_language,translated_text,validation_status,updated_at')
+      .select('notice_id,target_language,source_language,translated_title,translated_text,validation_status,updated_at')
       .in('notice_id', sourceNoticeIds),
     serviceClient
       .from('notice_cards')
@@ -1089,6 +1089,7 @@ async function buildReusedDemoNotices(
       notice_id: mappedNoticeId,
       target_language: row.target_language,
       source_language: row.source_language,
+      translated_title: row.translated_title,
       translated_text: row.translated_text,
       validation_status: row.validation_status,
       updated_at: row.updated_at,

@@ -708,6 +708,7 @@ class NoticeService:
             "notice_id": notice_id,
             "target_language": target_language,
             "source_language": "ko",
+            "translated_title": _optional_str(metadata.get("title")),
             "translated_text": pipeline_result.get("final_translation"),
             "validation_status": validation_status,
         }
@@ -1114,7 +1115,7 @@ def _usable_cached_translation(
     query = (
         supabase.table("notice_ai_translations")
         .select(
-            "translated_text,validation_status"
+            "translated_title,translated_text,validation_status"
         )
         .eq("notice_id", notice_id)
         .eq("target_language", target_language)

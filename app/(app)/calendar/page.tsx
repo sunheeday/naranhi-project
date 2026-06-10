@@ -10,7 +10,9 @@ import {
   UnsupportedTimetableError,
   type TimetablePeriod,
 } from '@/lib/neis'
+import { pickNoticeDisplayTitle } from '@/lib/notice-title'
 import BrandHeader from '@/components/brand/BrandHeader'
+import NoticeTranslationKickoff from '../NoticeTranslationKickoff'
 import CalendarTabs from './CalendarTabs'
 import { type ScheduleEvent } from './CalendarView'
 import { type TimetableDayEntry } from './TimetableWeekView'
@@ -83,6 +85,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   let timetableUnsupported = false
   let timetableErrorMessage: string | null = null
   let childLabel = ''
+  let pendingTranslationNoticeIds: string[] = []
 
   if (await isUiPreviewEnabled()) {
     events = previewEvents(year, month)
@@ -133,10 +136,59 @@ export default async function CalendarPage({ searchParams }: Props) {
           rows = retry.data
         }
 
+        const noticeIds = Array.from(new Set(
+          (rows ?? [])
+            .map(row => row.notice_id)
+            .filter((value): value is string => typeof value === 'string' && value.length > 0),
+        ))
+        const fallbackTitle = messages.home?.fallback_title ?? messages.notice_detail?.intro_title ?? '공지'
+        const noticeRows = noticeIds.length > 0
+          ? await supabase
+              .from('notices')
+              .select('id, title, extracted_content')
+              .in('id', noticeIds)
+          : { data: [], error: null }
+        if (noticeRows.error) throw noticeRows.error
+
+        const translationRows = noticeIds.length > 0
+          ? await supabase
+              .from('notice_ai_translations')
+              .select('notice_id, target_language, translated_title, translated_text')
+              .in('notice_id', noticeIds)
+              .in('target_language', locale === 'ko' ? ['ko'] : [locale, 'ko'])
+          : { data: [], error: null }
+        if (translationRows.error) throw translationRows.error
+
+        const noticesById = new Map(
+          (noticeRows.data ?? []).map(row => [row.id, row] as const),
+        )
+        const translationsByNotice: Record<string, Record<string, string>> = {}
+        const translatedTitlesByNotice: Record<string, Record<string, string>> = {}
+        for (const row of translationRows.data ?? []) {
+          if (row.notice_id && row.target_language && row.translated_text) {
+            ;(translationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_text
+          }
+          if (row.notice_id && row.target_language && row.translated_title) {
+            ;(translatedTitlesByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_title
+          }
+        }
+
+        pendingTranslationNoticeIds = locale === 'ko'
+          ? []
+          : noticeIds.filter(noticeId => !translationsByNotice[noticeId]?.[locale])
+
         events = (rows ?? []).map(row => ({
           id: row.id,
           noticeId: row.notice_id,
-          title: row.title,
+          title: pickNoticeDisplayTitle(
+            {
+              title: noticesById.get(row.notice_id)?.title ?? row.title,
+              extracted_content: noticesById.get(row.notice_id)?.extracted_content ?? null,
+              translated_titles: translatedTitlesByNotice[row.notice_id] ?? {},
+            },
+            locale,
+            fallbackTitle,
+          ),
           eventDate: row.event_date,
           eventKinds: parseEventKinds(row.event_kinds),
           location: row.location,
@@ -175,6 +227,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   return (
     <main className="flex flex-col min-h-screen pb-20">
+      <NoticeTranslationKickoff locale={locale} noticeIds={pendingTranslationNoticeIds} />
       <BrandHeader title={messages.calendar.title} subtitle={childLabel || undefined} character="walk" />
 
       {errorMessage && (

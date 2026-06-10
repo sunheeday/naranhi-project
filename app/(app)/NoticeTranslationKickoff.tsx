@@ -9,7 +9,7 @@ interface Props {
   noticeIds: string[]
 }
 
-export default function HomeNoticeTranslationKickoff({ locale, noticeIds }: Props) {
+export default function NoticeTranslationKickoff({ locale, noticeIds }: Props) {
   useEffect(() => {
     if (locale === 'ko') return
     syncPendingNoticeTranslationBatch(locale, noticeIds)

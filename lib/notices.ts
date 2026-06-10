@@ -86,7 +86,7 @@ export async function getNoticeDetail(
 
   const translationQuery = supabase
     .from('notice_ai_translations')
-    .select('target_language, translated_text')
+    .select('target_language, translated_title, translated_text')
     .eq('notice_id', noticeId)
 
   const { data: translationRows } = locale === 'ko'
@@ -115,10 +115,14 @@ export async function getNoticeDetail(
     : []
 
   const translations: Translations = {}
+  const translatedTitles: Translations = {}
   if (notice.original_text) translations.ko = notice.original_text
   for (const row of translationRows ?? []) {
     if (row.target_language && row.translated_text) {
       translations[row.target_language] = row.translated_text
+    }
+    if (row.target_language && row.translated_title) {
+      translatedTitles[row.target_language] = row.translated_title
     }
   }
   const translatedBodyText = locale === 'ko' ? null : (translations[locale] ?? null)
@@ -151,7 +155,10 @@ export async function getNoticeDetail(
   const hasSummary = Boolean(summaryObj && typeof summaryObj.rendered === 'string' && summaryObj.rendered.trim())
   // 요약 텍스트 = extracted_content.summary 의 렌더 텍스트(ko) + 번역(다른 언어).
   // original_text 는 이제 '풀 본문'(팀 구조화/번역 입력)이라 요약은 여기서 따로 읽는다.
-  const summary = pickTranslation(summaryTextMap(summaryObj), locale) ?? notice.title ?? null
+  const summary = pickTranslation(summaryTextMap(summaryObj), locale)
+    ?? pickTranslation(translatedTitles, locale)
+    ?? notice.title
+    ?? null
   const hasCompleteSourceTranslations = locale === 'ko'
     ? true
     : hasCompleteTranslatedSources(extracted, locale)
