@@ -153,7 +153,7 @@ export default async function CalendarPage({ searchParams }: Props) {
         const translationRows = noticeIds.length > 0
           ? await supabase
               .from('notice_ai_translations')
-              .select('notice_id, target_language, translated_title, translated_text')
+              .select('notice_id, target_language, translated_title, translated_location, translated_text')
               .in('notice_id', noticeIds)
               .in('target_language', locale === 'ko' ? ['ko'] : [locale, 'ko'])
           : { data: [], error: null }
@@ -164,12 +164,16 @@ export default async function CalendarPage({ searchParams }: Props) {
         )
         const translationsByNotice: Record<string, Record<string, string>> = {}
         const translatedTitlesByNotice: Record<string, Record<string, string>> = {}
+        const translatedLocationsByNotice: Record<string, Record<string, string>> = {}
         for (const row of translationRows.data ?? []) {
           if (row.notice_id && row.target_language && row.translated_text) {
             ;(translationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_text
           }
           if (row.notice_id && row.target_language && row.translated_title) {
             ;(translatedTitlesByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_title
+          }
+          if (row.notice_id && row.target_language && row.translated_location) {
+            ;(translatedLocationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_location
           }
         }
 
@@ -191,7 +195,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           ),
           eventDate: row.event_date,
           eventKinds: parseEventKinds(row.event_kinds),
-          location: row.location,
+          location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
           description: row.description,
         }))
       }

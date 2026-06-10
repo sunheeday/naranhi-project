@@ -333,6 +333,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             [{"text": "Nộp giấy đồng ý"}],
         )
         self.assertEqual(translation_upserts[-1]["translated_title"], "동의서 안내")
+        self.assertIsNone(translation_upserts[-1]["translated_location"])
 
     async def test_translate_notice_uses_cached_translation_before_ai_pipeline(self):
         supabase = FakeSupabase()

@@ -709,6 +709,10 @@ class NoticeService:
             "target_language": target_language,
             "source_language": "ko",
             "translated_title": _optional_str(metadata.get("title")),
+            "translated_location": _translated_event_location_from_pipeline(
+                pipeline_result,
+                target_language=target_language,
+            ),
             "translated_text": pipeline_result.get("final_translation"),
             "validation_status": validation_status,
         }
@@ -1115,7 +1119,7 @@ def _usable_cached_translation(
     query = (
         supabase.table("notice_ai_translations")
         .select(
-            "translated_title,translated_text,validation_status"
+            "translated_title,translated_location,translated_text,validation_status"
         )
         .eq("notice_id", notice_id)
         .eq("target_language", target_language)
@@ -1390,6 +1394,20 @@ def _event_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None
     return _schedule_location_from_source_pipeline(pipeline_result) or _schedule_location_from_metadata(pipeline_result)
 
 
+def _translated_event_location_from_pipeline(
+    pipeline_result: dict[str, Any],
+    *,
+    target_language: str | None = None,
+) -> str | None:
+    resolved_target = _optional_str(target_language) or _optional_str(pipeline_result.get("target_language"))
+    if not resolved_target or resolved_target == "ko":
+      return None
+    return _schedule_location_from_pipeline(pipeline_result) or _translated_schedule_location_from_metadata(
+        pipeline_result,
+        target_language=resolved_target,
+    )
+
+
 def _schedule_dates_from_pipeline(pipeline_result: dict[str, Any]) -> list[str]:
     return [entry["event_date"] for entry in _school_event_entries_from_pipeline(pipeline_result)]
 
@@ -1438,6 +1456,21 @@ def _schedule_location_from_source_pipeline(pipeline_result: dict[str, Any]) -> 
 def _schedule_location_from_metadata(pipeline_result: dict[str, Any]) -> str | None:
     metadata = pipeline_result.get("metadata") if isinstance(pipeline_result.get("metadata"), dict) else {}
     locations = _metadata_card_locations(metadata, "schedule")
+    return locations[0] if locations else None
+
+
+def _translated_schedule_location_from_metadata(
+    pipeline_result: dict[str, Any],
+    *,
+    target_language: str,
+) -> str | None:
+    metadata = pipeline_result.get("metadata") if isinstance(pipeline_result.get("metadata"), dict) else {}
+    locations = _translated_metadata_card_locations(
+        metadata,
+        pipeline_result,
+        "schedule",
+        target_language=target_language,
+    )
     return locations[0] if locations else None
 
 
@@ -2084,6 +2117,48 @@ def _metadata_card_locations(metadata: dict[str, Any], section_name: str) -> lis
                 location = _optional_str(text.split(":", 1)[1])
                 if location:
                     locations.append(location)
+    return _dedupe(locations)
+
+
+def _translated_metadata_card_locations(
+    metadata: dict[str, Any],
+    pipeline_result: dict[str, Any],
+    section_name: str,
+    *,
+    target_language: str,
+) -> list[str]:
+    card_sections = _translated_card_sections(metadata, pipeline_result, target_language=target_language)
+    if not isinstance(card_sections, dict):
+        return []
+    section = card_sections.get(section_name)
+    if not isinstance(section, dict):
+        return []
+
+    raw_items = section.get("items")
+    if not isinstance(raw_items, list):
+        return []
+
+    prefixes = (
+        "Location:",
+        "location:",
+        "Место:",
+        "место:",
+        "المكان:",
+    )
+    locations: list[str] = []
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            continue
+        for key in ("text", "hint"):
+            text = _optional_str(raw_item.get(key))
+            if not text:
+                continue
+            for prefix in prefixes:
+                if text.startswith(prefix):
+                    location = _optional_str(text[len(prefix):])
+                    if location:
+                        locations.append(location)
+                    break
     return _dedupe(locations)
 
 
