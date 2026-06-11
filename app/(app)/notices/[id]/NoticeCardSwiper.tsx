@@ -395,9 +395,6 @@ function CategoryBody({ card, theme }: { card: NoticeCard; theme: CardTheme }) {
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-base font-bold text-ink leading-snug text-readable">{item.text}</p>
-            {item.hint ? (
-              <p className="text-sm text-muted mt-1 leading-relaxed text-readable">{item.hint}</p>
-            ) : null}
           </div>
         </li>
       ))}

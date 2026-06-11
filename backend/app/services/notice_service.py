@@ -608,6 +608,7 @@ class NoticeService:
             },
             "metadata": {
                 "title": fallback_title,
+                "title_target_language": fallback_title,
                 "fallback_mode": "quota_best_effort",
                 "validation_status": "passed",
                 "validation_failure_reason": "quota_best_effort_fallback",
@@ -708,7 +709,11 @@ class NoticeService:
             "notice_id": notice_id,
             "target_language": target_language,
             "source_language": "ko",
-            "translated_title": _optional_str(metadata.get("title")),
+            "translated_title": _translated_title_for_save(
+                metadata=metadata,
+                pipeline_result=pipeline_result,
+                target_language=target_language,
+            ),
             "translated_location": _translated_event_location_from_pipeline(
                 pipeline_result,
                 target_language=target_language,
@@ -1392,6 +1397,35 @@ def _event_dates_json_from_pipeline(pipeline_result: dict[str, Any]) -> list[str
 
 def _event_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
     return _schedule_location_from_source_pipeline(pipeline_result) or _schedule_location_from_metadata(pipeline_result)
+
+
+def _translated_title_for_save(
+    *,
+    metadata: dict[str, Any],
+    pipeline_result: dict[str, Any],
+    target_language: str,
+) -> str | None:
+    if target_language == "ko":
+        return (
+            _optional_str(metadata.get("title"))
+            or _title_from_translation_first_line(pipeline_result.get("final_translation"))
+        )
+
+    return (
+        _optional_str(metadata.get("title_target_language"))
+        or _title_from_translation_first_line(pipeline_result.get("final_translation"))
+    )
+
+
+def _title_from_translation_first_line(final_translation: object) -> str | None:
+    text = _optional_str(final_translation)
+    if not text:
+        return None
+    for line in text.splitlines():
+        candidate = line.strip("#*-•> \t")
+        if candidate:
+            return candidate[:120]
+    return None
 
 
 def _translated_event_location_from_pipeline(
