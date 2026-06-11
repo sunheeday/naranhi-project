@@ -35,7 +35,11 @@ class TranslationPromptsTest(unittest.TestCase):
 
         self.assertIn("actions_required` should capture what the parent/student must do as short task phrases", prompt)
         self.assertIn("도시락과 물 준비", prompt)
-        self.assertIn("submit/return/apply/register/pay/confirm/reply", prompt)
+        self.assertIn("submit/return/apply/register/pay/reply", prompt)
+        self.assertNotIn("check/read carefully", prompt)
+        self.assertIn("Do NOT put these into `actions_required`", prompt)
+        self.assertIn("적극적인 참여 바랍니다", prompt)
+        self.assertIn("empty `actions_required` array", prompt)
         self.assertIn("If `actions_required` contains only bare nouns like `신청서`", prompt)
 
     def test_hard_fact_prompts_include_migrant_parent_north_star_and_workflow(self):

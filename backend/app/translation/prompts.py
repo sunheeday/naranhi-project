@@ -164,7 +164,11 @@ Extraction rules:
 - Do NOT put prohibited / banned / confiscated / restricted items into `materials`. If the notice says `금지물품`, `반입금지`, `소지 금지`, `지참 금지`, `가져오지 마세요`, `허용되지 않음`, or similar, those items belong in `warnings` and/or the prohibition sentence belongs in `actions_required`, not in `materials`.
 - `submissions` is for items that must be submitted / returned / handed in, such as forms, consent slips, applications, or receipts. Do not mix these into `materials` unless the notice explicitly frames them as bring-along items rather than return/submit items.
 - `actions_required` should capture what the parent/student must do as short task phrases, not just category nouns. Prefer action-shaped outputs such as `참가 신청서 제출`, `보호자 서명 후 회신`, `도시락 준비`, `실내화 지참`, `수익자부담금 납부`, `참가 여부 회신`, `소지하지 않기`, `반입하지 않기`, rather than vague labels like `신청서`, `준비물`, `안내 확인`.
-- Treat the following cue families as strong evidence for `actions_required` when they address the parent/student: submit/return/apply/register/pay/confirm/reply/consent/sign/check/read carefully/bring/prepare/wear/carry/install/access/join/attend/visit/do not bring/do not carry.
+- Treat the following cue families as strong evidence for `actions_required` when they address the parent/student: submit/return/apply/register/pay/reply/consent/sign/bring/prepare/wear/carry/install/access/join/attend/visit/do not bring/do not carry.
+- `actions_required` must contain only concrete obligations: tasks where the parent/student submits, brings, pays, replies, applies, attends, or prepares something, or complies with an explicit prohibition — things that cause a real disadvantage or disruption when skipped.
+- Do NOT put these into `actions_required`: generic read/confirm/understand requests (`안내문 확인`, `일정 확인`, `숙지`), generic cooperation or encouragement pleas not tied to a specific dated event the parent is asked to attend (`협조 부탁드립니다`, `적극적인 참여 바랍니다`, `안전에 유의`), procedures the school or staff performs (검사 진행, 행사 운영, 심사), statements that no action is needed (`금식은 필요 없습니다`), and on-site steps performed under staff supervision during the event itself (검사 요령, 경기 중 안전 수칙, 준비운동).
+- If a task applies only to some recipients, keep it and make the condition explicit in the phrase, e.g. `(이상소견 시) 병원 재검진 후 결과 학교 제출`, `(학교장 추천 대상자) 증빙서류 제출`.
+- A purely informational or campaign-style notice has NO parent/student task: return an empty `actions_required` array in that case. An empty array is the correct answer; do not invent read/confirm/cooperate tasks to fill it.
 - If the notice explicitly tells the parent/student to bring, prepare, wear, or carry something, extract the item into `materials` and also extract the task into `actions_required` when the sentence is clearly an instruction. Example: `도시락과 물을 준비해 주세요` -> materials: `도시락`, `물`; actions_required: `도시락과 물 준비`.
 - If the notice asks for a form, consent slip, survey, payment, online application, QR response, or signature, make sure `actions_required` includes the actual required act, not only the artifact name.
 - If a line answers a parent-facing "what / when / how" question, make sure the relevant fact lands in the correct field instead of being lost as prose.
@@ -175,8 +179,8 @@ Extraction rules:
   2. If an item in `materials` appears in the same phrase as `금지`, `반입금지`, `소지 금지`, or `지참 금지`, move it out of `materials`.
   3. If the notice has an explicit `준비물`/`지참물` section and `materials` is empty, revise.
   4. If the notice has an explicit `마감`/`제출`/`신청기한` phrase and `deadlines` is empty, revise.
-  5. If the notice makes a parent or student do something and `actions_required` is empty, revise.
-  6. If a visible line tells the parent what to do, when to do it, or how/where to do it, do not drop that concrete fact during normalization.
+  5. If the notice contains a concrete obligation (submit / bring / pay / reply / apply / attend / prohibition compliance) and `actions_required` is empty, revise. If no such obligation exists, an empty `actions_required` is correct — do not pad it.
+  6. If a visible line tells the parent what to do, when to do it, or how/where to do it, do not drop that concrete fact during normalization, unless it is one of the excluded generic/no-action items above.
   7. If `actions_required` contains only bare nouns like `신청서`, `동의서`, `준비물`, or `설문`, rewrite them as explicit tasks when the source provides the action.
 
 Return this JSON schema:
@@ -671,6 +675,8 @@ def fix_context_tone_prompt(
     source_hard_facts: dict[str, Any],
 ) -> str:
     target_name = _language_name(target_language)
+    language_specific_rules = _target_language_specific_rules(target_language)
+    readability_rules = _readability_rules_for_target(target_language)
     return f"""{COMMON_SYSTEM_PROMPT}
 
 Task:
@@ -753,15 +759,18 @@ validation_results:
 
 Rules:
 - title must be a short Korean title suitable for a notice list.
+- title_target_language must be a short title in {target_name} suitable for a notice list, conveying the same content as title. When target_language is ko, repeat the Korean title.
 - summary_ko must summarize the source in Korean without adding facts.
 - summary_target_language must be in {target_name}.
 - actions_required, important_dates, and deadlines are canonical source-side fields and must stay in Korean even when target_language is not Korean.
-- actions_required and deadlines must be copied from hard facts when available.
+- actions_required and deadlines must be copied from hard facts when available, EXCEPT generic read/confirm/cooperate/encouragement requests (e.g. `안내문 확인`, `적극적인 참여 바랍니다`), school-performed procedures, no-action-needed statements, and on-site steps done under staff supervision — drop those instead of copying them.
 - actions_required is the primary canonical card input. It must list concrete parent/student tasks as short Korean task phrases, not bare nouns. Good patterns: `참가 신청서 제출`, `보호자 서명 후 회신`, `실내화 지참`, `도시락 준비`, `수익자부담금 납부`.
 - If hard facts contain materials that the parent/student is explicitly told to bring or prepare, reflect that obligation in actions_required as a task phrase as well as keeping the underlying material fact elsewhere.
 - card_sections_ko must be in Korean and formatted for direct canonical UI use.
 - card_sections_target_language must be in {target_name} and formatted for direct translated UI use.
-- `card_sections_ko.action` and `card_sections_target_language.action` are the canonical user-facing card sections. They must contain the concrete actionable tasks from actions_required / submissions / deadlines, one task per item, with hint used for due dates or short timing only.
+- `card_sections_ko.action` and `card_sections_target_language.action` are the canonical user-facing card sections. They must contain the most important concrete actionable tasks from actions_required / submissions / deadlines, one task per item, with hint used for due dates or short timing only.
+- The action section must contain at most 4 items. Prefer tasks with deadlines or submissions and drop weak or generic items first. If no concrete task remains, return the action section with an empty items array.
+- When a task applies only to some recipients, keep the condition visible at the start of the item text, e.g. `(이상소견 시) 병원 재검진 후 결과 학교 제출`.
 - Keep card sections minimal. Do not create parallel schedule/supplies sections just to restate the same facts in another shape.
 - action card items must be concise and factual. Each item should contain one concrete task, with an optional due/timing hint only when it helps the parent act.
 - If validation is not safe, reflect that in validation_status and validation_failure_reason.
@@ -771,6 +780,7 @@ Rules:
 Return JSON:
 {{
   "title": "",
+  "title_target_language": "",
   "summary_ko": "",
   "summary_target_language": "",
   "document_type": "",

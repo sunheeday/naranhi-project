@@ -283,6 +283,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             "target_hard_facts": {},
             "metadata": {
                 "title": "동의서 안내",
+                "title_target_language": "Hướng dẫn nộp giấy đồng ý",
                 "card_sections": {
                     "action": {
                         "items": [{"text": "Nộp giấy đồng ý"}],
@@ -332,8 +333,58 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
             card_translation_upserts[-1]["translated_content"]["items"],
             [{"text": "Nộp giấy đồng ý"}],
         )
-        self.assertEqual(translation_upserts[-1]["translated_title"], "동의서 안내")
+        self.assertEqual(
+            translation_upserts[-1]["translated_title"], "Hướng dẫn nộp giấy đồng ý"
+        )
         self.assertIsNone(translation_upserts[-1]["translated_location"])
+
+    def test_save_translation_title_falls_back_to_first_translation_line(self):
+        supabase = FakeSupabase()
+        supabase.notice_cards = [
+            {
+                "id": "card-1",
+                "notice_id": "notice-1",
+                "type": "action",
+                "order": 0,
+                "content": {"ko": {"items": [{"text": "동의서 제출"}]}},
+            },
+        ]
+        pipeline_result = {
+            "status": "ready_to_save",
+            "source_text": "동의서 제출",
+            "final_translation": "## Nộp giấy đồng ý\n\n상세 안내",
+            "source_hard_facts": {
+                "hard_facts": {"actions_required": ["동의서 제출"]},
+            },
+            "target_hard_facts": {},
+            "metadata": {
+                "title": "동의서 안내",
+                "card_sections": {
+                    "action": {
+                        "items": [{"text": "Nộp giấy đồng ý"}],
+                    },
+                },
+            },
+            "admin_review": {"required": False, "reason": None},
+            "validation": {},
+            "raw_steps": {},
+        }
+
+        NoticeService()._save_translation_result(
+            supabase=supabase,
+            notice={"school_id": "school-1"},
+            notice_id="notice-1",
+            target_language="vi",
+            pipeline_result=pipeline_result,
+            source_metadata={"school_id": "school-1"},
+        )
+
+        translation_upserts = [
+            op[2]
+            for op in supabase.operations
+            if op[0] == "notice_ai_translations" and op[1] == "upsert"
+        ]
+        self.assertEqual(translation_upserts[-1]["translated_title"], "Nộp giấy đồng ý")
 
     async def test_translate_notice_uses_cached_translation_before_ai_pipeline(self):
         supabase = FakeSupabase()
