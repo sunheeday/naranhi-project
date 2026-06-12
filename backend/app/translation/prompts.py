@@ -49,7 +49,7 @@ Readability & line-break formatting (applies to EVERY language, including the En
 - Put each distinct concrete fact on its OWN line, prefixed with "- ": a date, a deadline, a required action, a fee/amount, a material/supply, a location, or a contact. Group related items under a short heading line when the source groups them.
 - Never insert a line break in the middle of a sentence, between a number and its unit, or between a label and its value. Let normal text wrap on its own; use line breaks ONLY between paragraphs or list items.
 - Collapse any run of 3+ blank lines into a single blank line. Trim trailing spaces.
-- Write every calendar date in the numeric form `YYYY.MM.DD.(weekday)`, with the weekday word in the OUTPUT language — e.g. `2026.07.03.(Thứ Sáu)` in Vietnamese, `2026.07.03.(금)` in Korean. Never mix styles like `7월 1일` or month-name dates in the same document; the date itself stays numeric.
+- Write every calendar date in the OUTPUT language's standard everyday format, with the weekday word in the output language: Korean `2026.07.03.(금)`, Vietnamese `03/07/2026 (Thứ Sáu)`, Russian `03.07.2026 (пятница)`, Chinese `2026年7月3日(周五)`, English `July 3, 2026 (Fri)`, French/Indonesian/Thai day-first numeric like `03/07/2026`. Use ONE consistent date format for the whole document — never mix styles like `7월 1일` with numeric dates. Keep the Gregorian year digits exactly as in the source (never convert to Buddhist or other calendar years).
 - This is formatting only: do not add, remove, merge, reorder, or alter any fact, number, name, tone, or instruction while shaping the line breaks."""
 
 
@@ -60,7 +60,7 @@ Readability & line-break formatting for Arabic:
 - Put each distinct concrete fact on its own line, but do NOT force the ASCII prefix "- ". Use a natural Arabic list line or a plain separate line if that reads more clearly in RTL.
 - Never insert a line break in the middle of a sentence, between a number and its unit, or between a label and its value.
 - Collapse any run of 3+ blank lines into a single blank line. Trim trailing spaces.
-- Write every calendar date in the numeric form `YYYY.MM.DD.(weekday)`, with the weekday word in Arabic. Keep the date digits in this numeric form; never mix Korean styles like `7월 1일` into the output.
+- Write every calendar date in the standard Arabic everyday format — day-first numeric `03/07/2026` with the weekday word in Arabic. Use ONE consistent date format for the whole document; never mix Korean styles like `7월 1일` into the output. Keep the Gregorian year digits exactly as in the source (never convert to Hijri years).
 - This is formatting only: do not add, remove, merge, reorder, or alter any fact, number, name, tone, or instruction while shaping the line breaks."""
 
 
