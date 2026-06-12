@@ -201,5 +201,42 @@
     "auth_required": "Connexion requise.",
     "not_found": "Page introuvable.",
     "offline": "Vous êtes hors ligne. Certaines fonctions peuvent être limitées."
+  },
+  "camera": {
+    "nav_title": "Photo",
+    "ocr_tab": "OCR",
+    "message_tab": "Traduction de message",
+    "eyebrow": "Photographier une circulaire",
+    "title": "Ajoutez en photo une annonce HiClass de l'enseignant ou une annonce KakaoTalk",
+    "subtitle": "Photographiez la circulaire ou choisissez une capture d'écran, nous la traduirons pour vous.",
+    "tips_title": "Conseils pour une bonne reconnaissance",
+    "tips": [
+      "Cadrez les quatre coins du document.",
+      "Préférez un endroit lumineux avec peu d'ombres.",
+      "Si le texte est flou, reprenez la photo."
+    ],
+    "choose_image": "Choisir une photo",
+    "retake": "Choisir à nouveau",
+    "submit": "OCR et traduction",
+    "uploading": "Reconnaissance et traduction en cours...",
+    "ready": "Sélection terminée",
+    "empty": "Prenez une photo ou choisissez une image dans votre album.",
+    "error_format": "Seuls les fichiers image peuvent être téléversés.",
+    "error_size": "La taille du fichier doit être de 10 Mo maximum.",
+    "error_upload": "Échec de l'OCR ou de la traduction. Veuillez réessayer plus tard.",
+    "success": "OCR et traduction terminés.",
+    "extracted_title": "Texte original extrait",
+    "translated_title": "Traduction",
+    "unreadable_warning": "Le texte de la photo n'a pas pu être bien lu. Reprenez la photo avec plus de lumière et de netteté.",
+    "swipe_hint": "Nous lisons la circulaire photographiée par OCR et la traduisons pour vous.",
+    "message_card_title": "Traduction automatique d'un message à l'enseignant",
+    "message_card_body": "Saisissez la phrase à envoyer, nous la traduirons naturellement en coréen.",
+    "message_placeholder": "Saisissez la phrase que vous souhaitez envoyer.",
+    "message_translate": "Traduire en coréen",
+    "message_translating": "Traduction en coréen...",
+    "message_translated_title": "Phrase traduite en coréen",
+    "message_copy": "Copier",
+    "message_copied": "Copié",
+    "message_error": "Échec de la traduction du message. Veuillez réessayer plus tard."
   }
 }

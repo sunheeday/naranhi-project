@@ -197,5 +197,42 @@
     "auth_required": "需要登录。",
     "not_found": "找不到该页面。",
     "offline": "您处于离线状态，部分功能受限。"
+  },
+  "camera": {
+    "nav_title": "拍摄",
+    "ocr_tab": "OCR",
+    "message_tab": "消息翻译",
+    "eyebrow": "拍摄家庭通知书",
+    "title": "请上传 HiClass 班主任通知或 KakaoTalk 通知的照片",
+    "subtitle": "拍摄通知或选择截图，我们会为您翻译。",
+    "tips_title": "拍摄识别小贴士",
+    "tips": [
+      "请拍到文件的四个角。",
+      "请在明亮、阴影少的地方拍摄。",
+      "如果文字模糊，请重新拍摄。"
+    ],
+    "choose_image": "选择照片",
+    "retake": "重新选择",
+    "submit": "OCR·翻译",
+    "uploading": "正在识别和翻译...",
+    "ready": "已选择",
+    "empty": "可以用相机拍摄，或从相册中选择图片。",
+    "error_format": "只能上传图片文件。",
+    "error_size": "文件大小不能超过 10MB。",
+    "error_upload": "OCR 或翻译失败，请稍后重试。",
+    "success": "OCR 和翻译已完成。",
+    "extracted_title": "提取的原文",
+    "translated_title": "翻译结果",
+    "unreadable_warning": "照片中的文字无法充分识别，请在更明亮清晰的环境下重新拍摄。",
+    "swipe_hint": "我们会用 OCR 读取您拍摄的通知并为您翻译。",
+    "message_card_title": "自动翻译要发给老师的话",
+    "message_card_body": "输入您想发送的句子，我们会自然地翻译成韩语。",
+    "message_placeholder": "请输入您想发送的句子。",
+    "message_translate": "翻译成韩语",
+    "message_translating": "正在翻译成韩语...",
+    "message_translated_title": "翻译成韩语的句子",
+    "message_copy": "复制",
+    "message_copied": "已复制",
+    "message_error": "消息翻译失败，请稍后重试。"
   }
 }

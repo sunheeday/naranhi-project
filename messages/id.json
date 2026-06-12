@@ -201,5 +201,42 @@
     "auth_required": "Login diperlukan.",
     "not_found": "Halaman tidak ditemukan.",
     "offline": "Anda offline. Beberapa fitur mungkin terbatas."
+  },
+  "camera": {
+    "nav_title": "Kamera",
+    "ocr_tab": "OCR",
+    "message_tab": "Terjemahan pesan",
+    "eyebrow": "Foto surat pemberitahuan",
+    "title": "Unggah foto pengumuman wali kelas di HiClass atau pengumuman KakaoTalk",
+    "subtitle": "Foto surat pemberitahuan atau pilih tangkapan layar, kami akan menerjemahkannya.",
+    "tips_title": "Tips agar mudah dikenali",
+    "tips": [
+      "Pastikan keempat sudut dokumen terlihat.",
+      "Pilih tempat terang dengan sedikit bayangan.",
+      "Jika tulisan buram, foto ulang."
+    ],
+    "choose_image": "Pilih foto",
+    "retake": "Pilih ulang",
+    "submit": "OCR dan terjemahkan",
+    "uploading": "Sedang mengenali dan menerjemahkan...",
+    "ready": "Selesai dipilih",
+    "empty": "Anda bisa memotret dengan kamera atau memilih gambar dari album.",
+    "error_format": "Hanya file gambar yang dapat diunggah.",
+    "error_size": "Ukuran file maksimal 10MB.",
+    "error_upload": "OCR atau terjemahan gagal. Silakan coba lagi nanti.",
+    "success": "OCR dan terjemahan selesai.",
+    "extracted_title": "Teks asli hasil ekstraksi",
+    "translated_title": "Hasil terjemahan",
+    "unreadable_warning": "Tulisan di foto tidak terbaca dengan baik. Silakan foto ulang dengan lebih terang dan jelas.",
+    "swipe_hint": "Kami membaca surat yang Anda foto dengan OCR lalu menerjemahkannya.",
+    "message_card_title": "Terjemahan otomatis pesan untuk guru",
+    "message_card_body": "Ketik kalimat yang ingin Anda kirim, kami akan menerjemahkannya ke bahasa Korea secara alami.",
+    "message_placeholder": "Ketik kalimat yang ingin Anda kirim.",
+    "message_translate": "Terjemahkan ke bahasa Korea",
+    "message_translating": "Menerjemahkan ke bahasa Korea...",
+    "message_translated_title": "Kalimat dalam bahasa Korea",
+    "message_copy": "Salin",
+    "message_copied": "Tersalin",
+    "message_error": "Terjemahan pesan gagal. Silakan coba lagi nanti."
   }
 }

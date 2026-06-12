@@ -49,6 +49,7 @@ Readability & line-break formatting (applies to EVERY language, including the En
 - Put each distinct concrete fact on its OWN line, prefixed with "- ": a date, a deadline, a required action, a fee/amount, a material/supply, a location, or a contact. Group related items under a short heading line when the source groups them.
 - Never insert a line break in the middle of a sentence, between a number and its unit, or between a label and its value. Let normal text wrap on its own; use line breaks ONLY between paragraphs or list items.
 - Collapse any run of 3+ blank lines into a single blank line. Trim trailing spaces.
+- Write every calendar date in the OUTPUT language's standard everyday format, with the weekday word in the output language: Korean `2026.07.03.(금)`, Vietnamese `03/07/2026 (Thứ Sáu)`, Russian `03.07.2026 (пятница)`, Chinese `2026年7月3日(周五)`, English `July 3, 2026 (Fri)`, French/Indonesian/Thai day-first numeric like `03/07/2026`. Use ONE consistent date format for the whole document — never mix styles like `7월 1일` with numeric dates. Keep the Gregorian year digits exactly as in the source (never convert to Buddhist or other calendar years).
 - This is formatting only: do not add, remove, merge, reorder, or alter any fact, number, name, tone, or instruction while shaping the line breaks."""
 
 
@@ -59,6 +60,7 @@ Readability & line-break formatting for Arabic:
 - Put each distinct concrete fact on its own line, but do NOT force the ASCII prefix "- ". Use a natural Arabic list line or a plain separate line if that reads more clearly in RTL.
 - Never insert a line break in the middle of a sentence, between a number and its unit, or between a label and its value.
 - Collapse any run of 3+ blank lines into a single blank line. Trim trailing spaces.
+- Write every calendar date in the standard Arabic everyday format — day-first numeric `03/07/2026` with the weekday word in Arabic. Use ONE consistent date format for the whole document; never mix Korean styles like `7월 1일` into the output. Keep the Gregorian year digits exactly as in the source (never convert to Hijri years).
 - This is formatting only: do not add, remove, merge, reorder, or alter any fact, number, name, tone, or instruction while shaping the line breaks."""
 
 
@@ -769,7 +771,7 @@ Rules:
 - card_sections_ko must be in Korean and formatted for direct canonical UI use.
 - card_sections_target_language must be in {target_name} and formatted for direct translated UI use.
 - `card_sections_ko.action` and `card_sections_target_language.action` are the canonical user-facing card sections. They must contain the most important concrete actionable tasks from actions_required / submissions / deadlines, one task per item, with hint used for due dates or short timing only.
-- The action section must contain at most 4 items. Prefer tasks with deadlines or submissions and drop weak or generic items first. If no concrete task remains, return the action section with an empty items array.
+- The action section must contain at most 5 items. Prefer tasks with deadlines or submissions and drop weak or generic items first. If no concrete task remains, return the action section with an empty items array.
 - When a task applies only to some recipients, keep the condition visible at the start of the item text, e.g. `(이상소견 시) 병원 재검진 후 결과 학교 제출`.
 - Keep card sections minimal. Do not create parallel schedule/supplies sections just to restate the same facts in another shape.
 - action card items must be concise and factual. Each item should contain one concrete task, with an optional due/timing hint only when it helps the parent act.

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import type { Locale } from '@/lib/i18n'
+import { formatMonthDay, type Locale } from '@/lib/i18n'
 import { ALLERGEN_NAMES, type Meal, type MealDish } from '@/lib/neis'
 
 /** ISO 날짜 → KST 기준 (year, month, day, weekday). UTC/local 시간대와 무관. */
@@ -251,7 +251,7 @@ function MealDayCard({
 }) {
   const { m, d, weekday } = isoToParts(day.isoDate)
   const weekdayIdx = weekday  // 0=일
-  const md = `${m}/${d}`
+  const md = formatMonthDay(m, d, labels.range)
 
   const lunch = day.meals.find(m => m.mealType === 2)
   const primary = lunch ?? day.meals[0]

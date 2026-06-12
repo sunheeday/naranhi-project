@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { formatMonthDay } from '@/lib/i18n'
 import type { TimetablePeriod } from '@/lib/neis'
 
 function isoToParts(iso: string): { m: number; d: number; weekday: number } {
@@ -109,7 +110,7 @@ export default function TimetableWeekView({ weekStartIso, days, unsupported, lab
 function TimetableDayCard({ day, labels, isToday }: { day: TimetableDayEntry; labels: Labels; isToday: boolean }) {
   const { m, d, weekday } = isoToParts(day.isoDate)
   const dayColor = weekday === 0 ? 'text-red-400' : weekday === 6 ? 'text-blue-400' : 'text-text-primary'
-  const md = `${m}/${d}`
+  const md = formatMonthDay(m, d, labels.range)
 
   return (
     <article
