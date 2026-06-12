@@ -11,6 +11,11 @@ from app.services.notice_service import NoticeService, get_notice_service
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
 
+# 같은 공지+언어 번역 잡이 완료된 직후에는 재등록을 막는다. 폴백 저장 등으로
+# 카드가 비어 있으면 앱이 열릴 때마다 풀 재번역을 또 시키는 루프가 생기는데,
+# 이 쿨다운이 그 반복 간격의 하한이 된다. (원문 명시 수동 호출은 예외)
+TRANSLATION_RETRY_COOLDOWN_SECONDS = 600
+
 
 class NoticeCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -114,7 +119,29 @@ async def translate_notice(
             notice_id=notice_id,
             target_language=payload.target_language,
         )
-        enqueue = JobQueueService().enqueue(
+        queue = JobQueueService()
+        if payload.source_text is None and queue.completed_recently(
+            job_key=key,
+            within_seconds=TRANSLATION_RETRY_COOLDOWN_SECONDS,
+        ):
+            LOGGER.info(
+                "translation re-enqueue blocked by cooldown: notice_id=%s target_language=%s",
+                notice_id,
+                payload.target_language,
+            )
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "accepted": False,
+                    "cooldown": True,
+                    "already_running": False,
+                    "job_id": None,
+                    "notice_id": notice_id,
+                    "target_language": payload.target_language,
+                },
+                status_code=status.HTTP_202_ACCEPTED,
+            )
+        enqueue = queue.enqueue(
             job_type="notice_translation",
             job_key=key,
             payload={

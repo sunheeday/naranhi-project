@@ -29,6 +29,9 @@ class _FakeQuery:
     def lte(self, *_args, **_kwargs):
         return self
 
+    def gte(self, *_args, **_kwargs):
+        return self
+
     def order(self, *_args, **_kwargs):
         return self
 
@@ -80,6 +83,26 @@ class JobQueueServiceRetryTest(unittest.TestCase):
             service.fail(job, error="boom", retry_delay_seconds=120)
 
         reset_mock.assert_called_once()
+
+
+class JobQueueCompletedRecentlyTest(unittest.TestCase):
+    def test_true_when_recent_completed_job_exists(self) -> None:
+        service = JobQueueService()
+        client = _FakeClient(_FakeQuery(data=[{"id": "job-1"}]))
+
+        with patch("app.services.job_queue_service.get_supabase_client", return_value=client):
+            result = service.completed_recently(job_key="notice-1:en", within_seconds=600)
+
+        self.assertTrue(result)
+
+    def test_false_when_no_recent_completed_job(self) -> None:
+        service = JobQueueService()
+        client = _FakeClient(_FakeQuery(data=[]))
+
+        with patch("app.services.job_queue_service.get_supabase_client", return_value=client):
+            result = service.completed_recently(job_key="notice-1:en", within_seconds=600)
+
+        self.assertFalse(result)
 
 
 if __name__ == "__main__":

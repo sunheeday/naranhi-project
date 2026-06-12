@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -10,7 +13,45 @@ if TYPE_CHECKING:
     from app.core.config import Settings
 
 
+LOGGER = logging.getLogger(__name__)
+
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+# Vertex AI Gemini는 dynamic shared quota라 일시 혼잡 시 429를 돌려준다.
+# 같은 호출을 잠깐 기다렸다 재시도하면 대부분 통과하므로, 파이프라인 전체를
+# 폴백으로 포기하기 전에 콜 단위로 지수 백오프 재시도한다.
+QUOTA_BACKOFF_DELAYS_SECONDS: tuple[float, ...] = (5.0, 10.0, 20.0, 40.0)
+
+
+def is_quota_exhausted_error(error: Exception) -> bool:
+    message = f"{type(error).__name__}: {error}".lower()
+    return any(
+        marker in message
+        for marker in ("429", "resource_exhausted", "rate limit", "rate_limit", "quota")
+    )
+
+
+async def call_with_quota_backoff(
+    factory: Callable[[], Awaitable[Any]],
+    *,
+    delays_seconds: tuple[float, ...] = QUOTA_BACKOFF_DELAYS_SECONDS,
+    label: str = "gemini",
+) -> Any:
+    for attempt, delay in enumerate(delays_seconds, start=1):
+        try:
+            return await factory()
+        except Exception as exc:  # noqa: BLE001 - 429만 흡수, 나머지는 즉시 전파.
+            if not is_quota_exhausted_error(exc):
+                raise
+            LOGGER.warning(
+                "Gemini quota(429) hit; retrying call in %.0fs: label=%s attempt=%s/%s",
+                delay,
+                label,
+                attempt,
+                len(delays_seconds) + 1,
+            )
+            await asyncio.sleep(delay)
+    return await factory()
 
 
 class GeminiJsonClient:
@@ -109,13 +150,16 @@ class GeminiJsonClient:
         from google.genai import types
 
         client = self._get_vertex_client()
-        response = await client.aio.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=temperature,
-                response_mime_type="application/json",
+        response = await call_with_quota_backoff(
+            lambda: client.aio.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    response_mime_type="application/json",
+                ),
             ),
+            label=f"translation:{model}",
         )
         text = (response.text or "").strip()
         if not text:

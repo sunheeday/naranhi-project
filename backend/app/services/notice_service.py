@@ -582,6 +582,48 @@ class NoticeService:
 
         fallback_title = _optional_str(fallback.get("title"))
 
+        validation_results = {
+            "hard_fact": {
+                "status": "skipped",
+                "attempts": 0,
+                "issues": ["quota_best_effort_fallback"],
+            },
+            "context_tone": {
+                "status": "skipped",
+                "attempts": 0,
+                "issues": ["quota_best_effort_fallback"],
+            },
+        }
+        metadata: dict[str, Any] = {
+            "fallback_mode": "quota_best_effort",
+            "validation_status": "passed",
+            "validation_failure_reason": "quota_best_effort_fallback",
+        }
+        if fallback_title:
+            metadata["title"] = fallback_title
+            metadata["title_target_language"] = fallback_title
+        # 폴백으로 끝나도 카드 메타데이터(요약·할일)는 만들어 둔다 — 카드가 비면
+        # 앱이 번역을 미완성으로 보고 풀 파이프라인을 무한 재요청하기 때문.
+        try:
+            generated = await gemini.generate_json(
+                prompt=build_supabase_payload_prompt(
+                    source_text=source_text,
+                    final_target_translation=translated_text,
+                    source_hard_facts={},
+                    validation_results=validation_results,
+                    target_language=target_language,
+                ),
+                temperature=0.0,
+            )
+            if isinstance(generated, dict):
+                metadata = {**generated, **metadata}
+        except Exception as exc:  # noqa: BLE001 - 카드 메타데이터는 베스트에포트.
+            LOGGER.warning(
+                "best effort fallback metadata generation failed: target_language=%s error=%s",
+                target_language,
+                exc,
+            )
+
         return {
             "status": "ready_to_save",
             "source_language": "ko",
@@ -591,30 +633,13 @@ class NoticeService:
             "source_hard_facts": {},
             "target_hard_facts": {},
             "ingredient_identity_map": {},
-            "validation": {
-                "hard_fact": {
-                    "status": "skipped",
-                    "attempts": 0,
-                    "issues": ["quota_best_effort_fallback"],
-                },
-                "context_tone": {
-                    "status": "skipped",
-                    "attempts": 0,
-                    "issues": ["quota_best_effort_fallback"],
-                },
-            },
+            "validation": validation_results,
             "admin_review": {
                 "required": False,
                 "reason": None,
                 "priority": "normal",
             },
-            "metadata": {
-                "title": fallback_title,
-                "title_target_language": fallback_title,
-                "fallback_mode": "quota_best_effort",
-                "validation_status": "passed",
-                "validation_failure_reason": "quota_best_effort_fallback",
-            },
+            "metadata": metadata,
             "raw_steps": {
                 "best_effort": fallback,
             },

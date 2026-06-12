@@ -41,14 +41,20 @@ async def _vertex_generate_json_text(prompt: str, *, timeout: float, temperature
     """Shared Vertex text->JSON helper for the crawler (board finder + post resolver)."""
     from google.genai import types
 
+    from app.translation.gemini_client import call_with_quota_backoff
+
     client = _get_vertex_client(timeout)
-    response = await client.aio.models.generate_content(
-        model=os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash"),
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=temperature,
-            response_mime_type="application/json",
+    model = os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash")
+    response = await call_with_quota_backoff(
+        lambda: client.aio.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=temperature,
+                response_mime_type="application/json",
+            ),
         ),
+        label=f"crawler:{model}",
     )
     return (response.text or "").strip()
 
