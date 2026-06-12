@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -130,7 +131,7 @@ class TranslationPipeline:
             )
 
         if hard_fact_validation["verdict"] == "FAIL":
-            return self._validation_failed_result(
+            return await self._validation_failed_result(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
                 target_hard_facts=target_hard_facts,
@@ -249,7 +250,7 @@ class TranslationPipeline:
             )
 
         if context_tone_validation.get("verdict") != "PASS":
-            return self._validation_failed_result(
+            return await self._validation_failed_result(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
                 target_hard_facts=target_hard_facts,
@@ -362,7 +363,7 @@ class TranslationPipeline:
 
         return extracted
 
-    def _validation_failed_result(
+    async def _validation_failed_result(
         self,
         *,
         payload: TranslationPipelineInput,
@@ -376,12 +377,45 @@ class TranslationPipeline:
         reason: str,
     ) -> dict[str, Any]:
         LOGGER.warning(
-            "translation validation warning: target_language=%s reason=%s hard_fact_verdict=%s context_verdict=%s",
+            "translation validation warning: target_language=%s reason=%s hard_fact_verdict=%s context_verdict=%s hard_fact_mismatches=%s context_issues=%s",
             payload.target_language,
             reason,
             hard_fact_validation.get("verdict"),
             context_tone_validation.get("verdict"),
+            json.dumps(list(hard_fact_validation.get("mismatches") or [])[:5], ensure_ascii=False, default=str),
+            json.dumps(list(context_tone_validation.get("issues") or [])[:5], ensure_ascii=False, default=str),
         )
+
+        # 검증이 실패해도 번역 본문은 저장되므로, 제목·요약·카드 메타데이터도
+        # 최선으로 생성한다 (실패 시에만 최소 메타데이터로 폴백 — 이전 동작).
+        metadata: dict[str, Any] = {
+            "validation_status": "passed",
+            "validation_failure_reason": reason,
+        }
+        try:
+            generated = await self.gemini.generate_json(
+                prompt=build_supabase_payload_prompt(
+                    source_text=payload.source_text,
+                    final_target_translation=target_translation,
+                    source_hard_facts=source_hard_facts,
+                    validation_results={
+                        "hard_fact": hard_fact_validation,
+                        "context_tone": context_tone_validation,
+                    },
+                    target_language=payload.target_language,
+                ),
+                temperature=0.0,
+            )
+            if isinstance(generated, dict):
+                metadata = {**generated, **metadata}
+        except Exception as exc:  # noqa: BLE001 - metadata is best-effort here.
+            LOGGER.warning(
+                "validation-failed metadata generation skipped: target_language=%s reason=%s error=%s",
+                payload.target_language,
+                reason,
+                exc,
+            )
+
         return {
             "status": "ready_to_save",
             "source_language": "ko",
@@ -408,10 +442,7 @@ class TranslationPipeline:
                 "reason": None,
                 "priority": "normal",
             },
-            "metadata": {
-                "validation_status": "passed",
-                "validation_failure_reason": reason,
-            },
+            "metadata": metadata,
             "raw_steps": {
                 "hard_fact_validation": hard_fact_validation,
                 "context_tone_validation": context_tone_validation,

@@ -1,6 +1,6 @@
 import unittest
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from app.translation.orchestrator import (
     TranslationPipeline,
@@ -156,6 +156,76 @@ class TranslationOrchestratorTest(unittest.TestCase):
         self.assertEqual(result["validation"]["context_tone"]["status"], "skipped")
         self.assertNotIn("back_translation", result["raw_steps"])
         self.assertEqual(len(gemini.generate_json.await_args_list), 6)
+
+
+class ValidationFailedResultTest(unittest.TestCase):
+    def _run_failed_result(self, gemini):
+        pipeline = TranslationPipeline(gemini)
+        return asyncio.run(
+            pipeline._validation_failed_result(
+                payload=TranslationPipelineInput(
+                    source_text="검진일 2026.06.05. 안내",
+                    target_language="vi",
+                    approved_ingredient_dictionary=[],
+                    approved_ingredient_dictionary_target=[],
+                ),
+                source_hard_facts={},
+                target_hard_facts={},
+                ingredient_map={},
+                target_translation="Bản dịch",
+                hard_fact_validation={
+                    "verdict": "FAIL",
+                    "mismatches": [{"field": "dates", "issue": "missing"}],
+                },
+                hard_fact_attempts=1,
+                context_tone_validation={"status": "skipped", "issues": []},
+                reason="hard_fact_validation_failed",
+            )
+        )
+
+    def test_failed_result_still_generates_card_and_title_metadata(self):
+        gemini = Mock()
+        gemini.generate_json = AsyncMock(
+            return_value={
+                "title": "건강검진 안내",
+                "title_target_language": "Thông báo khám sức khỏe",
+                "card_sections_target_language": {
+                    "action": {"items": [{"text": "Nhịn ăn sau 12 giờ đêm"}]},
+                },
+                "validation_status": "passed",
+                "validation_failure_reason": None,
+            }
+        )
+
+        result = self._run_failed_result(gemini)
+
+        self.assertEqual(result["status"], "ready_to_save")
+        self.assertEqual(
+            result["metadata"]["title_target_language"], "Thông báo khám sức khỏe"
+        )
+        self.assertEqual(
+            result["metadata"]["card_sections_target_language"]["action"]["items"][0]["text"],
+            "Nhịn ăn sau 12 giờ đêm",
+        )
+        # 실패 사유 마커는 LLM 응답에 덮이지 않고 보존돼야 한다
+        self.assertEqual(
+            result["metadata"]["validation_failure_reason"], "hard_fact_validation_failed"
+        )
+
+    def test_failed_result_falls_back_to_minimal_metadata_when_gemini_errors(self):
+        gemini = Mock()
+        gemini.generate_json = AsyncMock(side_effect=RuntimeError("429 RESOURCE_EXHAUSTED"))
+
+        result = self._run_failed_result(gemini)
+
+        self.assertEqual(result["status"], "ready_to_save")
+        self.assertEqual(
+            result["metadata"],
+            {
+                "validation_status": "passed",
+                "validation_failure_reason": "hard_fact_validation_failed",
+            },
+        )
 
 
 if __name__ == "__main__":

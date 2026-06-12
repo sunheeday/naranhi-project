@@ -15,6 +15,8 @@ from app.translation.prompts import (
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_YEARLESS_NOTICE_YEAR = 2026
+# 할일(action) 카드 항목 수 상한 — 한국어/번역 카드 공통 강제
+_MAX_ACTION_CARD_ITEMS = 5
 
 
 class NoticeService:
@@ -1304,6 +1306,7 @@ def _best_effort_translation_prompt(
 - 사실을 추가하거나 추측하지 마라.
 - 날짜, 시간, 준비물, 제출물, 금액, 장소, 대상 학년은 가능한 한 원문 그대로 보존해라.
 - 읽기 쉬운 줄바꿈을 사용해라: 짧은 문단을 빈 줄 하나로 구분하고, 날짜·마감·해야 할 일·금액·준비물·장소는 각각 "- "로 시작하는 한 줄에 둔다. 문장 중간에서 줄을 끊지 마라.
+- 모든 날짜는 `YYYY.MM.DD.(요일)` 숫자 형식으로 표기해라. 요일 단어는 대상 언어로 쓴다. 예: 베트남어 `2026.07.03.(Thứ Sáu)`. `7월 1일` 같은 월·일 문자 표기나 `2026년` 같은 한국어 단위를 출력에 섞지 마라.
 - 번역 품질이 완벽하지 않아도 좋으니 반드시 전체 공지를 끝까지 번역해라.
 
 반환 스키마:
@@ -1579,6 +1582,8 @@ def _translated_card_content_for_type(
 
     if not items:
         return None
+    if card_type == "action":
+        items = items[:_MAX_ACTION_CARD_ITEMS]
     return {"items": items}
 
 
@@ -1620,10 +1625,10 @@ def _canonical_action_card_items(
     deadline = _first_value(source_facts.get("deadlines"))
     metadata_items = _metadata_card_items(metadata, "action")
     if not actions and not submissions and metadata_items:
-        return metadata_items
+        return metadata_items[:_MAX_ACTION_CARD_ITEMS]
     if not deadline:
         deadline = _first_value(_canonical_metadata_values(metadata, "deadlines"))
-    raw_items = _dedupe([*actions, *[f"제출: {item}" for item in submissions]])
+    raw_items = _dedupe([*actions, *[f"제출: {item}" for item in submissions]])[:_MAX_ACTION_CARD_ITEMS]
     items: list[dict[str, str]] = []
     for index, action in enumerate(raw_items):
         item = {"text": action}
