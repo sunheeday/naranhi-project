@@ -116,6 +116,22 @@ class JobQueueService:
         )
         return bool(rows)
 
+    def latest_job(self, *, job_key: str) -> dict[str, Any] | None:
+        """같은 job_key의 가장 최근 잡 1건 — 프론트 상태 표시(준비중/실패)용."""
+        rows = self._execute_with_retry(
+            lambda client: (
+                client.table("app_jobs")
+                .select("id,status,attempts,max_attempts,created_at,finished_at")
+                .eq("job_key", job_key)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+        )
+        return rows[0] if rows else None
+
     def claim(self, *, job_types: list[str], limit: int) -> list[dict[str, Any]]:
         now = datetime.now(UTC)
         rows = self._execute_with_retry(

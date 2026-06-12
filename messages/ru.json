@@ -96,6 +96,7 @@
     "meal_unsupported": "Код школы не зарегистрирован, питание не отображается.",
     "meal_error": "Не удалось загрузить информацию о питании.",
     "translation_pending_banner": "Мы сообщим вам, когда перевод школьных объявлений будет готов.",
+    "translation_failed_banner": "Не удалось выполнить перевод. Пожалуйста, попробуйте ещё раз.",
     "translation_complete_banner": "Перевод школьных объявлений готов.",
     "translation_complete_action": "Открыть",
     "meal_breakfast": "Завтрак",

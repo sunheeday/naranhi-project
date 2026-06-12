@@ -96,6 +96,7 @@
     "meal_unsupported": "Code école non enregistré, le repas ne peut pas être affiché.",
     "meal_error": "Impossible de charger les informations sur le repas.",
     "translation_pending_banner": "Nous vous préviendrons quand la traduction des annonces de l'école sera prête.",
+    "translation_failed_banner": "La traduction a échoué. Veuillez réessayer.",
     "translation_complete_banner": "La traduction des annonces de l'école est prête.",
     "translation_complete_action": "Voir",
     "meal_breakfast": "Petit-déjeuner",

@@ -7,6 +7,7 @@ from unittest.mock import patch
 from app.api.notices import (
     NoticeTranslateRequest,
     translate_notice,
+    translation_job_status,
 )
 
 
@@ -113,6 +114,29 @@ class NoticeApiBackgroundTest(unittest.IsolatedAsyncioTestCase):
         body = json.loads(response.body)
         self.assertTrue(body["accepted"])
         recent_mock.assert_not_called()
+
+    async def test_translation_job_status_reports_failed_job(self):
+        with patch(
+            "app.api.notices.JobQueueService.latest_job",
+            return_value={"id": "j1", "status": "failed", "attempts": 5, "max_attempts": 5},
+        ):
+            body = await translation_job_status("notice-1", target_language="en")
+
+        self.assertEqual(body["job_status"], "failed")
+        self.assertEqual(body["attempts"], 5)
+
+    async def test_translation_job_status_none_without_job(self):
+        with patch("app.api.notices.JobQueueService.latest_job", return_value=None):
+            body = await translation_job_status("notice-1", target_language="en")
+
+        self.assertEqual(body["job_status"], "none")
+
+    async def test_translation_job_status_ko_short_circuits(self):
+        with patch("app.api.notices.JobQueueService.latest_job") as latest_mock:
+            body = await translation_job_status("notice-1", target_language="ko")
+
+        self.assertEqual(body["job_status"], "none")
+        latest_mock.assert_not_called()
 
     async def test_translate_notice_background_ko_does_not_enqueue(self):
         service = type("FakeService", (), {"translate_notice": AsyncMock(return_value={"ok": True, "target_language": "ko"})})()

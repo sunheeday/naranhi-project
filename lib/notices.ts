@@ -35,6 +35,39 @@ export interface NoticeAttachmentFile {
   previewable: boolean
 }
 
+/** 번역 잡의 최근 상태 — 실패면 상세 화면이 '준비중' 대신 실패+재시도 배너를 띄운다. */
+export type TranslationJobStatus = 'none' | 'queued' | 'processing' | 'completed' | 'failed'
+
+export async function fetchTranslationJobStatus(
+  noticeId: string,
+  locale: Locale,
+): Promise<TranslationJobStatus> {
+  if (locale === 'ko') return 'none'
+  const apiBase = (
+    process.env.FASTAPI_INTERNAL_URL
+    || process.env.NEXT_PUBLIC_API_BASE_URL
+    || ''
+  ).trim().replace(/\/+$/, '')
+  if (!apiBase) return 'none'
+
+  try {
+    const res = await fetch(
+      `${apiBase}/notices/${encodeURIComponent(noticeId)}/translate/status?target_language=${encodeURIComponent(locale)}`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) return 'none'
+    const body = (await res.json().catch(() => null)) as { job_status?: string } | null
+    const status = body?.job_status
+    if (status === 'queued' || status === 'processing' || status === 'completed' || status === 'failed') {
+      return status
+    }
+    return 'none'
+  } catch {
+    // 상태 조회 실패는 표시용 정보라 조용히 '없음'으로 처리한다.
+    return 'none'
+  }
+}
+
 export interface NoticeDetailDto {
   id: string
   status: NoticeStatus

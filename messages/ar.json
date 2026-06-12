@@ -96,6 +96,7 @@
     "meal_unsupported": "رمز المدرسة غير مسجل، لا يمكن عرض الوجبة.",
     "meal_error": "تعذر تحميل معلومات الوجبة.",
     "translation_pending_banner": "سنخبرك عندما تكتمل ترجمة إشعارات المدرسة.",
+    "translation_failed_banner": "فشلت الترجمة. يرجى المحاولة مرة أخرى.",
     "translation_complete_banner": "اكتملت ترجمة إشعارات المدرسة.",
     "translation_complete_action": "عرض",
     "meal_breakfast": "إفطار",

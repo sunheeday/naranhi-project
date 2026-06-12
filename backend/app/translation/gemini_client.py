@@ -111,17 +111,20 @@ class GeminiJsonClient:
         prompt: str,
         temperature: float = 0.1,
         model: str | None = None,
+        thinking_budget: int | None = None,
     ) -> dict[str, Any]:
         if self.use_vertex:
             return await self._generate_json_vertex(
                 prompt=prompt,
                 temperature=temperature,
                 model=model or self.model,
+                thinking_budget=thinking_budget,
             )
         return await self._generate_json_api_key(
             prompt=prompt,
             temperature=temperature,
             model=model or self.model,
+            thinking_budget=thinking_budget,
         )
 
     def _get_vertex_client(self) -> Any:
@@ -146,18 +149,26 @@ class GeminiJsonClient:
         prompt: str,
         temperature: float,
         model: str,
+        thinking_budget: int | None = None,
     ) -> dict[str, Any]:
         from google.genai import types
+
+        config_kwargs: dict[str, Any] = {
+            "temperature": temperature,
+            "response_mime_type": "application/json",
+        }
+        if thinking_budget is not None:
+            # 기계적 추출·역번역 콜은 thinking을 제한해 지연·비용을 줄인다 (0 = 끔).
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=thinking_budget
+            )
 
         client = self._get_vertex_client()
         response = await call_with_quota_backoff(
             lambda: client.aio.models.generate_content(
                 model=model,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=temperature,
-                    response_mime_type="application/json",
-                ),
+                config=types.GenerateContentConfig(**config_kwargs),
             ),
             label=f"translation:{model}",
         )
@@ -172,16 +183,21 @@ class GeminiJsonClient:
         prompt: str,
         temperature: float,
         model: str,
+        thinking_budget: int | None = None,
     ) -> dict[str, Any]:
         if not self.api_keys:
             raise RuntimeError("GEMINI_API_KEY 또는 GEMINI_API_KEYS가 필요합니다.")
 
+        generation_config: dict[str, Any] = {
+            "temperature": temperature,
+            "responseMimeType": "application/json",
+        }
+        if thinking_budget is not None:
+            generation_config["thinkingConfig"] = {"thinkingBudget": thinking_budget}
+
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-                "responseMimeType": "application/json",
-            },
+            "generationConfig": generation_config,
         }
         endpoint = f"{GEMINI_API_BASE}/{model}:generateContent"
         last_error: Exception | None = None

@@ -96,6 +96,7 @@
     "meal_unsupported": "Kode sekolah belum terdaftar, makanan tidak ditampilkan.",
     "meal_error": "Tidak dapat memuat informasi makanan.",
     "translation_pending_banner": "Kami akan memberi tahu Anda saat terjemahan pengumuman sekolah selesai.",
+    "translation_failed_banner": "Terjemahan gagal. Silakan coba lagi.",
     "translation_complete_banner": "Terjemahan pengumuman sekolah sudah siap.",
     "translation_complete_action": "Lihat",
     "meal_breakfast": "Sarapan",

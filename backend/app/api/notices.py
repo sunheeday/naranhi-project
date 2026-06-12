@@ -193,6 +193,28 @@ def _background_translation_task_key(*, notice_id: str, target_language: str) ->
     return f"{notice_id}:{target_language.strip().lower()}"
 
 
+@router.get("/{notice_id}/translate/status")
+async def translation_job_status(notice_id: str, target_language: str) -> dict[str, object]:
+    """해당 공지+언어 번역 잡의 최근 상태 — 프론트가 '준비중/실패' 배너를 가르는 데 쓴다."""
+    normalized = (target_language or "").strip().lower()
+    if not normalized or normalized == "ko":
+        return {"ok": True, "job_status": "none"}
+    job = JobQueueService().latest_job(
+        job_key=_background_translation_task_key(
+            notice_id=notice_id,
+            target_language=normalized,
+        )
+    )
+    if not job:
+        return {"ok": True, "job_status": "none"}
+    return {
+        "ok": True,
+        "job_status": str(job.get("status") or "none"),
+        "attempts": job.get("attempts"),
+        "max_attempts": job.get("max_attempts"),
+    }
+
+
 async def _translate_sources_for_locale_background(
     *,
     service: NoticeService,
