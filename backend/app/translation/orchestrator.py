@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -23,6 +24,23 @@ from app.translation.validators import validate_hard_facts_by_code
 
 LOGGER = logging.getLogger(__name__)
 
+# 기계적 추출·역번역 콜은 thinking(추론)이 불필요해 0으로 끈다 — 콜당 수십 초와
+# 추론 토큰 비용을 줄인다. 번역(피벗·타겟)·검증·카드 콜은 기본(동적 thinking)을 유지.
+MECHANICAL_THINKING_BUDGET = 0
+
+
+async def _discard_task(task: asyncio.Task[Any] | None) -> None:
+    """미리 띄워둔 작업을 조용히 버린다 — 이미 무효해진 작업의 결과·예외는 모두 무시."""
+    if task is None:
+        return
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    except Exception:  # noqa: BLE001 - 버리는 작업의 실패(429 등)가 본 흐름을 깨면 안 된다.
+        pass
+
 
 @dataclass(frozen=True)
 class TranslationPipelineInput:
@@ -43,6 +61,7 @@ class TranslationPipeline:
             prompt=extract_source_hard_facts_prompt(payload.source_text),
             temperature=0.0,
             model=getattr(self.gemini, "source_hard_fact_model", None),
+            thinking_budget=MECHANICAL_THINKING_BUDGET,
         )
         risk_profile = _risk_profile_from_source(
             source_text=payload.source_text,
@@ -76,61 +95,82 @@ class TranslationPipeline:
         )
         target_translation = str(target.get("target_translation") or "")
 
-        target_hard_facts = await self._extract_target_hard_facts_with_retry(
-            payload=payload,
-            source_hard_facts=source_hard_facts,
-            target_translation=target_translation,
-        )
-
-        hard_fact_validation = validate_hard_facts_by_code(
-            source_hard_facts,
-            target_hard_facts,
-            ingredient_map,
-        )
-        hard_fact_attempts = 0
-
-        if hard_fact_validation["verdict"] == "FAIL":
-            llm_validation = await self.gemini.generate_json(
-                prompt=validate_hard_facts_prompt(
-                    source_hard_facts=source_hard_facts,
-                    translated_hard_facts=target_hard_facts,
-                ),
-                temperature=0.0,
+        # 역번역(⑤)은 번역본만 입력으로 쓰므로, 번역본 하드팩트 추출(④)·검증과
+        # 병렬로 미리 띄운다. 검증이 번역문을 고치면 결과를 버리고 새로 돈다.
+        back_translation_task: asyncio.Task[dict[str, Any]] | None = None
+        translation_when_back_started = target_translation
+        if risk_profile["level"] != "low":
+            back_translation_task = asyncio.create_task(
+                self.gemini.generate_json(
+                    prompt=back_translate_to_ko_prompt(
+                        target_language=payload.target_language,
+                        target_translation=target_translation,
+                    ),
+                    temperature=0.0,
+                    thinking_budget=MECHANICAL_THINKING_BUDGET,
+                )
             )
-            hard_fact_validation = _merge_validation(hard_fact_validation, llm_validation)
 
-        while (
-            hard_fact_validation["verdict"] == "FAIL"
-            and hard_fact_attempts < payload.max_auto_fix_attempts_per_stage
-        ):
-            hard_fact_attempts += 1
-            fixed = await self.gemini.generate_json(
-                prompt=fix_hard_facts_prompt(
-                    source_text=payload.source_text,
-                    source_hard_facts=source_hard_facts,
-                    current_target_translation=target_translation,
-                    mismatches=list(hard_fact_validation.get("mismatches") or []),
-                    target_language=payload.target_language,
-                    ingredient_map=ingredient_map,
-                    target_dictionary=payload.approved_ingredient_dictionary_target,
-                ),
-                temperature=0.0,
-            )
-            target_translation = str(
-                fixed.get("corrected_target_translation") or target_translation
-            )
+        try:
             target_hard_facts = await self._extract_target_hard_facts_with_retry(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
                 target_translation=target_translation,
             )
+
             hard_fact_validation = validate_hard_facts_by_code(
                 source_hard_facts,
                 target_hard_facts,
                 ingredient_map,
             )
+            hard_fact_attempts = 0
+
+            if hard_fact_validation["verdict"] == "FAIL":
+                llm_validation = await self.gemini.generate_json(
+                    prompt=validate_hard_facts_prompt(
+                        source_hard_facts=source_hard_facts,
+                        translated_hard_facts=target_hard_facts,
+                    ),
+                    temperature=0.0,
+                )
+                hard_fact_validation = _merge_validation(hard_fact_validation, llm_validation)
+
+            while (
+                hard_fact_validation["verdict"] == "FAIL"
+                and hard_fact_attempts < payload.max_auto_fix_attempts_per_stage
+            ):
+                hard_fact_attempts += 1
+                fixed = await self.gemini.generate_json(
+                    prompt=fix_hard_facts_prompt(
+                        source_text=payload.source_text,
+                        source_hard_facts=source_hard_facts,
+                        current_target_translation=target_translation,
+                        mismatches=list(hard_fact_validation.get("mismatches") or []),
+                        target_language=payload.target_language,
+                        ingredient_map=ingredient_map,
+                        target_dictionary=payload.approved_ingredient_dictionary_target,
+                    ),
+                    temperature=0.0,
+                )
+                target_translation = str(
+                    fixed.get("corrected_target_translation") or target_translation
+                )
+                target_hard_facts = await self._extract_target_hard_facts_with_retry(
+                    payload=payload,
+                    source_hard_facts=source_hard_facts,
+                    target_translation=target_translation,
+                )
+                hard_fact_validation = validate_hard_facts_by_code(
+                    source_hard_facts,
+                    target_hard_facts,
+                    ingredient_map,
+                )
+        except BaseException:
+            await _discard_task(back_translation_task)
+            raise
 
         if hard_fact_validation["verdict"] == "FAIL":
+            await _discard_task(back_translation_task)
             return await self._validation_failed_result(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
@@ -190,13 +230,22 @@ class TranslationPipeline:
                 },
             }
 
-        back_translation = await self.gemini.generate_json(
-            prompt=back_translate_to_ko_prompt(
-                target_language=payload.target_language,
-                target_translation=target_translation,
-            ),
-            temperature=0.0,
-        )
+        if (
+            back_translation_task is not None
+            and target_translation == translation_when_back_started
+        ):
+            back_translation = await back_translation_task
+        else:
+            # 수정 루프가 번역문을 바꿨으면 미리 띄운 역번역은 무효 — 버리고 새로 돈다.
+            await _discard_task(back_translation_task)
+            back_translation = await self.gemini.generate_json(
+                prompt=back_translate_to_ko_prompt(
+                    target_language=payload.target_language,
+                    target_translation=target_translation,
+                ),
+                temperature=0.0,
+                thinking_budget=MECHANICAL_THINKING_BUDGET,
+            )
         back_translation_ko = str(back_translation.get("back_translation_ko") or "")
 
         context_tone_validation = await self.gemini.generate_json(
@@ -236,6 +285,7 @@ class TranslationPipeline:
                     target_translation=target_translation,
                 ),
                 temperature=0.0,
+                thinking_budget=MECHANICAL_THINKING_BUDGET,
             )
             back_translation_ko = str(back_translation.get("back_translation_ko") or "")
             context_tone_validation = await self.gemini.generate_json(
@@ -357,6 +407,7 @@ class TranslationPipeline:
                     target_translation=target_translation,
                 ),
                 temperature=0.0,
+                thinking_budget=MECHANICAL_THINKING_BUDGET,
             )
             if not _target_hard_facts_need_retry(source_hard_facts, extracted):
                 break

@@ -98,6 +98,7 @@
     "meal_unsupported": "학교 코드가 등록되지 않아 급식을 표시할 수 없어요.",
     "meal_error": "급식 정보를 불러오지 못했어요.",
     "translation_pending_banner": "학교 공지 번역이 끝나면 알려드릴게요.",
+    "translation_failed_banner": "번역에 실패했어요. 다시 시도해 주세요.",
     "translation_complete_banner": "학교 공지 번역이 완료됐어요.",
     "translation_complete_action": "보러 가기",
     "meal_breakfast": "조식",

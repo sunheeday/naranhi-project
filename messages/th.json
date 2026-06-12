@@ -96,6 +96,7 @@
     "meal_unsupported": "ยังไม่ได้ลงทะเบียนรหัสโรงเรียน ไม่สามารถแสดงอาหารได้",
     "meal_error": "ไม่สามารถโหลดข้อมูลอาหารได้",
     "translation_pending_banner": "เมื่อแปลประกาศโรงเรียนเสร็จแล้ว เราจะแจ้งให้คุณทราบ",
+    "translation_failed_banner": "การแปลล้มเหลว กรุณาลองอีกครั้ง",
     "translation_complete_banner": "คำแปลประกาศของโรงเรียนพร้อมแล้ว",
     "translation_complete_action": "ดู",
     "meal_breakfast": "อาหารเช้า",

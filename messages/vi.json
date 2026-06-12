@@ -94,6 +94,7 @@
     "meal_unsupported": "Chưa đăng ký mã trường nên không hiển thị được bữa trưa.",
     "meal_error": "Không thể tải thông tin bữa ăn.",
     "translation_pending_banner": "Chúng tôi sẽ báo khi bản dịch thông báo của trường hoàn tất.",
+    "translation_failed_banner": "Dịch không thành công. Vui lòng thử lại.",
     "translation_complete_banner": "Bản dịch thông báo của trường đã sẵn sàng.",
     "translation_complete_action": "Xem",
     "meal_breakfast": "Bữa sáng",

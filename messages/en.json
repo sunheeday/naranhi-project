@@ -98,6 +98,7 @@
     "meal_unsupported": "School code not registered, meal cannot be displayed.",
     "meal_error": "Could not load meal information.",
     "translation_pending_banner": "We'll let you know when the school notice translations are ready.",
+    "translation_failed_banner": "Translation failed. Please try again.",
     "translation_complete_banner": "School notice translations are ready.",
     "translation_complete_action": "View",
     "meal_breakfast": "Breakfast",

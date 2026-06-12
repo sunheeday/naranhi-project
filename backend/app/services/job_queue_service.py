@@ -98,6 +98,40 @@ class JobQueueService:
         job_id = str(inserted[0].get("id") or "") if inserted else None
         return EnqueueResult(accepted=True, already_running=False, job_id=job_id)
 
+    def completed_recently(self, *, job_key: str, within_seconds: int) -> bool:
+        """같은 job_key 잡이 최근에 완료됐는지 — 완료 직후 동일 작업 재등록(루프) 방지용."""
+        cutoff = (datetime.now(UTC) - timedelta(seconds=within_seconds)).isoformat()
+        rows = self._execute_with_retry(
+            lambda client: (
+                client.table("app_jobs")
+                .select("id")
+                .eq("job_key", job_key)
+                .eq("status", "completed")
+                .gte("finished_at", cutoff)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+        )
+        return bool(rows)
+
+    def latest_job(self, *, job_key: str) -> dict[str, Any] | None:
+        """같은 job_key의 가장 최근 잡 1건 — 프론트 상태 표시(준비중/실패)용."""
+        rows = self._execute_with_retry(
+            lambda client: (
+                client.table("app_jobs")
+                .select("id,status,attempts,max_attempts,created_at,finished_at")
+                .eq("job_key", job_key)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+        )
+        return rows[0] if rows else None
+
     def claim(self, *, job_types: list[str], limit: int) -> list[dict[str, Any]]:
         now = datetime.now(UTC)
         rows = self._execute_with_retry(

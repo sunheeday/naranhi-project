@@ -2,13 +2,19 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { isRtl, isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { getNoticeDetail, type NoticeCardDto } from '@/lib/notices'
+import {
+  fetchTranslationJobStatus,
+  getNoticeDetail,
+  type NoticeCardDto,
+  type TranslationJobStatus,
+} from '@/lib/notices'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import type { CardType } from '@/types/database'
 import NoticeCardSwiper, { type NoticeCard } from './NoticeCardSwiper'
 import NoticeProcessingView from './NoticeProcessingView'
 import NoticeErrorView from './NoticeErrorView'
 import NoticeLocaleTranslationKickoff from './NoticeLocaleTranslationKickoff'
+import NoticeTranslationRetryButton from './NoticeTranslationRetryButton'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -243,6 +249,13 @@ export default async function NoticePage({ params }: Props) {
 
   const md = messages.notice_detail
 
+  // 번역이 아직 없으면 잡 상태를 조회해 '준비중'과 '실패(재시도 안내)'를 가른다.
+  // 본문·카드는 어차피 한국어로 폴백 표시되므로 배너만 상태를 알려주면 된다.
+  const translationJobStatus: TranslationJobStatus =
+    !detail.hasLocaleTranslation && locale !== 'ko'
+      ? await fetchTranslationJobStatus(id, locale)
+      : 'none'
+
   // 카드 순서: 요약 → 구조화(해야할일/일정/준비물) → 본문/첨부 정제본 → 원본 파일.
   const cards: NoticeCard[] = []
 
@@ -309,26 +322,45 @@ export default async function NoticePage({ params }: Props) {
           noticeId={id}
           locale={locale}
           hasLocaleTranslation={detail.hasLocaleTranslation}
+          translationFailed={translationJobStatus === 'failed'}
         />
       ) : null}
       {!detail.hasLocaleTranslation && locale !== 'ko' ? (
-        <div className="px-4 pt-4">
-          <div className="mx-auto max-w-app rounded-card border border-sky-200 bg-[linear-gradient(135deg,#F8FCFF_0%,#EEF7FF_100%)] px-4 py-4 shadow-soft">
-            <div className="flex flex-col gap-2">
+        translationJobStatus === 'failed' ? (
+          <div className="px-4 pt-4">
+            <div className="mx-auto max-w-app rounded-card border border-rose-200 bg-rose-50 px-4 py-4 shadow-soft">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-ink">
-                  {messages.home.translation_pending_banner}
+                  {messages.home.translation_failed_banner}
                 </p>
-                <span className="shrink-0 text-xs font-bold text-primary">
-                  {messages.common.loading}
-                </span>
-              </div>
-              <div className="h-3 overflow-hidden rounded-full bg-sky-100">
-                <div className="h-full w-[58%] rounded-full bg-[linear-gradient(90deg,#1FB6FF_0%,#2F80ED_100%)] animate-pulse" />
+                <NoticeTranslationRetryButton
+                  noticeId={id}
+                  locale={locale}
+                  label={messages.notice_detail.retry}
+                  busyLabel={messages.notice_detail.retrying}
+                />
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="px-4 pt-4">
+            <div className="mx-auto max-w-app rounded-card border border-sky-200 bg-[linear-gradient(135deg,#F8FCFF_0%,#EEF7FF_100%)] px-4 py-4 shadow-soft">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-ink">
+                    {messages.home.translation_pending_banner}
+                  </p>
+                  <span className="shrink-0 text-xs font-bold text-primary">
+                    {messages.common.loading}
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-sky-100">
+                  <div className="h-full w-[58%] rounded-full bg-[linear-gradient(90deg,#1FB6FF_0%,#2F80ED_100%)] animate-pulse" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )
       ) : null}
       <NoticeCardSwiper
         noticeId={id}
