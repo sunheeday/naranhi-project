@@ -199,5 +199,42 @@
     "auth_required": "Yêu cầu đăng nhập.",
     "not_found": "Không tìm thấy trang.",
     "offline": "Bạn đang ngoại tuyến. Một số tính năng bị hạn chế."
+  },
+  "camera": {
+    "nav_title": "Chụp ảnh",
+    "ocr_tab": "OCR",
+    "message_tab": "Dịch tin nhắn",
+    "eyebrow": "Chụp thông báo của trường",
+    "title": "Hãy tải lên ảnh chụp thông báo của giáo viên trên HiClass hoặc thông báo KakaoTalk",
+    "subtitle": "Chụp ảnh thông báo hoặc chọn ảnh đã lưu, chúng tôi sẽ dịch giúp bạn.",
+    "tips_title": "Mẹo chụp để nhận dạng tốt",
+    "tips": [
+      "Chụp sao cho thấy đủ bốn góc của tài liệu.",
+      "Nên chụp ở nơi sáng, ít bóng.",
+      "Nếu chữ bị nhòe, hãy chụp lại."
+    ],
+    "choose_image": "Chọn ảnh",
+    "retake": "Chọn lại",
+    "submit": "OCR và dịch",
+    "uploading": "Đang nhận dạng và dịch...",
+    "ready": "Đã chọn xong",
+    "empty": "Bạn có thể chụp bằng máy ảnh hoặc chọn ảnh từ album.",
+    "error_format": "Chỉ có thể tải lên tệp hình ảnh.",
+    "error_size": "Kích thước tệp phải từ 10MB trở xuống.",
+    "error_upload": "OCR hoặc dịch thất bại. Vui lòng thử lại sau.",
+    "success": "Đã hoàn tất OCR và dịch.",
+    "extracted_title": "Văn bản gốc đã trích xuất",
+    "translated_title": "Kết quả dịch",
+    "unreadable_warning": "Không đọc được rõ chữ trong ảnh. Vui lòng chụp lại sáng và rõ hơn.",
+    "swipe_hint": "Chúng tôi đọc thông báo bạn chụp bằng OCR và dịch giúp bạn.",
+    "message_card_title": "Tự động dịch lời nhắn gửi giáo viên",
+    "message_card_body": "Nhập câu bạn muốn gửi, chúng tôi sẽ dịch sang tiếng Hàn một cách tự nhiên.",
+    "message_placeholder": "Hãy nhập câu bạn muốn gửi.",
+    "message_translate": "Dịch sang tiếng Hàn",
+    "message_translating": "Đang dịch sang tiếng Hàn...",
+    "message_translated_title": "Câu đã dịch sang tiếng Hàn",
+    "message_copy": "Sao chép",
+    "message_copied": "Đã sao chép",
+    "message_error": "Dịch tin nhắn thất bại. Vui lòng thử lại sau."
   }
 }
