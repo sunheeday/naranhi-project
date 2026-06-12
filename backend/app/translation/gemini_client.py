@@ -194,8 +194,25 @@ def _parse_json(text: str) -> dict[str, Any]:
         match = re.search(r"\{[\s\S]*\}", text)
         if not match:
             raise
-        parsed = json.loads(match.group(0))
+        value = match.group(0)
+        try:
+            parsed = json.loads(value, strict=False)
+        except json.JSONDecodeError:
+            parsed = json.loads(_repair_invalid_json_escapes(value), strict=False)
 
     if not isinstance(parsed, dict):
         raise ValueError("Gemini JSON 응답이 object가 아닙니다.")
     return parsed
+
+
+def _repair_invalid_json_escapes(value: str) -> str:
+    """LLM 응답 JSON 문자열 안의 잘못된 백슬래시 이스케이프(\\m 등)를 리터럴로 교정한다.
+
+    유효한 이스케이프(\\" \\\\ \\/ \\b \\f \\n \\r \\t \\uXXXX)는 쌍 단위로 소비해
+    그대로 보존하고, 그 외의 홀로 남은 백슬래시만 \\\\ 로 바꾼다.
+    """
+    return re.sub(
+        r"\\(u[0-9a-fA-F]{4}|[\"\\/bfnrt])|\\",
+        lambda m: m.group(0) if m.group(1) else "\\\\",
+        value,
+    )

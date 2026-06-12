@@ -234,7 +234,13 @@ def _parse_json(text: str) -> dict[str, Any]:
         return json.loads(text)
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        raise
+        if not match:
+            raise
+        value = match.group(0)
+        try:
+            return json.loads(value, strict=False)
+        except json.JSONDecodeError:
+            from app.translation.gemini_client import _repair_invalid_json_escapes
+
+            return json.loads(_repair_invalid_json_escapes(value), strict=False)
 
