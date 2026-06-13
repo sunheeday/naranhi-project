@@ -102,8 +102,13 @@ async def process_jobs(
     max_jobs: int,
     batch_size: int,
     retry_delay_seconds: int,
+    stale_seconds: int,
 ) -> int:
     queue = JobQueueService()
+    queue.reclaim_stale_jobs(
+        job_types=[JOB_TYPE_DISCOVERY, JOB_TYPE_EXTRACTION],
+        stale_seconds=stale_seconds,
+    )
     processed = 0
     while processed < max_jobs:
         jobs = queue.claim(
@@ -137,6 +142,7 @@ async def run_async(args: argparse.Namespace) -> int:
         max_jobs=args.max_jobs,
         batch_size=args.batch_size,
         retry_delay_seconds=args.retry_delay_seconds,
+        stale_seconds=args.stale_minutes * 60,
     )
     print(json.dumps({"ok": True, "processed": processed}, ensure_ascii=False))
     return 0
@@ -147,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-jobs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=3)
     parser.add_argument("--retry-delay-seconds", type=int, default=120)
+    parser.add_argument("--stale-minutes", type=int, default=180)
     return parser
 
 

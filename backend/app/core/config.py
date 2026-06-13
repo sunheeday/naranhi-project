@@ -148,6 +148,11 @@ class Settings(BaseSettings):
         ge=1,
         alias="WORKER_RETRY_DELAY_SECONDS",
     )
+    worker_job_stale_minutes: int = Field(
+        default=180,
+        ge=1,
+        alias="WORKER_JOB_STALE_MINUTES",
+    )
     worker_job_groups_raw: str = Field(
         default="translation",
         alias="WORKER_JOB_GROUPS",

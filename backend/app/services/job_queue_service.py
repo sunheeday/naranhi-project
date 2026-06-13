@@ -132,6 +132,69 @@ class JobQueueService:
         )
         return rows[0] if rows else None
 
+    def reclaim_stale_jobs(self, *, job_types: list[str], stale_seconds: int) -> int:
+        """오래된 'processing' 잡을 회수한다.
+
+        워커가 잡을 claim한 뒤(status='processing') 재배포·크래시로 죽으면 그 행은
+        영구히 'processing'으로 남고, job_key 유니크 인덱스가 동일 작업의 재등록을
+        영구 차단한다(좀비 잡). started_at이 stale_seconds보다 오래된 processing 잡을,
+        시도가 남았으면 'queued'로 되돌리고 소진됐으면 'failed'로 종료한다.
+        추출기(content_extraction_service)의 stale 회수와 같은 방식. 회수 수를 반환한다.
+        """
+        now = datetime.now(UTC)
+        cutoff = (now - timedelta(seconds=stale_seconds)).isoformat()
+        rows = self._execute_with_retry(
+            lambda client: (
+                client.table("app_jobs")
+                .select("id,attempts,max_attempts")
+                .in_("job_type", job_types)
+                .eq("status", "processing")
+                .lt("started_at", cutoff)
+                .execute()
+                .data
+                or []
+            )
+        )
+
+        reclaimed = 0
+        for row in rows:
+            attempts = int(row.get("attempts") or 0)
+            max_attempts = int(row.get("max_attempts") or 1)
+            should_retry = attempts < max_attempts
+            payload: dict[str, Any] = {
+                "updated_at": now.isoformat(),
+                "last_error": f"reclaimed stale processing job (started_at older than {stale_seconds}s)",
+            }
+            if should_retry:
+                payload["status"] = "queued"
+                payload["available_at"] = now.isoformat()
+            else:
+                payload["status"] = "failed"
+                payload["finished_at"] = now.isoformat()
+            # status='processing' 조건부 업데이트: 그 사이 원래 워커가 완료/실패시키면 건너뛴다.
+            updated = self._execute_with_retry(
+                lambda client, row=row, payload=payload: (
+                    client.table("app_jobs")
+                    .update(payload)
+                    .eq("id", row["id"])
+                    .eq("status", "processing")
+                    .execute()
+                    .data
+                    or []
+                )
+            )
+            if updated:
+                reclaimed += 1
+
+        if reclaimed:
+            LOGGER.warning(
+                "reclaimed stale processing jobs: count=%s job_types=%s stale_seconds=%s",
+                reclaimed,
+                ",".join(job_types),
+                stale_seconds,
+            )
+        return reclaimed
+
     def claim(self, *, job_types: list[str], limit: int) -> list[dict[str, Any]]:
         now = datetime.now(UTC)
         rows = self._execute_with_retry(

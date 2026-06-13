@@ -28,17 +28,20 @@ def _normalize_job_groups(values: list[str]) -> list[str]:
 
 async def _run_worker_group(group: str) -> int:
     settings = get_settings()
+    stale_seconds = settings.worker_job_stale_minutes * 60
     if group == "translation":
         return await process_translation_jobs(
             max_jobs=settings.worker_batch_size,
             batch_size=settings.worker_batch_size,
             retry_delay_seconds=settings.worker_retry_delay_seconds,
+            stale_seconds=stale_seconds,
         )
     if group == "crawler":
         return await process_crawler_jobs(
             max_jobs=settings.worker_batch_size,
             batch_size=settings.worker_batch_size,
             retry_delay_seconds=settings.worker_retry_delay_seconds,
+            stale_seconds=stale_seconds,
         )
     raise RuntimeError(f"Unsupported worker job group: {group}")
 

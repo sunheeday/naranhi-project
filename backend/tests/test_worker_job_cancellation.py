@@ -11,6 +11,9 @@ class _FakeQueue:
         self.jobs = jobs
         self.failed: list[tuple[dict[str, object], str, int]] = []
 
+    def reclaim_stale_jobs(self, *, job_types, stale_seconds):  # noqa: ANN001, ANN201, ARG002
+        return 0
+
     def claim(self, *, job_types, limit):  # noqa: ANN001
         return self.jobs[:limit]
 
@@ -40,7 +43,7 @@ class WorkerCancellationTest(unittest.IsolatedAsyncioTestCase):
             patch("app.jobs.translation_worker._run_job", side_effect=asyncio.CancelledError()),
         ):
             with self.assertRaises(asyncio.CancelledError):
-                await process_translation_jobs(max_jobs=1, batch_size=1, retry_delay_seconds=120)
+                await process_translation_jobs(max_jobs=1, batch_size=1, retry_delay_seconds=120, stale_seconds=3600)
 
         self.assertEqual(len(queue.failed), 1)
         self.assertEqual(queue.failed[0][0]["id"], "job-1")
@@ -52,7 +55,7 @@ class WorkerCancellationTest(unittest.IsolatedAsyncioTestCase):
             patch("app.jobs.crawler_worker._run_extraction_job", side_effect=asyncio.CancelledError()),
         ):
             with self.assertRaises(asyncio.CancelledError):
-                await process_crawler_jobs(max_jobs=1, batch_size=1, retry_delay_seconds=120)
+                await process_crawler_jobs(max_jobs=1, batch_size=1, retry_delay_seconds=120, stale_seconds=3600)
 
         self.assertEqual(len(queue.failed), 1)
         self.assertEqual(queue.failed[0][0]["id"], "job-2")
@@ -62,6 +65,9 @@ class WorkerCancellationTest(unittest.IsolatedAsyncioTestCase):
             def __init__(self) -> None:
                 self._first = True
                 self.completed: list[str] = []
+
+            def reclaim_stale_jobs(self, *, job_types, stale_seconds):  # noqa: ANN001, ANN201, ARG002
+                return 0
 
             def claim(self, *, job_types, limit):  # noqa: ANN001, ARG002
                 if not self._first:
@@ -101,7 +107,9 @@ class WorkerCancellationTest(unittest.IsolatedAsyncioTestCase):
             patch("app.jobs.crawler_worker.JobQueueService", return_value=queue),
             patch("app.jobs.crawler_worker._run_extraction_job", side_effect=fake_run),
         ):
-            task = asyncio.create_task(process_crawler_jobs(max_jobs=2, batch_size=2, retry_delay_seconds=120))
+            task = asyncio.create_task(
+                process_crawler_jobs(max_jobs=2, batch_size=2, retry_delay_seconds=120, stale_seconds=3600)
+            )
             await asyncio.wait_for(both_started.wait(), timeout=1.0)
             release.set()
             processed = await asyncio.wait_for(task, timeout=1.0)
