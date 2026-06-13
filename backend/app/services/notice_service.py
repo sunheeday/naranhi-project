@@ -1653,7 +1653,15 @@ def _canonical_action_card_items(
         return metadata_items[:_MAX_ACTION_CARD_ITEMS]
     if not deadline:
         deadline = _first_value(_canonical_metadata_values(metadata, "deadlines"))
-    raw_items = _dedupe([*actions, *[f"제출: {item}" for item in submissions]])[:_MAX_ACTION_CARD_ITEMS]
+    # 같은 한 문장이 actions_required와 submissions에 모두 잡히면("…결과 학교 제출"
+    # + submission "재검진 결과") 카드에 같은 할일이 두 줄로 뜬다. 이미 어떤 할일이
+    # 그 제출물을 제출하라고 말하고 있으면 중복 submission은 버린다.
+    submission_items = [
+        f"제출: {item}"
+        for item in submissions
+        if not _submission_already_in_actions(item, actions)
+    ]
+    raw_items = _dedupe([*actions, *submission_items])[:_MAX_ACTION_CARD_ITEMS]
     items: list[dict[str, str]] = []
     for index, action in enumerate(raw_items):
         item = {"text": action}
@@ -1661,6 +1669,28 @@ def _canonical_action_card_items(
             item["hint"] = deadline
         items.append(item)
     return items
+
+
+# 할일 항목이 '제출형'인지 가르는 동사 단서.
+_SUBMIT_ACTION_CUES = ("제출", "회신", "납부", "제출하기")
+
+
+def _submission_already_in_actions(submission: str, actions: list[str]) -> bool:
+    """submission 제출물이 이미 어떤 '제출형' 할일에 온전히 담겨 있으면 True(중복).
+
+    보수적으로: submission의 의미 단어(2자 이상)가 *전부* 들어 있고, 그 할일이
+    제출/회신/납부를 지시할 때만 중복으로 본다. 부분만 겹치면(예: 제출물 "참가
+    동의서" vs 할일 "참가 여부 회신") 유지한다.
+    """
+    words = [word for word in re.split(r"\s+", submission.strip()) if len(word) >= 2]
+    if not words:
+        return False
+    for action in actions:
+        if not any(cue in action for cue in _SUBMIT_ACTION_CUES):
+            continue
+        if all(word in action for word in words):
+            return True
+    return False
 
 
 def _hard_facts(value: object) -> dict[str, Any]:
