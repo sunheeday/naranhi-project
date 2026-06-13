@@ -12,8 +12,8 @@ env:
   GAR_LOCATION: ${{ vars.GAR_LOCATION }}
   GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
   SERVICE_NAME: ${{ vars.CLOUD_RUN_API_SERVICE }}
-  TRANSLATION_WORKER_SERVICE_NAME: ${{ vars.CLOUD_RUN_TRANSLATION_WORKER_SERVICE }}
-  CRAWLER_WORKER_SERVICE_NAME: ${{ vars.CLOUD_RUN_CRAWLER_WORKER_SERVICE }}
+  TRANSLATION_WORKER_JOB: ${{ vars.CLOUD_RUN_TRANSLATION_WORKER_JOB }}
+  CRAWLER_WORKER_JOB: ${{ vars.CLOUD_RUN_CRAWLER_WORKER_JOB }}
   IMAGE_NAME: naranhi-api
 
 jobs:
@@ -78,6 +78,11 @@ jobs:
             CORS_ORIGINS=https://naranhi-web-140086900496.asia-northeast3.run.app
             VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }}
             VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}
+            WORKER_TRIGGER_ENABLED=true
+            GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+            GCP_REGION=${{ env.REGION }}
+            TRANSLATION_WORKER_JOB_NAME=${{ env.TRANSLATION_WORKER_JOB }}
+            CRAWLER_WORKER_JOB_NAME=${{ env.CRAWLER_WORKER_JOB }}
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
             GEMINI_API_KEY=gemini-api-key:latest
@@ -91,70 +96,35 @@ jobs:
             --cpu=1
             --no-cpu-throttling
 
-      - name: Deploy translation worker to Cloud Run
-        if: ${{ env.TRANSLATION_WORKER_SERVICE_NAME != '' }}
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.TRANSLATION_WORKER_SERVICE_NAME }}
-          region: ${{ env.REGION }}
-          image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          env_vars: |
-            ENVIRONMENT=production
-            LOG_LEVEL=INFO
-            SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-            CORS_ORIGINS=https://naranhi-web-140086900496.asia-northeast3.run.app
-            VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }}
-            VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}
-            WORKER_JOB_GROUPS=translation
-            WORKER_BATCH_SIZE=3
-            WORKER_POLL_INTERVAL_SECONDS=2
-            WORKER_RETRY_DELAY_SECONDS=120
-          secrets: |
-            SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
-            GEMINI_API_KEY=gemini-api-key:latest
-            CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest
-            NEIS_API_KEY=neis-api-key:latest
-          flags: >-
-            --allow-unauthenticated
-            --port=8080
-            --timeout=300
-            --memory=512Mi
-            --cpu=1
-            --no-cpu-throttling
-            --min-instances=1
-            --command=uvicorn
-            --args=app.worker_main:app,--host,0.0.0.0,--port,8080
+      # 워커는 상시가동 Service(min-instances=1, $120/월 유휴)가 아니라 Cloud Run Job으로
+      # 배포한다. enqueue 시 run.jobs.run 트리거(+백스톱 Scheduler)로만 깨운다.
+      # 같은 이미지를 쓰고 command/args만 워커 모듈로 바꾼다. --max-jobs 0 = 큐가 빌 때까지 drain.
+      - name: Deploy translation worker Job to Cloud Run
+        if: ${{ env.TRANSLATION_WORKER_JOB != '' }}
+        run: |
+          gcloud run jobs deploy "$TRANSLATION_WORKER_JOB" \
+            --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
+            --region="$REGION" \
+            --command=python \
+            --args="-m,app.jobs.translation_worker,--max-jobs,0,--idle-grace-seconds,3" \
+            --task-timeout=3600 \
+            --max-retries=1 \
+            --memory=512Mi \
+            --cpu=1 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
 
-      - name: Deploy crawler worker to Cloud Run
-        if: ${{ env.CRAWLER_WORKER_SERVICE_NAME != '' }}
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.CRAWLER_WORKER_SERVICE_NAME }}
-          region: ${{ env.REGION }}
-          image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          env_vars: |
-            ENVIRONMENT=production
-            LOG_LEVEL=INFO
-            SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-            CORS_ORIGINS=https://naranhi-web-140086900496.asia-northeast3.run.app
-            VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }}
-            VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}
-            WORKER_JOB_GROUPS=crawler
-            WORKER_BATCH_SIZE=3
-            WORKER_POLL_INTERVAL_SECONDS=2
-            WORKER_RETRY_DELAY_SECONDS=120
-          secrets: |
-            SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
-            GEMINI_API_KEY=gemini-api-key:latest
-            CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest
-            NEIS_API_KEY=neis-api-key:latest
-          flags: >-
-            --allow-unauthenticated
-            --port=8080
-            --timeout=300
-            --memory=512Mi
-            --cpu=1
-            --no-cpu-throttling
-            --min-instances=1
-            --command=uvicorn
-            --args=app.worker_main:app,--host,0.0.0.0,--port,8080
+      - name: Deploy crawler worker Job to Cloud Run
+        if: ${{ env.CRAWLER_WORKER_JOB != '' }}
+        run: |
+          gcloud run jobs deploy "$CRAWLER_WORKER_JOB" \
+            --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
+            --region="$REGION" \
+            --command=python \
+            --args="-m,app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3" \
+            --task-timeout=3600 \
+            --max-retries=1 \
+            --memory=512Mi \
+            --cpu=1 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
