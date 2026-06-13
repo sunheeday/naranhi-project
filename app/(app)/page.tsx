@@ -308,7 +308,7 @@ export default async function HomePage() {
 
       const cardsPromise = supabase
         .from('notice_cards')
-        .select('notice_id, type')
+        .select('notice_id, type, id')
         .in('notice_id', noticeIds)
 
       // 공지별 D-day용 날짜: 연결된 학교 일정(school_events) 중 오늘 이후 가장 가까운 event_date.
@@ -352,8 +352,28 @@ export default async function HomePage() {
       }
 
       const cardsByNotice: Record<string, { type: string }[]> = {}
+      const cardIdToNotice: Record<string, string> = {}
       for (const c of cards ?? []) {
         ;(cardsByNotice[c.notice_id] ??= []).push({ type: c.type })
+        if (c.id) cardIdToNotice[c.id] = c.notice_id
+      }
+
+      // 홈 '번역 완료' 기준을 상세(lib/notices.ts hasLocaleTranslation)와 통일:
+      // 본문뿐 아니라 카드까지 번역돼야 완료로 본다. 공지별 번역된 카드 수를 집계한다.
+      const translatedCardCountByNotice: Record<string, number> = {}
+      if (locale !== 'ko') {
+        const allCardIds = Object.keys(cardIdToNotice)
+        if (allCardIds.length > 0) {
+          const { data: cardTranslationRows } = await supabase
+            .from('notice_card_translations')
+            .select('notice_card_id')
+            .eq('target_language', locale)
+            .in('notice_card_id', allCardIds)
+          for (const ct of cardTranslationRows ?? []) {
+            const nId = cardIdToNotice[ct.notice_card_id]
+            if (nId) translatedCardCountByNotice[nId] = (translatedCardCountByNotice[nId] ?? 0) + 1
+          }
+        }
       }
 
       for (const s of schoolEventRows ?? []) {
@@ -375,7 +395,11 @@ export default async function HomePage() {
           ),
           status: row.status,
           arrivedAt: relativeTime(row.created_at, homeMsg),
-          needsTranslation: locale !== 'ko' && !translationsByNotice[row.id]?.[locale],
+          needsTranslation: locale !== 'ko'
+            && (
+              !translationsByNotice[row.id]?.[locale]
+              || (noticeCards.length > 0 && (translatedCardCountByNotice[row.id] ?? 0) < noticeCards.length)
+            ),
           actionRequired: isActionRequired(noticeCards),
           dueLabel: due?.label ?? null,
           dueUrgent: due?.urgent ?? false,
