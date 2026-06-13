@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.services.job_queue_service import JobQueueService
 from app.services.school_crawler_service import _fetch_school_row
+from app.services.worker_trigger import schedule_worker_trigger
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
@@ -50,6 +51,8 @@ async def discover_school_board(
         payload={"school_id": school_id, "max_posts": get_settings().crawler_initial_notice_count},
         max_attempts=5,
     )
+    # 크롤러 Job 깨우기(best-effort, 비차단). 트리거 비활성 시 무동작.
+    schedule_worker_trigger("school_board_discovery")
     return JSONResponse(
         {
             "ok": True,
@@ -78,6 +81,8 @@ async def extract_pending_school_notices(
         payload={"school_id": school_id, "max_notices": notice_limit},
         max_attempts=5,
     )
+    # 크롤러 Job 깨우기(best-effort, 비차단). 트리거 비활성 시 무동작.
+    schedule_worker_trigger("school_notice_extraction")
     return JSONResponse(
         {
             "ok": True,

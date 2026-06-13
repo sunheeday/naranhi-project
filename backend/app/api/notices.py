@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.job_queue_service import JobQueueService
 from app.services.notice_service import NoticeService, get_notice_service
+from app.services.worker_trigger import schedule_worker_trigger
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
@@ -152,6 +153,8 @@ async def translate_notice(
                 "approved_ingredient_dictionary_target": payload.approved_ingredient_dictionary_target,
             },
         )
+        # 워커 Job 깨우기(best-effort, 비차단). 트리거 비활성 시 무동작.
+        schedule_worker_trigger("notice_translation")
         return JSONResponse(
             {
                 "ok": True,
