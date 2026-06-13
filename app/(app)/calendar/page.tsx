@@ -16,6 +16,7 @@ import NoticeTranslationKickoff from '../NoticeTranslationKickoff'
 import CalendarTabs from './CalendarTabs'
 import { type ScheduleEvent } from './CalendarView'
 import { type TimetableDayEntry } from './TimetableWeekView'
+import { translateTimetableDays } from '@/lib/subject-translation'
 
 interface Props {
   searchParams: Promise<{ week?: string; tab?: string }>
@@ -89,7 +90,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   if (await isUiPreviewEnabled()) {
     events = previewEvents(year, month)
-    timetableDays = previewTimetableEntries(monday)
+    timetableDays = await translateTimetableDays(previewTimetableEntries(monday), locale)
     childLabel = '나란히초등학교 3-2'
   } else {
     const supabase = await createSupabaseServerClient()
@@ -213,7 +214,11 @@ export default async function CalendarPage({ searchParams }: Props) {
             monday.replace(/-/g, ''),
             friday.replace(/-/g, ''),
           )
-          timetableDays = buildTimetableDays(monday, periods)
+          timetableDays = await translateTimetableDays(
+            buildTimetableDays(monday, periods),
+            locale,
+            createSupabaseServiceClient(),
+          )
         } catch (e) {
           if (e instanceof UnsupportedTimetableError) {
             timetableUnsupported = true

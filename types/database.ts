@@ -397,6 +397,27 @@ export interface Database {
         }
         Relationships: []
       }
+      subject_translations: {
+        Row: {
+          ko_subject: string
+          locale: string
+          translated: string
+          created_at: string
+        }
+        Insert: {
+          ko_subject: string
+          locale: string
+          translated: string
+          created_at?: string
+        }
+        Update: {
+          ko_subject?: string
+          locale?: string
+          translated?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

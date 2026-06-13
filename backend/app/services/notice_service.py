@@ -11,6 +11,7 @@ from app.translation.prompts import (
     build_supabase_payload_prompt,
     extract_source_hard_facts_prompt,
     translate_meal_labels_prompt,
+    translate_subject_labels_prompt,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -233,6 +234,12 @@ class NoticeService:
 
         if translation_kind == "meal_labels":
             return await self._translate_meal_labels(
+                source_text=source_text,
+                target_language=target_language,
+            )
+
+        if translation_kind == "subject_labels":
+            return await self._translate_subject_labels(
                 source_text=source_text,
                 target_language=target_language,
             )
@@ -545,6 +552,59 @@ class NoticeService:
                     translations[item_id] = translation
 
         # Fill any missing items with the original text so the client gets a full map.
+        for item in items:
+            item_id = item["id"]
+            translations.setdefault(item_id, item["text"])
+
+        lines = [f"[[{item['id']}]] {translations[item['id']]}" for item in items]
+        final_translation = "\n".join(lines)
+        return {
+            "ok": True,
+            "target_language": target_language,
+            "status": "ready_to_save",
+            "translation": final_translation,
+            "translations": translations,
+            "pipeline_result": {
+                "final_translation": final_translation,
+            },
+        }
+
+    async def _translate_subject_labels(
+        self,
+        *,
+        source_text: str,
+        target_language: str,
+    ) -> dict[str, object]:
+        settings = get_settings()
+        gemini = GeminiJsonClient.from_settings(settings)
+        items = _parse_meal_label_source_text(source_text)
+        if not items:
+            return {
+                "ok": True,
+                "target_language": target_language,
+                "status": "ready_to_save",
+                "translation": source_text,
+                "translations": {},
+                "pipeline_result": {"final_translation": source_text},
+            }
+
+        prompt = translate_subject_labels_prompt(
+            target_language=target_language,
+            items=items,
+        )
+        response = await gemini.generate_json(prompt=prompt, temperature=0.1)
+        translated_items = response.get("items")
+        translations: dict[str, str] = {}
+        if isinstance(translated_items, list):
+            for item in translated_items:
+                if not isinstance(item, dict):
+                    continue
+                item_id = _optional_str(item.get("id"))
+                translation = _optional_str(item.get("translation"))
+                if item_id and translation:
+                    translations[item_id] = translation
+
+        # 누락 항목은 원문으로 채워 클라이언트가 완전한 맵을 받도록 한다.
         for item in items:
             item_id = item["id"]
             translations.setdefault(item_id, item["text"])

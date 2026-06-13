@@ -464,6 +464,81 @@ Russian meal-label rules:
     return ""
 
 
+def translate_subject_labels_prompt(
+    *,
+    target_language: str,
+    items: list[dict[str, str]],
+) -> str:
+    target_name = _language_name(target_language)
+    language_specific_rules = _subject_label_language_specific_rules(target_language)
+    return f"""{COMMON_SYSTEM_PROMPT}
+
+Task:
+Translate short Korean school timetable subject and activity labels into the target language as structured label mappings.
+
+Input:
+- source_language_code: ko
+- source_language_name: Korean
+- target_language_code: {target_language}
+- target_language_name: {target_name}
+
+subject_label_items:
+{_json(items)}
+
+Rules:
+- Translate every item's `text` into the natural {target_name} term a parent would see on a school timetable. These are subject names and timetable cells, not prose — keep them short labels, never sentences.
+- Use the conventional school-subject word in {target_name}, not a clumsy literal gloss (e.g. 체육 → the standard physical-education term, 정보 → the standard computer-science/informatics term).
+- Korea-specific subjects must be translated by their actual meaning, NOT replaced with the target country's equivalent slot:
+  - 국어 is the Korean language subject (the child studies Korean), e.g. "Korean (language)". Never map it to the reader's own national-language subject.
+  - 한국사 is Korean history specifically — keep the "Korea/Korean" qualifier.
+  - 한문 is Classical Chinese / Hanja characters — keep it distinct from 중국어 (modern Chinese).
+- Ethics and character subjects (도덕, 생활과 윤리, 윤리와 사상) must use secular, civic/ethics wording. Do NOT introduce religious framing of any kind.
+- Keep 사회 (general social studies) and 통합사회 (integrated social studies) distinct; do not collapse them.
+- An abbreviation and its full form share the same translation (e.g. 창체 = 창의적 체험활동, 기가 = 기술·가정).
+- Non-subject timetable cells (공강, 점심, 자습, 청소, 조회, 종례, 방과후) use the natural timetable label in {target_name}, not a full sentence.
+- If a Korean label carries a trailing level marker (Ⅰ, Ⅱ, 1, 2), translate the subject and keep the level marker.
+- Return one translated string per item id.
+- Do not add explanations, bullet markers, extra sentences, or category headings.
+- Do not merge multiple items together.
+{language_specific_rules}
+
+Return JSON:
+{{
+  "items": [
+    {{
+      "id": "",
+      "translation": ""
+    }}
+  ]
+}}"""
+
+
+def _subject_label_language_specific_rules(target_language: str) -> str:
+    if target_language == "ar":
+        return """
+Arabic subject-label rules:
+- Use Modern Standard Arabic with the definite article (ال) as on school timetables (اللغة الكورية, الرياضيات, التربية البدنية).
+- Keep ethics/moral subjects secular — do NOT use التربية الإسلامية or any religious wording for 도덕/윤리.
+"""
+    if target_language == "ru":
+        return """
+Russian subject-label rules:
+- Use the standard Russian school-subject names parents recognize (Математика, Физкультура, Информатика, Обществознание), capitalized normally.
+- Use Корейский язык for 국어 and История Кореи for 한국사; do not substitute Russian-language equivalents.
+"""
+    if target_language == "zh":
+        return """
+Simplified Chinese subject-label rules:
+- Use Mainland China school-subject names (数学, 体育, 信息技术). For 국어 use 韩国语 (NOT 语文, which is the Chinese L1 subject).
+"""
+    if target_language == "vi":
+        return """
+Vietnamese subject-label rules:
+- Use full Vietnamese diacritics. For 국어 use Tiếng Hàn (NOT Ngữ văn).
+"""
+    return ""
+
+
 def validate_hard_facts_prompt(
     *,
     source_hard_facts: dict[str, Any],
