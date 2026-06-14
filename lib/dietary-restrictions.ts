@@ -22,6 +22,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
   onboardingTitle: string
   description: string
   empty: string
+  select: string
+  close: string
   save: string
   saving: string
   saved: string
@@ -31,6 +33,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: '피해야 할 음식이 있나요?',
     description: '알레르기 코드는 정확히, 메뉴명 키워드는 보조로 확인해 경고를 보여줘요.',
     empty: '선택 안 함',
+    select: '선택하기',
+    close: '닫기',
     save: '저장',
     saving: '저장 중...',
     saved: '저장되었어요.',
@@ -40,6 +44,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'Any foods to avoid?',
     description: 'Warnings use exact allergy codes plus menu-name keywords as a backup.',
     empty: 'None selected',
+    select: 'Choose',
+    close: 'Close',
     save: 'Save',
     saving: 'Saving...',
     saved: 'Saved.',
@@ -49,6 +55,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: '有需要避免的食物吗？',
     description: '警告会结合准确的过敏代码和菜单名称关键词。',
     empty: '未选择',
+    select: '选择',
+    close: '关闭',
     save: '保存',
     saving: '保存中...',
     saved: '已保存。',
@@ -58,6 +66,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'Có món nào cần tránh không?',
     description: 'Cảnh báo dùng mã dị ứng chính xác và từ khóa tên món để hỗ trợ.',
     empty: 'Chưa chọn',
+    select: 'Chọn',
+    close: 'Đóng',
     save: 'Lưu',
     saving: 'Đang lưu...',
     saved: 'Đã lưu.',
@@ -67,6 +77,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'Есть продукты, которых нужно избегать?',
     description: 'Предупреждения используют точные коды аллергенов и ключевые слова в названии блюда.',
     empty: 'Не выбрано',
+    select: 'Выбрать',
+    close: 'Закрыть',
     save: 'Сохранить',
     saving: 'Сохранение...',
     saved: 'Сохранено.',
@@ -76,6 +88,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'هل هناك أطعمة يجب تجنبها؟',
     description: 'تستخدم التحذيرات رموز الحساسية الدقيقة وكلمات اسم الطبق كدعم.',
     empty: 'لم يتم الاختيار',
+    select: 'اختيار',
+    close: 'إغلاق',
     save: 'حفظ',
     saving: 'جارٍ الحفظ...',
     saved: 'تم الحفظ.',
@@ -85,6 +99,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'Y a-t-il des aliments à éviter ?',
     description: 'Les alertes utilisent les codes allergènes exacts et les mots-clés du menu en complément.',
     empty: 'Aucune sélection',
+    select: 'Choisir',
+    close: 'Fermer',
     save: 'Enregistrer',
     saving: 'Enregistrement...',
     saved: 'Enregistré.',
@@ -94,6 +110,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'Ada makanan yang perlu dihindari?',
     description: 'Peringatan memakai kode alergi yang tepat dan kata kunci nama menu sebagai bantuan.',
     empty: 'Belum dipilih',
+    select: 'Pilih',
+    close: 'Tutup',
     save: 'Simpan',
     saving: 'Menyimpan...',
     saved: 'Tersimpan.',
@@ -103,6 +121,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
     onboardingTitle: 'มีอาหารที่ต้องหลีกเลี่ยงไหม?',
     description: 'คำเตือนใช้รหัสแพ้อาหารที่แม่นยำและคำสำคัญจากชื่อเมนูช่วยตรวจสอบ',
     empty: 'ยังไม่ได้เลือก',
+    select: 'เลือก',
+    close: 'ปิด',
     save: 'บันทึก',
     saving: 'กำลังบันทึก...',
     saved: 'บันทึกแล้ว',
