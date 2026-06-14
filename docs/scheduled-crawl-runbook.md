@@ -11,7 +11,7 @@
 07:00 / 19:00  Scheduler → naranhi-content-extractor (pending 공지 본문 추출 + 카드 + (인라인)번역)
 ```
 
-- 크롤러는 게시판 상위 `CRAWLER_SCHEDULE_NOTICE_COUNT`(워크플로 기본 20)개를 스캔한다.
+- 크롤러는 게시판 상위 `CRAWLER_SCHEDULE_NOTICE_COUNT`(워크플로 기본 8)개를 스캔한다.
 - **증분수집(watermark)**: 게시판별 "마지막으로 본 최대 글번호"보다 큰 글만 신규 처리한다.
   글번호가 신뢰 가능한 숫자 일련번호(nttSn/boardSeq/nttId/번호/`/view/숫자`)인 경우에만 적용되고,
   해시·LLM 생성·첨부 파일번호·경로숫자·카테고리 id 등은 기존 중복제거 방식으로 폴백한다.
@@ -69,7 +69,7 @@ gcloud scheduler jobs create http naranhi-content-extractor-1900 --schedule="0 1
 
 ## 튜닝 / 비상
 
-- **스캔 깊이**: 크롤러 Job env `CRAWLER_SCHEDULE_NOTICE_COUNT`(워크플로 기본 20). 한 게시판에서
+- **스캔 깊이**: 크롤러 Job env `CRAWLER_SCHEDULE_NOTICE_COUNT`(워크플로 기본 8). 한 게시판에서
   반나절에 (고정공지 포함) 이보다 많은 글이 올라오면 그 너머는 못 본다 → 필요 시 올린다.
 - **추출량**: 추출기 Job args `--max-notices 30`. 실제 처리량은 `EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN`
   (기본 80콜)이 좌우 — 새 공지가 많으면 한 번에 다 못 하고 다음 run에 이어서 처리된다.
@@ -82,4 +82,4 @@ gcloud scheduler jobs create http naranhi-content-extractor-1900 --schedule="0 1
 - "글번호가 클수록 최신"은 우리 학교들이 쓰는 CMS(eGovFrame nttSn / boardCnts boardSeq 등 자동증가
   시퀀스)에서 성립한다. 게시일을 따로 저장하지 않으므로 번호로만 판단한다.
 - 스캔 깊이(상위 N) 너머로 밀린 신규 글은 watermark로도 못 잡는다(페이지네이션 미구현). 현재 학교
-  공지량(하루 수 건)에서는 N=20이면 충분.
+  공지량(보통 하루 1건)에서는 N=8이면 충분(고정공지 몇 개 위에 있어도 새 글 잡힘).
