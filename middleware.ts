@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { appendNextParam } from './lib/auth/redirect'
 
+const TEST_BYPASS_ENTRY_PATHS = ['/login', '/onboarding']
+
 const PUBLIC_PATHS = [
   '/demo',
   '/login',
@@ -13,6 +15,17 @@ const PUBLIC_PATHS = [
 ]
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+  const isTestEntryBypass = process.env.TEST_ENTRY_BYPASS === 'true'
+
+  if (isTestEntryBypass) {
+    const shouldRedirectHome = TEST_BYPASS_ENTRY_PATHS.some((p) => pathname.startsWith(p))
+    if (shouldRedirectHome) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    return NextResponse.next({ request })
+  }
+
   const isPreview = process.env.NEXT_PUBLIC_UI_PREVIEW === 'true'
     || request.cookies.get('ui_preview')?.value === 'true'
 
@@ -42,7 +55,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
   if (!user && !isPublic) {

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
+import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import BrandHeader from '@/components/brand/BrandHeader'
@@ -25,6 +26,7 @@ export default async function SettingsPage() {
   } | null = null
 
   const isPreview = await isUiPreviewEnabled()
+  const testEntryBypass = isTestEntryBypassEnabled()
 
   if (isPreview) {
     child = {
@@ -36,10 +38,14 @@ export default async function SettingsPage() {
     }
   } else {
     const supabase = await createSupabaseServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/login')
+    const { data: { user } } = testEntryBypass
+      ? { data: { user: null } }
+      : await supabase.auth.getUser()
+    if (!user && !testEntryBypass) redirect('/login')
 
-    const latestChild = await getLatestChildForUser(user.id)
+    const latestChild = testEntryBypass
+      ? await ensureTestBypassChild()
+      : await getLatestChildForUser(user!.id)
     child = latestChild
       ? {
           id: latestChild.id,
@@ -82,7 +88,7 @@ export default async function SettingsPage() {
 
         <hr className="border-border" />
 
-        {child && !isPreview && (
+        {child && !isPreview && !testEntryBypass && (
           <>
             <SchoolReselect
               childId={child.id}
@@ -114,6 +120,7 @@ export default async function SettingsPage() {
           </>
         )}
 
+        {!testEntryBypass && (
         <section>
           {isPreview ? (
             <a
@@ -126,6 +133,7 @@ export default async function SettingsPage() {
             <LogoutButton label={messages.settings.logout} />
           )}
         </section>
+        )}
 
         <p className="text-xs text-text-disabled text-center mt-4">
           {messages.settings.version.replace('{version}', '0.1.0')}

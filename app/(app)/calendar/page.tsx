@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getChildrenForUser } from '@/lib/server-cache'
+import { ensureTestBypassChildren, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { backfillSchoolEventsForSchools } from '@/lib/schedule-backfill'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import {
@@ -93,12 +94,19 @@ export default async function CalendarPage({ searchParams }: Props) {
     timetableDays = await translateTimetableDays(previewTimetableEntries(monday), locale)
     childLabel = '나란히초등학교 3-2'
   } else {
-    const supabase = await createSupabaseServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/login')
+    const testEntryBypass = isTestEntryBypassEnabled()
+    const supabase = testEntryBypass
+      ? createSupabaseServiceClient()
+      : await createSupabaseServerClient()
+    const { data: { user } } = testEntryBypass
+      ? { data: { user: null } }
+      : await supabase.auth.getUser()
+    if (!user && !testEntryBypass) redirect('/login')
 
     try {
-      const children = await getChildrenForUser(user.id)
+      const children = testEntryBypass
+        ? await ensureTestBypassChildren()
+        : await getChildrenForUser(user!.id)
 
       const schoolIds = Array.from(new Set((children ?? []).map(child => child.school_id).filter(Boolean))) as string[]
       const child = children?.[0] ?? null

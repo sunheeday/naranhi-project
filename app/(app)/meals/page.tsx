@@ -8,6 +8,7 @@ import {
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
+import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import { getCachedOrFetchMealsForRange, type Meal } from '@/lib/neis'
 import BrandHeader from '@/components/brand/BrandHeader'
@@ -80,11 +81,18 @@ export default async function MealsPage({ searchParams }: Props) {
     dayEntries = await previewMealEntries(monday, locale)
     childLabel = '나란히초등학교 3-2'
   } else {
-    const supabase = await createSupabaseServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/login')
+    const testEntryBypass = isTestEntryBypassEnabled()
+    const supabase = testEntryBypass
+      ? createSupabaseServiceClient()
+      : await createSupabaseServerClient()
+    const { data: { user } } = testEntryBypass
+      ? { data: { user: null } }
+      : await supabase.auth.getUser()
+    if (!user && !testEntryBypass) redirect('/login')
 
-    const child = await getLatestChildForUser(user.id)
+    const child = testEntryBypass
+      ? await ensureTestBypassChild()
+      : await getLatestChildForUser(user!.id)
 
     if (!child) redirect('/onboarding')
     childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
@@ -97,7 +105,7 @@ export default async function MealsPage({ searchParams }: Props) {
     if (isDemoSchool) {
       const serviceClient = await createSupabaseServiceClient()
       try {
-        if (child.school_id) {
+        if (child.school_id && !testEntryBypass) {
           await ensureDemoSchoolSeed(serviceClient, child.school_id)
         }
         const map = await getSeededDemoMealsForRange(serviceClient, monday, friday)

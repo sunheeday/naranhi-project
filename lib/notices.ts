@@ -1,7 +1,8 @@
 import 'server-only'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
 import { pickTranslation, type Translations } from '@/lib/translations'
+import { isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import type { CardType, Json, NoticeStatus } from '@/types/database'
 
 /**
@@ -105,7 +106,9 @@ export async function getNoticeDetail(
   noticeId: string,
   locale: Locale = 'ko'
 ): Promise<NoticeDetailDto | null> {
-  const supabase = await createSupabaseServerClient()
+  const supabase = isTestEntryBypassEnabled()
+    ? createSupabaseServiceClient()
+    : await createSupabaseServerClient()
 
   const { data: notice, error } = await supabase
     .from('notices')
