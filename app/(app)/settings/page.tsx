@@ -162,10 +162,8 @@ export default async function SettingsPage() {
         {testEntryBypass && (
           <>
             <DemoSchoolPicker
-              schools={BYPASS_SCHOOLS.map(s => ({ key: s.key, name: s.name, level: s.level }))}
+              schools={BYPASS_SCHOOLS.map(s => ({ key: s.key, name: s.name }))}
               currentKey={selectedBypassKey}
-              title={messages.settings.school_section_title ?? '학교 정보'}
-              hint="학교를 고르면 그 학교 공지로 바뀌어요. 처음 고르는 학교는 잠시 후 공지가 채워져요."
             />
             <hr className="border-border" />
           </>
