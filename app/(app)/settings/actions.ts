@@ -5,7 +5,12 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
-import { isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
+import {
+  DEMO_SCHOOL_COOKIE,
+  getBypassSchoolByKey,
+  isBypassSchoolKey,
+  isTestEntryBypassEnabled,
+} from '@/lib/test-entry-bypass'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import { serverCacheTags } from '@/lib/server-cache'
 import {
@@ -196,6 +201,43 @@ export async function updateChildDietaryRestrictions(input: {
   revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
   revalidatePath('/meals')
   revalidatePath('/settings')
+}
+
+/**
+ * 데모(우회 모드) 전용: 화이트리스트에서 학교를 선택해 demo_school 쿠키에 저장.
+ * 이후 ensureTestBypassChild가 이 쿠키로 학교를 결정한다.
+ */
+export async function selectDemoSchool(key: string): Promise<void> {
+  if (!isTestEntryBypassEnabled()) {
+    throw new Error('데모 모드에서만 사용할 수 있어요.')
+  }
+  if (!isBypassSchoolKey(key)) {
+    throw new Error('선택할 수 없는 학교예요.')
+  }
+  const school = getBypassSchoolByKey(key)
+  const cookieStore = await cookies()
+  cookieStore.set(DEMO_SCHOOL_COOKIE, school.key, {
+    httpOnly: true,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  })
+
+  // 이미 DB에 있는 학교면 홈 요약(unstable_cache) 태그도 무효화해
+  // 학교 전환 직후 '공지 수집 중' 배너가 캐시로 어긋나지 않게 한다.
+  const serviceClient = createSupabaseServiceClient()
+  const { data: schoolRow } = await serviceClient
+    .from('schools')
+    .select('id')
+    .eq('neis_office_code', school.officeCode)
+    .eq('neis_school_code', school.schoolCode)
+    .maybeSingle()
+  if (schoolRow?.id) {
+    revalidateTag(serverCacheTags.schoolSummaryTag(schoolRow.id), 'max')
+  }
+
+  // 학교가 바뀌면 홈/급식/캘린더/촬영/설정 전부 새 학교 기준으로 다시 렌더.
+  revalidatePath('/', 'layout')
 }
 
 function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
