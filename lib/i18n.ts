@@ -1,6 +1,7 @@
 export const locales = ['ko', 'en', 'zh', 'vi', 'ru', 'ar', 'fr', 'id', 'th'] as const
 export type Locale = (typeof locales)[number]
 export const defaultLocale: Locale = 'ko'
+export const selectableLocales = ['ko', 'en', 'zh', 'vi', 'ru', 'ar'] as const satisfies readonly Locale[]
 
 export const localeNames: Record<Locale, string> = {
   ko: '한국어',
