@@ -321,10 +321,7 @@ function DishRow({ dish, allergyPrefix }: { dish: MealDish; allergyPrefix: strin
       {dietaryWarnings.map(warning => (
         <span
           key={warning.id}
-          className={[
-            'text-[11px] font-semibold',
-            warning.confidence === 'allergen' ? 'text-card-action' : 'text-amber-600',
-          ].join(' ')}
+          className="inline-flex items-center rounded-pill border border-[#C98D4A] bg-[#FFF4E2] px-1.5 py-0.5 text-[11px] font-bold leading-none text-[#6F421C]"
           title={warning.reason}
         >
           ⚠ {warning.label}

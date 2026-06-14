@@ -9,6 +9,7 @@ export interface ScheduleEvent {
   id: string
   noticeId: string
   title: string
+  sourceTitle?: string | null
   eventDate: string  // YYYY-MM-DD
   endDate?: string | null
   eventKinds: ('event' | 'deadline')[]
@@ -78,8 +79,12 @@ function mergeKinds(events: ScheduleEvent[]): ('event' | 'deadline')[] {
   return (['deadline', 'event'] as const).filter(kind => kinds.has(kind))
 }
 
-function shouldPreferDeadlineOnly(title: string): boolean {
-  return title.includes('건강검진')
+function eventTitleForNormalization(event: ScheduleEvent): string {
+  return event.sourceTitle || event.title
+}
+
+function shouldPreferDeadlineOnly(normalizedTitle: string): boolean {
+  return normalizedTitle.includes('건강검진')
 }
 
 function titleKey(title: string): string {
@@ -88,14 +93,28 @@ function titleKey(title: string): string {
     .replace(/[()[\]{}<>]/g, '')
 }
 
-function shouldMergeShortRange(title: string, current: ScheduleEvent, next: ScheduleEvent): boolean {
+function shouldMergeShortRange(normalizedTitle: string, current: ScheduleEvent, next: ScheduleEvent): boolean {
   const gap = daysBetween(current.eventDate, next.eventDate)
   if (gap < 1 || gap > 2) return false
-  return kindKey(current) === kindKey(next) || title.includes('줄넘기')
+  return kindKey(current) === kindKey(next) || normalizedTitle.includes('줄넘기')
 }
 
-function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): ScheduleEvent[] {
-  if (!title.includes('줄넘기챔피언십')) return rows
+function normalizeKnownCurrentNoticeRows(normalizedTitle: string, rows: ScheduleEvent[]): ScheduleEvent[] {
+  if (normalizedTitle.includes('정기시험') && normalizedTitle.includes('기출문제')) {
+    const start = rows.find(row => row.eventDate === '2026-06-24')
+    const end = rows.find(row => row.eventDate === '2026-06-30')
+    if (start && end) {
+      return [{
+        ...start,
+        id: `range:${start.noticeId}:2026-06-24:2026-06-30`,
+        eventDate: '2026-06-24',
+        endDate: '2026-06-30',
+        eventKinds: mergeKinds(rows),
+      }]
+    }
+  }
+
+  if (!normalizedTitle.includes('줄넘기챔피언십')) return rows
 
   const preliminary = rows.find(row => row.eventDate === '2026-06-08')
   if (!preliminary) return rows
@@ -116,7 +135,7 @@ function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): 
 function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
   const byNotice = new Map<string, ScheduleEvent[]>()
   for (const event of events) {
-    const key = titleKey(event.title) || event.noticeId
+    const key = event.noticeId || titleKey(eventTitleForNormalization(event))
     const list = byNotice.get(key) ?? []
     list.push(event)
     byNotice.set(key, list)
@@ -124,24 +143,24 @@ function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
 
   const normalized: ScheduleEvent[] = []
   for (const group of byNotice.values()) {
-    const title = group[0]?.title ?? ''
+    const normalizedTitle = group[0] ? eventTitleForNormalization(group[0]) : ''
     let rows = [...group].sort((a, b) => a.eventDate.localeCompare(b.eventDate))
 
     // 현재 부천부흥중학교 공지 중 건강검진은 실제 실시일(6/5)과 안내성 날짜(6/1)가 함께 잡힌다.
     // deadline/action이 붙은 실시일이 있으면 안내성 event-only 날짜는 캘린더 표시에서 제외한다.
-    if (shouldPreferDeadlineOnly(title)) {
+    if (shouldPreferDeadlineOnly(normalizedTitle)) {
       const deadlineRows = rows.filter(row => row.eventKinds.includes('deadline'))
       if (deadlineRows.length > 0) {
         rows = deadlineRows
       }
     }
-    rows = normalizeKnownCurrentNoticeRows(title, rows)
+    rows = normalizeKnownCurrentNoticeRows(normalizedTitle, rows)
 
     for (let index = 0; index < rows.length; index += 1) {
       const segment = [rows[index]]
       while (
         index + 1 < rows.length
-        && shouldMergeShortRange(title, segment[segment.length - 1], rows[index + 1])
+        && shouldMergeShortRange(normalizedTitle, segment[segment.length - 1], rows[index + 1])
       ) {
         index += 1
         segment.push(rows[index])
@@ -169,6 +188,16 @@ function formatEventDateLabel(event: ScheduleEvent): string {
   const endDate = eventEndDate(event)
   if (endDate === event.eventDate) return start
   return `${start}–${endDate.slice(5).replace('-', '/')}`
+}
+
+function rangeSegmentClass(event: ScheduleEvent, date: string): string {
+  const start = event.eventDate === date
+  const end = eventEndDate(event) === date
+
+  if (start && end) return 'start-1/2 end-1/2 rounded-full'
+  if (start) return 'start-1/2 -end-px rounded-s-full'
+  if (end) return '-start-px end-1/2 rounded-e-full'
+  return '-start-px -end-px'
 }
 
 export default function CalendarView({
@@ -287,27 +316,25 @@ export default function CalendarView({
               ].join(' ')}>
                 {day}
               </span>
-              <div className="mt-0.5 flex h-2 w-full items-center justify-center gap-[3px] px-1">
+              <div className="relative mt-0.5 h-2 w-full">
                 {rangeEvents.slice(0, 1).map(event => {
-                  const start = event.eventDate === dateStr
-                  const end = eventEndDate(event) === dateStr
                   return (
                     <span
                       key={event.id}
                       className={[
-                        'h-1.5 flex-1 bg-card-schedule',
-                        start ? 'rounded-s-full' : '',
-                        end ? 'rounded-e-full' : '',
-                        !start && !end ? 'rounded-none' : '',
+                        'absolute top-1/2 h-1.5 -translate-y-1/2 bg-card-schedule',
+                        rangeSegmentClass(event, dateStr),
                       ].join(' ')}
                       aria-hidden="true"
                     />
                   )
                 })}
                 {rangeEvents.length === 0 && dotEvents.length > 0 && (
-                  dotEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
-                    <span key={`${kind}-${i}`} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[kind]}`} aria-hidden="true" />
-                  ))
+                  <div className="flex h-full items-center justify-center gap-[3px] px-1">
+                    {dotEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
+                      <span key={`${kind}-${i}`} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[kind]}`} aria-hidden="true" />
+                    ))}
+                  </div>
                 )}
               </div>
             </button>

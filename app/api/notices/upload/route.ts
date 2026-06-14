@@ -2,11 +2,13 @@ import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 import { defaultLocale, isValidLocale, type Locale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 
 export async function POST(request: NextRequest) {
+  const testEntryBypass = isTestEntryBypassEnabled()
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
+  if ((authError || !user) && !testEntryBypass) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'missing_fastapi_url' }, { status: 503 })
   }
 
-  const targetLanguage = await resolveTargetLanguage(user.id)
+  const targetLanguage = await resolveTargetLanguage(user?.id ?? null)
   const backendFormData = new FormData()
   backendFormData.append('file', file, file.name)
 
@@ -57,11 +59,15 @@ export async function POST(request: NextRequest) {
   })
 }
 
-async function resolveTargetLanguage(userId: string): Promise<Locale> {
+async function resolveTargetLanguage(userId: string | null): Promise<Locale> {
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get('locale')?.value
   if (isValidLocale(cookieLocale)) {
     return cookieLocale
+  }
+
+  if (!userId) {
+    return defaultLocale
   }
 
   const supabase = await createSupabaseServerClient()
