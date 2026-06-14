@@ -185,6 +185,16 @@ function formatEventDateLabel(event: ScheduleEvent): string {
   return `${start}–${endDate.slice(5).replace('-', '/')}`
 }
 
+function rangeSegmentClass(event: ScheduleEvent, date: string): string {
+  const start = event.eventDate === date
+  const end = eventEndDate(event) === date
+
+  if (start && end) return 'left-1/2 right-1/2 rounded-full'
+  if (start) return 'left-1/2 -right-px rounded-s-full'
+  if (end) return '-left-px right-1/2 rounded-e-full'
+  return '-left-px -right-px'
+}
+
 export default function CalendarView({
   events,
   initialYear,
@@ -301,27 +311,25 @@ export default function CalendarView({
               ].join(' ')}>
                 {day}
               </span>
-              <div className="mt-0.5 flex h-2 w-full items-center justify-center gap-[3px] px-1">
+              <div className="relative mt-0.5 h-2 w-full">
                 {rangeEvents.slice(0, 1).map(event => {
-                  const start = event.eventDate === dateStr
-                  const end = eventEndDate(event) === dateStr
                   return (
                     <span
                       key={event.id}
                       className={[
-                        'h-1.5 flex-1 bg-card-schedule',
-                        start ? 'rounded-s-full' : '',
-                        end ? 'rounded-e-full' : '',
-                        !start && !end ? 'rounded-none' : '',
+                        'absolute top-1/2 h-1.5 -translate-y-1/2 bg-card-schedule',
+                        rangeSegmentClass(event, dateStr),
                       ].join(' ')}
                       aria-hidden="true"
                     />
                   )
                 })}
                 {rangeEvents.length === 0 && dotEvents.length > 0 && (
-                  dotEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
-                    <span key={`${kind}-${i}`} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[kind]}`} aria-hidden="true" />
-                  ))
+                  <div className="flex h-full items-center justify-center gap-[3px] px-1">
+                    {dotEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
+                      <span key={`${kind}-${i}`} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[kind]}`} aria-hidden="true" />
+                    ))}
+                  </div>
                 )}
               </div>
             </button>
