@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { cookies } from 'next/headers'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ensureSchoolCrawlerState } from '@/lib/school-crawl-state'
 import {
@@ -10,19 +11,130 @@ import {
 import type { CachedChildSummary } from '@/lib/server-cache'
 import type { Json } from '@/types/database'
 
-export const TEST_BYPASS_SCHOOL_NAME = '부천부흥중학교'
+export const DEMO_SCHOOL_COOKIE = 'demo_school'
 export const TEST_BYPASS_CHILD_NAME = '학생'
-export const TEST_BYPASS_OFFICE_CODE = 'J10'
-export const TEST_BYPASS_SCHOOL_CODE = '7581020'
-export const TEST_BYPASS_SCHOOL_ADDRESS = '경기도 부천시 원미구 계남로 268'
-export const TEST_BYPASS_SCHOOL_HOMEPAGE_URL = 'https://pcbuheung-m.goebc.kr'
+
+export type BypassSchoolLevel = 'elementary' | 'middle'
+
+export interface BypassSchool {
+  key: string
+  name: string
+  level: BypassSchoolLevel
+  officeCode: string
+  schoolCode: string
+  address: string
+  homepageUrl: string
+}
+
+/**
+ * 데모(우회 모드)에서 선택할 수 있는 학교 목록.
+ * 첫 항목이 기본값(쿠키 없을 때). NEIS 코드는 NEIS schoolInfo에서 확인한 값.
+ */
+export const BYPASS_SCHOOLS: BypassSchool[] = [
+  {
+    key: 'bucheon-buhung-m',
+    name: '부천부흥중학교',
+    level: 'middle',
+    officeCode: 'J10',
+    schoolCode: '7581020',
+    address: '경기도 부천시 원미구 계남로 268',
+    homepageUrl: 'https://pcbuheung-m.goebc.kr',
+  },
+  {
+    key: 'donginchon-m',
+    name: '동인천중학교',
+    level: 'middle',
+    officeCode: 'E10',
+    schoolCode: '7341072',
+    address: '인천광역시 남동구 구월남로57번길 12',
+    homepageUrl: 'https://donginchon.icems.kr',
+  },
+  {
+    key: 'incheon-hambak-e',
+    name: '인천함박초등학교',
+    level: 'elementary',
+    officeCode: 'E10',
+    schoolCode: '7341063',
+    address: '인천광역시 연수구 함박뫼로 87',
+    homepageUrl: 'https://hambak.icees.kr',
+  },
+  {
+    key: 'incheon-munnam-e',
+    name: '인천문남초등학교',
+    level: 'elementary',
+    officeCode: 'E10',
+    schoolCode: '7341032',
+    address: '인천광역시 연수구 먼우금로 273',
+    homepageUrl: 'http://munnam.icees.kr/',
+  },
+]
+
+export const DEFAULT_BYPASS_SCHOOL: BypassSchool = BYPASS_SCHOOLS[0]
+export const DEFAULT_BYPASS_SCHOOL_KEY = DEFAULT_BYPASS_SCHOOL.key
 
 export function isTestEntryBypassEnabled(): boolean {
   return process.env.TEST_ENTRY_BYPASS === 'true'
 }
 
+export function isBypassSchoolKey(key: string | null | undefined): boolean {
+  return BYPASS_SCHOOLS.some(school => school.key === key)
+}
+
+/** key로 화이트리스트 학교 조회. 없거나 잘못된 key면 기본 학교 반환. */
+export function getBypassSchoolByKey(key: string | null | undefined): BypassSchool {
+  return BYPASS_SCHOOLS.find(school => school.key === key) ?? DEFAULT_BYPASS_SCHOOL
+}
+
+/** demo_school 쿠키를 읽어 현재 선택된 학교를 반환. */
+export async function getSelectedBypassSchool(): Promise<BypassSchool> {
+  const cookieStore = await cookies()
+  return getBypassSchoolByKey(cookieStore.get(DEMO_SCHOOL_COOKIE)?.value)
+}
+
 function jsonRecord(value: Json | null | undefined): Record<string, Json> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
+  return error.code === '23505' || (error.message ?? '').includes('duplicate key value')
+}
+
+/**
+ * 학교 행을 insert하되, 동시 렌더 경쟁으로 unique 충돌(23505)이 나면
+ * 이미 들어간 행을 재조회해 복구한다. (updateChildSchool의 패턴과 동일)
+ */
+async function insertOrReselectSchool(
+  serviceClient: ReturnType<typeof createSupabaseServiceClient>,
+  school: BypassSchool,
+): Promise<string> {
+  const { data: insertedSchool, error: insertError } = await serviceClient
+    .from('schools')
+    .insert({
+      name: school.name,
+      address: school.address,
+      homepage_url: school.homepageUrl,
+      neis_office_code: school.officeCode,
+      neis_school_code: school.schoolCode,
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (!insertError && insertedSchool?.id) {
+    return insertedSchool.id
+  }
+
+  if (insertError && isUniqueViolation(insertError)) {
+    const { data: raceSchool, error: raceError } = await serviceClient
+      .from('schools')
+      .select('id')
+      .eq('neis_office_code', school.officeCode)
+      .eq('neis_school_code', school.schoolCode)
+      .maybeSingle()
+    if (raceSchool?.id) return raceSchool.id
+    throw new Error(`테스트 학교 재조회 실패: ${raceError?.message ?? 'id 없음'}`)
+  }
+
+  throw new Error(`테스트 학교 생성 실패: ${insertError?.message ?? 'id 없음'}`)
 }
 
 async function removeSeededDemoNoticesForSchool(
@@ -66,13 +178,18 @@ async function removeSeededDemoNoticesForSchool(
   }
 }
 
-export async function ensureTestBypassChild(): Promise<CachedChildSummary> {
+/**
+ * 선택된 학교를 prod에 보장하고(없으면 insert + 초기 크롤 트리거), 우회용 자녀 요약을 반환.
+ * - DB에 이미 있으면 그 학교를 그대로 사용(필요 시 메타만 갱신).
+ * - DB에 없으면 insert 후 초기 크롤을 큐에 넣음 → "선택"이 곧 크롤 트리거.
+ */
+async function ensureBypassChildForSchool(school: BypassSchool): Promise<CachedChildSummary> {
   const serviceClient = createSupabaseServiceClient()
   const { data: existingSchool, error: lookupError } = await serviceClient
     .from('schools')
     .select('id,name,address,homepage_url,neis_office_code,neis_school_code')
-    .eq('neis_office_code', TEST_BYPASS_OFFICE_CODE)
-    .eq('neis_school_code', TEST_BYPASS_SCHOOL_CODE)
+    .eq('neis_office_code', school.officeCode)
+    .eq('neis_school_code', school.schoolCode)
     .maybeSingle()
 
   if (lookupError) {
@@ -81,36 +198,20 @@ export async function ensureTestBypassChild(): Promise<CachedChildSummary> {
 
   let schoolId: string
   if (!existingSchool) {
-    const { data: insertedSchool, error: insertError } = await serviceClient
-      .from('schools')
-      .insert({
-        name: TEST_BYPASS_SCHOOL_NAME,
-        address: TEST_BYPASS_SCHOOL_ADDRESS,
-        homepage_url: TEST_BYPASS_SCHOOL_HOMEPAGE_URL,
-        neis_office_code: TEST_BYPASS_OFFICE_CODE,
-        neis_school_code: TEST_BYPASS_SCHOOL_CODE,
-      })
-      .select('id')
-      .maybeSingle()
-
-    if (insertError || !insertedSchool?.id) {
-      throw new Error(`테스트 학교 생성 실패: ${insertError?.message ?? 'id 없음'}`)
-    }
-    schoolId = insertedSchool.id
+    schoolId = await insertOrReselectSchool(serviceClient, school)
   } else {
-    const school = existingSchool
-    schoolId = school.id
-    const needsSchoolUpdate = school.name !== TEST_BYPASS_SCHOOL_NAME
-      || school.address !== TEST_BYPASS_SCHOOL_ADDRESS
-      || school.homepage_url !== TEST_BYPASS_SCHOOL_HOMEPAGE_URL
+    schoolId = existingSchool.id
+    const needsSchoolUpdate = existingSchool.name !== school.name
+      || existingSchool.address !== school.address
+      || existingSchool.homepage_url !== school.homepageUrl
 
     if (needsSchoolUpdate) {
       const { error: updateError } = await serviceClient
         .from('schools')
         .update({
-          name: TEST_BYPASS_SCHOOL_NAME,
-          address: TEST_BYPASS_SCHOOL_ADDRESS,
-          homepage_url: TEST_BYPASS_SCHOOL_HOMEPAGE_URL,
+          name: school.name,
+          address: school.address,
+          homepage_url: school.homepageUrl,
         })
         .eq('id', schoolId)
 
@@ -141,13 +242,18 @@ export async function ensureTestBypassChild(): Promise<CachedChildSummary> {
     id: 'test-entry-bypass-child',
     school_id: schoolId,
     name: TEST_BYPASS_CHILD_NAME,
-    school_name: TEST_BYPASS_SCHOOL_NAME,
+    school_name: school.name,
     grade: 1,
     class_no: 1,
-    neis_office_code: TEST_BYPASS_OFFICE_CODE,
-    neis_school_code: TEST_BYPASS_SCHOOL_CODE,
+    neis_office_code: school.officeCode,
+    neis_school_code: school.schoolCode,
     dietary_restrictions: [],
   }
+}
+
+export async function ensureTestBypassChild(): Promise<CachedChildSummary> {
+  const school = await getSelectedBypassSchool()
+  return ensureBypassChildForSchool(school)
 }
 
 export async function ensureTestBypassChildren(): Promise<CachedChildSummary[]> {

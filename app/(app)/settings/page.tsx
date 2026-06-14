@@ -3,13 +3,20 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
-import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
+import {
+  ensureTestBypassChild,
+  isTestEntryBypassEnabled,
+  getSelectedBypassSchool,
+  BYPASS_SCHOOLS,
+  DEFAULT_BYPASS_SCHOOL_KEY,
+} from '@/lib/test-entry-bypass'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
 import LogoutButton from './LogoutButton'
 import SchoolReselect from './SchoolReselect'
+import DemoSchoolPicker from './DemoSchoolPicker'
 import DietaryRestrictionsForm from './DietaryRestrictionsForm'
 import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 
@@ -78,6 +85,10 @@ export default async function SettingsPage() {
     ? `${child.grade}-${child.class_no ?? ''}`
     : ''
 
+  const selectedBypassKey = testEntryBypass
+    ? (await getSelectedBypassSchool()).key
+    : DEFAULT_BYPASS_SCHOOL_KEY
+
   return (
     <main className="flex flex-col min-h-screen pb-20">
       <BrandHeader title={messages.settings.title} />
@@ -143,6 +154,18 @@ export default async function SettingsPage() {
                 grade_placeholder: '학년 선택',
                 class_placeholder: '반 입력',
               }}
+            />
+            <hr className="border-border" />
+          </>
+        )}
+
+        {testEntryBypass && (
+          <>
+            <DemoSchoolPicker
+              schools={BYPASS_SCHOOLS.map(s => ({ key: s.key, name: s.name, level: s.level }))}
+              currentKey={selectedBypassKey}
+              title={messages.settings.school_section_title ?? '학교 정보'}
+              hint="학교를 고르면 그 학교 공지로 바뀌어요. 처음 고르는 학교는 잠시 후 공지가 채워져요."
             />
             <hr className="border-border" />
           </>
