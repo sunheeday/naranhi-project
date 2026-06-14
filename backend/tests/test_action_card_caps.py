@@ -3,6 +3,7 @@ import unittest
 from app.services.notice_service import (
     _MAX_ACTION_CARD_ITEMS,
     _canonical_action_card_items,
+    _is_actionable_card_item,
     _submission_already_in_actions,
     _translated_card_content_for_type,
 )
@@ -96,6 +97,41 @@ class SubmissionDedupTest(unittest.TestCase):
         self.assertTrue(
             _submission_already_in_actions("재검진 결과", ["재검진 결과 학교 제출"])
         )
+
+
+class CooperationBoilerplateFilterTest(unittest.TestCase):
+    def test_pure_cooperation_request_dropped(self):
+        # 불법찬조금 실제 케이스: 구체적 동작 없는 일반 협조 안내 → 카드에서 제외.
+        source_facts = {"actions_required": [{"raw_text": "불법찬조금 근절에 협조해 주십시오"}]}
+        items = _canonical_action_card_items(source_facts=source_facts, metadata={})
+        self.assertEqual(items, [])
+
+    def test_awareness_check_request_dropped(self):
+        # 위험물품 실제 케이스: "~점검 및 협조 부탁드립니다" → 제외.
+        source_facts = {
+            "actions_required": [
+                {"raw_text": "가정 내에서도 학생들이 등교할 때 위험 및 소지 금지 물품을 가지고 등교하지 않도록 점검 및 협조 부탁드립니다."}
+            ]
+        }
+        items = _canonical_action_card_items(source_facts=source_facts, metadata={})
+        self.assertEqual(items, [])
+
+    def test_concrete_action_with_cooperation_is_kept(self):
+        # 구체적 동작(제출)이 있으면 '협조' 표현이 섞여도 유지.
+        source_facts = {"actions_required": [{"raw_text": "참가 동의서 제출에 협조 부탁드립니다"}]}
+        items = _canonical_action_card_items(source_facts=source_facts, metadata={})
+        self.assertEqual([i["text"] for i in items], ["참가 동의서 제출에 협조 부탁드립니다"])
+
+    def test_helper_classification(self):
+        # 일반 협조·당부·유의 → 제외
+        self.assertFalse(_is_actionable_card_item("불법찬조금 근절에 협조해 주십시오"))
+        self.assertFalse(_is_actionable_card_item("안전에 유의해 주시기 바랍니다"))
+        self.assertFalse(_is_actionable_card_item("가정에서 지도 당부드립니다"))
+        # 구체적 동작 → 유지
+        self.assertTrue(_is_actionable_card_item("동의서 작성"))
+        self.assertTrue(_is_actionable_card_item("재검진 결과 학교 제출"))
+        # 협조·동작 단서 둘 다 없는 일반 지시(소변검사 검사 받기류) → 유지(보수적)
+        self.assertTrue(_is_actionable_card_item("학생이 결석이나 조퇴하지 않고 검사 받기"))
 
 
 if __name__ == "__main__":

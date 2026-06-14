@@ -1706,9 +1706,16 @@ def _canonical_action_card_items(
     metadata: dict[str, Any],
 ) -> list[dict[str, str]]:
     actions = _values(source_facts.get("actions_required")) or _canonical_metadata_values(metadata, "actions_required")
+    # 일반적 협조·당부·유의 안내("~협조 부탁드립니다", "~해 주십시오")는 학부모 '할일'이
+    # 아니므로(구체적 동작 없음) 카드에서 제외한다.
+    actions = [action for action in actions if _is_actionable_card_item(action)]
     submissions = _values(source_facts.get("submissions"))
     deadline = _first_value(source_facts.get("deadlines"))
-    metadata_items = _metadata_card_items(metadata, "action")
+    metadata_items = [
+        item
+        for item in _metadata_card_items(metadata, "action")
+        if _is_actionable_card_item(item.get("text", ""))
+    ]
     if not actions and not submissions and metadata_items:
         return metadata_items[:_MAX_ACTION_CARD_ITEMS]
     if not deadline:
@@ -1733,6 +1740,30 @@ def _canonical_action_card_items(
 
 # 할일 항목이 '제출형'인지 가르는 동사 단서.
 _SUBMIT_ACTION_CUES = ("제출", "회신", "납부", "제출하기")
+
+# 카드 '할일'로 보여줄 만한 구체적 동작 단서. 이게 있으면 협조·당부 표현이 섞여 있어도 유지한다.
+_CONCRETE_ACTION_CUES = (
+    "제출", "신청", "납부", "회신", "동의", "작성", "방문", "접수",
+    "지참", "준비물", "등록", "예약", "결제", "서명",
+)
+# 구체적 동작 없이 이 단서만 있으면 일반 협조·당부·유의 안내로 보고 카드에서 제외한다.
+_COOPERATION_ONLY_CUES = ("협조", "당부", "유의", "양해")
+
+
+def _is_actionable_card_item(text: str) -> bool:
+    """학부모 카드 '할일'로 적합한지 판단.
+
+    "불법찬조금 근절에 협조해 주십시오", "~점검 및 협조 부탁드립니다" 같은 일반 협조·당부·
+    유의 안내는 구체적 동작(제출·신청·납부·작성·방문 등)이 없으면 할일이 아니므로 제외한다.
+    구체적 동작 단서가 있으면 협조 표현이 섞여 있어도 유지한다(예: "동의서 제출에 협조").
+    """
+    if not text:
+        return False
+    if any(cue in text for cue in _CONCRETE_ACTION_CUES):
+        return True
+    if any(cue in text for cue in _COOPERATION_ONLY_CUES):
+        return False
+    return True
 
 
 def _submission_already_in_actions(submission: str, actions: list[str]) -> bool:
