@@ -1012,13 +1012,13 @@ function buildStaticDemoNotices(
     source_post_uid: seed.sourcePostUid ?? `demo-${seed.id}`,
     detail_url: seed.detailUrl,
     crawl_result: {
+      ...(jsonRecord(seed.crawlResult)),
       source: 'demo',
       board_url: 'demo://naranhi-school/board',
       board_kind: 'unknown',
       parser_family: 'demo-seed',
       crawl_checked_at: new Date(now - index * 60 * 60 * 1000).toISOString(),
       post_rank: index,
-      ...(jsonRecord(seed.crawlResult)),
     } satisfies Json,
     extracted_content: {
       summary: {

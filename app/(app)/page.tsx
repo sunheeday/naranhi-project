@@ -7,7 +7,7 @@ import { getHiddenNoticeIds, getLatestChildForUser, getSchoolSummary } from '@/l
 import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
-import { DEMO_NOTICE_SEED_IDS, ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
+import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
 import BrandHeader from '@/components/brand/BrandHeader'
@@ -263,30 +263,24 @@ export default async function HomePage() {
 
     const hiddenRowsPromise = user ? getHiddenNoticeIds(user.id) : Promise.resolve([])
 
-    let schoolRowsQuery = child.school_id
+    const schoolRowsQuery = child.school_id
       ? supabase
           .from('notices')
           .select('id, status, title, due_date, extracted_content, crawl_result, created_at')
           .eq('school_id', child.school_id)
           .eq('status', 'done')
       : null
-    if (schoolRowsQuery && testEntryBypass) {
-      schoolRowsQuery = schoolRowsQuery.in('id', DEMO_NOTICE_SEED_IDS)
-    }
     const schoolRowsPromise = schoolRowsQuery
       ? schoolRowsQuery.order('created_at', { ascending: false }).limit(50)
       : Promise.resolve({ data: [] })
 
-    let schoolProcessingCountQuery = child.school_id
+    const schoolProcessingCountQuery = child.school_id
       ? supabase
           .from('notices')
           .select('id', { count: 'exact', head: true })
           .eq('school_id', child.school_id)
           .in('status', ['pending', 'processing'])
       : null
-    if (schoolProcessingCountQuery && testEntryBypass) {
-      schoolProcessingCountQuery = schoolProcessingCountQuery.in('id', DEMO_NOTICE_SEED_IDS)
-    }
     const schoolProcessingCountPromise = schoolProcessingCountQuery
       ? schoolProcessingCountQuery
       : Promise.resolve({ count: 0 })
