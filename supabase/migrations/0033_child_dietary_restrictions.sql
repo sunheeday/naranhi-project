@@ -1,5 +1,5 @@
 alter table public.children
-  add column if not exists dietary_restrictions jsonb not null default '[]'::jsonb;
+  add column if not exists dietary_restrictions text[] not null default '{}'::text[];
 
 do $$
 begin
@@ -11,6 +11,14 @@ begin
   ) then
     alter table public.children
       add constraint children_dietary_restrictions_array_check
-      check (jsonb_typeof(dietary_restrictions) = 'array');
+      check (
+        dietary_restrictions <@ array[
+          'halal',
+          'no_pork',
+          'no_beef',
+          'vegetarian',
+          'kosher'
+        ]::text[]
+      );
   end if;
 end $$;
