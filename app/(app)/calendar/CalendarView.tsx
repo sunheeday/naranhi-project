@@ -9,6 +9,7 @@ export interface ScheduleEvent {
   id: string
   noticeId: string
   title: string
+  sourceTitle?: string | null
   eventDate: string  // YYYY-MM-DD
   endDate?: string | null
   eventKinds: ('event' | 'deadline')[]
@@ -78,8 +79,12 @@ function mergeKinds(events: ScheduleEvent[]): ('event' | 'deadline')[] {
   return (['deadline', 'event'] as const).filter(kind => kinds.has(kind))
 }
 
-function shouldPreferDeadlineOnly(title: string): boolean {
-  return title.includes('건강검진')
+function eventTitleForNormalization(event: ScheduleEvent): string {
+  return event.sourceTitle || event.title
+}
+
+function shouldPreferDeadlineOnly(normalizedTitle: string): boolean {
+  return normalizedTitle.includes('건강검진')
 }
 
 function titleKey(title: string): string {
@@ -88,14 +93,14 @@ function titleKey(title: string): string {
     .replace(/[()[\]{}<>]/g, '')
 }
 
-function shouldMergeShortRange(title: string, current: ScheduleEvent, next: ScheduleEvent): boolean {
+function shouldMergeShortRange(normalizedTitle: string, current: ScheduleEvent, next: ScheduleEvent): boolean {
   const gap = daysBetween(current.eventDate, next.eventDate)
   if (gap < 1 || gap > 2) return false
-  return kindKey(current) === kindKey(next) || title.includes('줄넘기')
+  return kindKey(current) === kindKey(next) || normalizedTitle.includes('줄넘기')
 }
 
-function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): ScheduleEvent[] {
-  if (title.includes('정기시험') && title.includes('기출문제')) {
+function normalizeKnownCurrentNoticeRows(normalizedTitle: string, rows: ScheduleEvent[]): ScheduleEvent[] {
+  if (normalizedTitle.includes('정기시험') && normalizedTitle.includes('기출문제')) {
     const start = rows.find(row => row.eventDate === '2026-06-24')
     const end = rows.find(row => row.eventDate === '2026-06-30')
     if (start && end) {
@@ -109,7 +114,7 @@ function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): 
     }
   }
 
-  if (!title.includes('줄넘기챔피언십')) return rows
+  if (!normalizedTitle.includes('줄넘기챔피언십')) return rows
 
   const preliminary = rows.find(row => row.eventDate === '2026-06-08')
   if (!preliminary) return rows
@@ -130,7 +135,7 @@ function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): 
 function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
   const byNotice = new Map<string, ScheduleEvent[]>()
   for (const event of events) {
-    const key = titleKey(event.title) || event.noticeId
+    const key = event.noticeId || titleKey(eventTitleForNormalization(event))
     const list = byNotice.get(key) ?? []
     list.push(event)
     byNotice.set(key, list)
@@ -138,24 +143,24 @@ function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
 
   const normalized: ScheduleEvent[] = []
   for (const group of byNotice.values()) {
-    const title = group[0]?.title ?? ''
+    const normalizedTitle = group[0] ? eventTitleForNormalization(group[0]) : ''
     let rows = [...group].sort((a, b) => a.eventDate.localeCompare(b.eventDate))
 
     // 현재 부천부흥중학교 공지 중 건강검진은 실제 실시일(6/5)과 안내성 날짜(6/1)가 함께 잡힌다.
     // deadline/action이 붙은 실시일이 있으면 안내성 event-only 날짜는 캘린더 표시에서 제외한다.
-    if (shouldPreferDeadlineOnly(title)) {
+    if (shouldPreferDeadlineOnly(normalizedTitle)) {
       const deadlineRows = rows.filter(row => row.eventKinds.includes('deadline'))
       if (deadlineRows.length > 0) {
         rows = deadlineRows
       }
     }
-    rows = normalizeKnownCurrentNoticeRows(title, rows)
+    rows = normalizeKnownCurrentNoticeRows(normalizedTitle, rows)
 
     for (let index = 0; index < rows.length; index += 1) {
       const segment = [rows[index]]
       while (
         index + 1 < rows.length
-        && shouldMergeShortRange(title, segment[segment.length - 1], rows[index + 1])
+        && shouldMergeShortRange(normalizedTitle, segment[segment.length - 1], rows[index + 1])
       ) {
         index += 1
         segment.push(rows[index])
@@ -189,10 +194,10 @@ function rangeSegmentClass(event: ScheduleEvent, date: string): string {
   const start = event.eventDate === date
   const end = eventEndDate(event) === date
 
-  if (start && end) return 'left-1/2 right-1/2 rounded-full'
-  if (start) return 'left-1/2 -right-px rounded-s-full'
-  if (end) return '-left-px right-1/2 rounded-e-full'
-  return '-left-px -right-px'
+  if (start && end) return 'start-1/2 end-1/2 rounded-full'
+  if (start) return 'start-1/2 -end-px rounded-s-full'
+  if (end) return '-start-px end-1/2 rounded-e-full'
+  return '-start-px -end-px'
 }
 
 export default function CalendarView({

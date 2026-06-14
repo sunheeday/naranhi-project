@@ -190,23 +190,27 @@ export default async function CalendarPage({ searchParams }: Props) {
           ? []
           : noticeIds.filter(noticeId => !translationsByNotice[noticeId]?.[locale])
 
-        events = (rows ?? []).map(row => ({
-          id: row.id,
-          noticeId: row.notice_id,
-          title: pickNoticeDisplayTitle(
-            {
-              title: noticesById.get(row.notice_id)?.title ?? row.title,
-              extracted_content: noticesById.get(row.notice_id)?.extracted_content ?? null,
-              translated_titles: translatedTitlesByNotice[row.notice_id] ?? {},
-            },
-            locale,
-            fallbackTitle,
-          ),
-          eventDate: row.event_date,
-          eventKinds: parseEventKinds(row.event_kinds),
-          location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
-          description: row.description,
-        }))
+        events = (rows ?? []).map(row => {
+          const sourceTitle = noticesById.get(row.notice_id)?.title ?? row.title
+          return {
+            id: row.id,
+            noticeId: row.notice_id,
+            title: pickNoticeDisplayTitle(
+              {
+                title: sourceTitle,
+                extracted_content: noticesById.get(row.notice_id)?.extracted_content ?? null,
+                translated_titles: translatedTitlesByNotice[row.notice_id] ?? {},
+              },
+              locale,
+              fallbackTitle,
+            ),
+            sourceTitle,
+            eventDate: row.event_date,
+            eventKinds: parseEventKinds(row.event_kinds),
+            location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
+            description: row.description,
+          }
+        })
       }
 
       if (!child?.neis_office_code || !child.neis_school_code || !child.class_no) {
