@@ -148,10 +148,30 @@ class Settings(BaseSettings):
         ge=1,
         alias="WORKER_RETRY_DELAY_SECONDS",
     )
+    worker_job_stale_minutes: int = Field(
+        default=180,
+        ge=1,
+        alias="WORKER_JOB_STALE_MINUTES",
+    )
     worker_job_groups_raw: str = Field(
         default="translation",
         alias="WORKER_JOB_GROUPS",
     )
+    # 큐에 잡을 넣은 직후 해당 Cloud Run Job을 깨우는 트리거. 기본 off라
+    # 로컬·테스트·트리거 미설정 환경에서는 아무 동작도 하지 않는다.
+    worker_trigger_enabled: bool = Field(
+        default=False,
+        alias="WORKER_TRIGGER_ENABLED",
+    )
+    worker_trigger_debounce_seconds: float = Field(
+        default=10.0,
+        ge=0.0,
+        alias="WORKER_TRIGGER_DEBOUNCE_SECONDS",
+    )
+    gcp_project_id: str = Field(default="", alias="GCP_PROJECT_ID")
+    gcp_region: str = Field(default="", alias="GCP_REGION")
+    translation_worker_job_name: str = Field(default="", alias="TRANSLATION_WORKER_JOB_NAME")
+    crawler_worker_job_name: str = Field(default="", alias="CRAWLER_WORKER_JOB_NAME")
 
     @property
     def cors_origins(self) -> list[str]:

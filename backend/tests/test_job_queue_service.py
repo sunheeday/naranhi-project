@@ -123,5 +123,94 @@ class JobQueueCompletedRecentlyTest(unittest.TestCase):
         self.assertFalse(result)
 
 
+class _ReclaimQuery:
+    def __init__(self, select_rows, updates, update_data):
+        self._select_rows = select_rows
+        self._updates = updates
+        self._update_data = update_data
+        self._is_update = False
+        self._payload = None
+
+    def select(self, *_args, **_kwargs):
+        self._is_update = False
+        return self
+
+    def update(self, payload, *_args, **_kwargs):
+        self._is_update = True
+        self._payload = payload
+        return self
+
+    def in_(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def lt(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        if self._is_update:
+            self._updates.append(self._payload)
+            return type("Result", (), {"data": list(self._update_data)})()
+        return type("Result", (), {"data": self._select_rows})()
+
+
+class _ReclaimClient:
+    def __init__(self, select_rows, updates, update_data):
+        self._select_rows = select_rows
+        self._updates = updates
+        self._update_data = update_data
+
+    def table(self, _name):
+        return _ReclaimQuery(self._select_rows, self._updates, self._update_data)
+
+
+class JobQueueReclaimStaleTest(unittest.TestCase):
+    def _run(self, select_rows, *, update_data=({"id": "updated"},)):
+        updates: list[dict] = []
+        client = _ReclaimClient(select_rows, updates, update_data)
+        with patch("app.services.job_queue_service.get_supabase_client", return_value=client):
+            reclaimed = JobQueueService().reclaim_stale_jobs(
+                job_types=["notice_translation"], stale_seconds=3600
+            )
+        return reclaimed, updates
+
+    def test_resets_stale_job_to_queued_when_attempts_remain(self) -> None:
+        reclaimed, updates = self._run([{"id": "j1", "attempts": 1, "max_attempts": 5}])
+
+        self.assertEqual(reclaimed, 1)
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0]["status"], "queued")
+        self.assertIn("available_at", updates[0])
+        self.assertNotIn("finished_at", updates[0])
+        self.assertIn("last_error", updates[0])
+
+    def test_marks_failed_when_attempts_exhausted(self) -> None:
+        reclaimed, updates = self._run([{"id": "j2", "attempts": 5, "max_attempts": 5}])
+
+        self.assertEqual(reclaimed, 1)
+        self.assertEqual(updates[0]["status"], "failed")
+        self.assertIn("finished_at", updates[0])
+        self.assertNotIn("available_at", updates[0])
+
+    def test_returns_zero_when_no_stale_jobs(self) -> None:
+        reclaimed, updates = self._run([])
+
+        self.assertEqual(reclaimed, 0)
+        self.assertEqual(updates, [])
+
+    def test_does_not_count_when_conditional_update_matches_no_row(self) -> None:
+        # 회수 시도와 업데이트 사이 원본 워커가 complete/fail시키면 status!='processing'이라
+        # 조건부 업데이트(.eq status=processing)가 0행을 반환한다 → 회수 카운트에 넣지 않아야 한다.
+        reclaimed, updates = self._run(
+            [{"id": "j3", "attempts": 1, "max_attempts": 5}],
+            update_data=(),
+        )
+
+        self.assertEqual(len(updates), 1)  # 업데이트는 시도됨
+        self.assertEqual(reclaimed, 0)  # 그러나 0행 매칭이므로 회수로 세지 않음
+
+
 if __name__ == "__main__":
     unittest.main()

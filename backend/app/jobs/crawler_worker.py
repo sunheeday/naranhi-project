@@ -102,16 +102,32 @@ async def process_jobs(
     max_jobs: int,
     batch_size: int,
     retry_delay_seconds: int,
+    stale_seconds: int,
+    idle_grace_seconds: float = 0.0,
 ) -> int:
     queue = JobQueueService()
+    queue.reclaim_stale_jobs(
+        job_types=[JOB_TYPE_DISCOVERY, JOB_TYPE_EXTRACTION],
+        stale_seconds=stale_seconds,
+    )
     processed = 0
-    while processed < max_jobs:
+    grace_used = False
+    # max_jobs<=0 이면 큐가 빌 때까지 drain(Cloud Run Job 1회 실행용).
+    while max_jobs <= 0 or processed < max_jobs:
+        limit = batch_size if max_jobs <= 0 else min(batch_size, max_jobs - processed)
         jobs = queue.claim(
             job_types=[JOB_TYPE_DISCOVERY, JOB_TYPE_EXTRACTION],
-            limit=min(batch_size, max_jobs - processed),
+            limit=limit,
         )
         if not jobs:
+            # enqueue-트리거 경합: drain 종료 직전 짧게 한 번 더 폴링해
+            # 막 들어온 잡을 놓치지 않는다.
+            if idle_grace_seconds > 0 and not grace_used:
+                grace_used = True
+                await asyncio.sleep(idle_grace_seconds)
+                continue
             break
+        grace_used = False
         LOGGER.info(
             "crawler worker batch claimed: count=%s job_ids=%s",
             len(jobs),
@@ -137,6 +153,8 @@ async def run_async(args: argparse.Namespace) -> int:
         max_jobs=args.max_jobs,
         batch_size=args.batch_size,
         retry_delay_seconds=args.retry_delay_seconds,
+        stale_seconds=args.stale_minutes * 60,
+        idle_grace_seconds=args.idle_grace_seconds,
     )
     print(json.dumps({"ok": True, "processed": processed}, ensure_ascii=False))
     return 0
@@ -147,6 +165,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-jobs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=3)
     parser.add_argument("--retry-delay-seconds", type=int, default=120)
+    parser.add_argument("--stale-minutes", type=int, default=180)
+    # 0 = drain 안 함(상한 max-jobs까지). Cloud Run Job은 --max-jobs 0 --idle-grace-seconds 3 로 실행.
+    parser.add_argument("--idle-grace-seconds", type=float, default=0.0)
     return parser
 
 

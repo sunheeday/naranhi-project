@@ -123,9 +123,24 @@ WORKER_JOB_GROUPS=translation,crawler
 
 단, 공지 1건의 full translation pipeline 내부 단계는 의존성이 있어 대부분 직렬이다.
 
+## 운영 모드: Cloud Run Job + 깨우기 트리거 (현행)
+
+상시가동 Service(min-instances=1, 월 ~$120 유휴) 대신 워커를 **Cloud Run Job**으로 돌린다.
+
+- API가 enqueue 직후 `schedule_worker_trigger(job_type)`로 해당 Job을 `run.jobs.run` 호출(깨우기).
+  best-effort·인메모리 디바운스. `WORKER_TRIGGER_ENABLED=false`(기본)면 무동작.
+- 워커 Job은 `--max-jobs 0`으로 큐가 빌 때까지 drain하고, 종료 직전 `--idle-grace-seconds`
+  만큼 한 번 더 폴링(트리거 경합 방지) 후 종료한다.
+- 시작 시 `reclaim_stale_jobs`로 오래된 좀비 `processing` 잡을 회수한다.
+- 백스톱 Cloud Scheduler(10분 틱)가 트리거 실패 시 안전망이다.
+
+배포·IAM·Scheduler·롤아웃 절차는 [worker-jobs-runbook.md](worker-jobs-runbook.md) 참고.
+
+> 위 "옵션 B: 항상 켜진 Worker Service"(`app.worker_main:app`)는 로컬/디버그용으로 남겨둔다.
+> 운영에서는 Job 모드를 쓴다.
+
 ## 다음 단계
 
-1. worker를 장기 실행 daemon/Cloud Run Job으로 분리
-2. `app_jobs` 상태 조회 API 추가
-3. worker heartbeat/observability 추가
-4. 필요 시 translation worker와 crawler worker를 완전히 별도 배포 단위로 분리
+1. `app_jobs` 상태 조회 API 추가
+2. worker heartbeat/observability 추가
+3. 필요 시 translation worker와 crawler worker를 완전히 별도 배포 단위로 분리

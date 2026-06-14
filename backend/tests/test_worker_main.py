@@ -18,7 +18,12 @@ class WorkerMainTest(unittest.IsolatedAsyncioTestCase):
         settings = type(
             "Settings",
             (),
-            {"worker_batch_size": 4, "worker_retry_delay_seconds": 90, "worker_job_groups": ["translation"]},
+            {
+                "worker_batch_size": 4,
+                "worker_retry_delay_seconds": 90,
+                "worker_job_stale_minutes": 45,
+                "worker_job_groups": ["translation"],
+            },
         )()
         with (
             patch("app.worker_main.get_settings", return_value=settings),
@@ -31,13 +36,19 @@ class WorkerMainTest(unittest.IsolatedAsyncioTestCase):
             max_jobs=4,
             batch_size=4,
             retry_delay_seconds=90,
+            stale_seconds=2700,
         )
 
     async def test_run_worker_group_dispatches_crawler(self) -> None:
         settings = type(
             "Settings",
             (),
-            {"worker_batch_size": 5, "worker_retry_delay_seconds": 75, "worker_job_groups": ["crawler"]},
+            {
+                "worker_batch_size": 5,
+                "worker_retry_delay_seconds": 75,
+                "worker_job_stale_minutes": 30,
+                "worker_job_groups": ["crawler"],
+            },
         )()
         with (
             patch("app.worker_main.get_settings", return_value=settings),
@@ -50,6 +61,7 @@ class WorkerMainTest(unittest.IsolatedAsyncioTestCase):
             max_jobs=5,
             batch_size=5,
             retry_delay_seconds=75,
+            stale_seconds=1800,
         )
 
 
