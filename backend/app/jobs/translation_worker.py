@@ -94,7 +94,7 @@ async def process_jobs(
             len(jobs),
             ",".join(str(job.get("id")) for job in jobs),
         )
-        for job in jobs:
+        async def _process_one(job: dict[str, object]) -> None:
             try:
                 result = await _run_job(job)
                 queue.complete(str(job["id"]), result=serialize_job_result(result))
@@ -106,7 +106,12 @@ async def process_jobs(
             except Exception as exc:  # noqa: BLE001
                 LOGGER.exception("translation worker job failed: job_id=%s", job.get("id"))
                 queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
-            processed += 1
+
+        # 배치를 동시에 처리한다(직렬 → 병렬). 한 잡의 실패는 다른 잡에 영향이 없고,
+        # Vertex로 가는 콜 동시수는 gemini_client의 전역 세마포어가 DSQ 천장으로 통제한다.
+        # 한 잡이 취소되면 gather가 형제를 취소하고 CancelledError를 전파(graceful shutdown).
+        await asyncio.gather(*(_process_one(job) for job in jobs))
+        processed += len(jobs)
     return processed
 
 

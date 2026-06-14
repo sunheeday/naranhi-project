@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import re
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
@@ -43,15 +44,31 @@ async def call_with_quota_backoff(
         except Exception as exc:  # noqa: BLE001 - 429만 흡수, 나머지는 즉시 전파.
             if not is_quota_exhausted_error(exc):
                 raise
+            # full-ish jitter: 공유풀(DSQ)에서 여러 콜이 동시에 같은 간격으로 재시도해
+            # 다시 몰리는 thundering herd를 깬다.
+            jittered = delay * (0.5 + random.random())
             LOGGER.warning(
-                "Gemini quota(429) hit; retrying call in %.0fs: label=%s attempt=%s/%s",
-                delay,
+                "Gemini quota(429) hit; retrying call in %.1fs: label=%s attempt=%s/%s",
+                jittered,
                 label,
                 attempt,
                 len(delays_seconds) + 1,
             )
-            await asyncio.sleep(delay)
+            await asyncio.sleep(jittered)
     return await factory()
+
+
+_CALL_SEMAPHORE: "asyncio.Semaphore | None" = None
+
+
+def _get_call_semaphore() -> asyncio.Semaphore:
+    """동시 Gemini 호출 수의 전역 상한(DSQ guard). 실행 중인 이벤트 루프에 지연 바인딩한다."""
+    global _CALL_SEMAPHORE
+    if _CALL_SEMAPHORE is None:
+        from app.core.config import get_settings
+
+        _CALL_SEMAPHORE = asyncio.Semaphore(get_settings().gemini_max_concurrency)
+    return _CALL_SEMAPHORE
 
 
 class GeminiJsonClient:
@@ -113,19 +130,22 @@ class GeminiJsonClient:
         model: str | None = None,
         thinking_budget: int | None = None,
     ) -> dict[str, Any]:
-        if self.use_vertex:
-            return await self._generate_json_vertex(
+        # 전역 세마포어로 동시 Gemini 호출 수를 묶는다(DSQ self-inflicted 429 방지).
+        # 백오프 대기 중에도 슬롯을 쥐고 있어 자연스러운 backpressure가 된다.
+        async with _get_call_semaphore():
+            if self.use_vertex:
+                return await self._generate_json_vertex(
+                    prompt=prompt,
+                    temperature=temperature,
+                    model=model or self.model,
+                    thinking_budget=thinking_budget,
+                )
+            return await self._generate_json_api_key(
                 prompt=prompt,
                 temperature=temperature,
                 model=model or self.model,
                 thinking_budget=thinking_budget,
             )
-        return await self._generate_json_api_key(
-            prompt=prompt,
-            temperature=temperature,
-            model=model or self.model,
-            thinking_budget=thinking_budget,
-        )
 
     def _get_vertex_client(self) -> Any:
         if self._vertex_client is None:

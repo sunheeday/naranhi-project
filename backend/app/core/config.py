@@ -41,6 +41,15 @@ class Settings(BaseSettings):
         alias="GEMINI_OCR_MODEL_FALLBACK",
     )
     gemini_timeout_seconds: float = Field(default=60.0, alias="GEMINI_TIMEOUT_SECONDS")
+    # 전역 동시 Gemini 호출 상한(DSQ guard). 워커가 공지를 동시 처리할 때 Vertex로 가는
+    # 동시 콜을 이 수로 묶어 self-inflicted 429를 막는다. 공지 동시성(WORKER_BATCH_SIZE)과
+    # 무관하게 콜 동시수만 캡한다.
+    gemini_max_concurrency: int = Field(
+        default=12,
+        ge=1,
+        le=64,
+        alias="GEMINI_MAX_CONCURRENCY",
+    )
     vertex_ai_project_id: str | None = Field(default=None, alias="VERTEX_AI_PROJECT_ID")
     vertex_ai_location: str = Field(default="global", alias="VERTEX_AI_LOCATION")
     google_calendar_credentials_json: str | None = Field(
