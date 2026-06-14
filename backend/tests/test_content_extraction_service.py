@@ -478,6 +478,15 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
             async def translate_notice(self, *, notice_id: str, target_language: str, **kwargs):
                 translated.append((notice_id, target_language))
+                # 실제 translate_notice 는 번역행을 남긴다 → 추출 후 재enqueue 체크가 '완료'로 본다.
+                client.translations.append(
+                    {
+                        "notice_id": notice_id,
+                        "target_language": target_language,
+                        "translated_text": "done",
+                        "validation_status": "passed",
+                    }
+                )
                 return {"ok": True}
 
         with (
@@ -492,6 +501,146 @@ class ContentExtractionServiceHelperTests(unittest.TestCase):
 
         self.assertEqual(refreshed, ["notice-1"])
         self.assertEqual(translated, [("notice-1", "en")])
+
+    def test_auto_translate_enqueues_retry_job_when_inline_fails(self) -> None:
+        # 인라인 번역이 일시 오류로 실패/누락하면, durable notice_translation 잡을 enqueue 해
+        # 워커가 재시도(max_attempts)하게 한다 — 사람이 앱을 안 열어도 백그라운드 복구.
+        client = FakeSupabaseClient()
+        client.children = [{"school_id": "school-1", "user_id": "user-1"}]
+        client.profiles = [{"id": "user-1", "locale": "ru", "native_language": "ru"}]
+        client.translations = []  # 번역된 것 없음
+        settings = type("FakeSettings", (), {"gemini_configured": True})()
+
+        class FailingNoticeService:
+            async def refresh_notice_canonical_artifacts(self, *, notice_id: str, source_text=None):
+                return {"ok": True}
+
+            async def translate_notice(self, *, notice_id: str, target_language: str, **kwargs):
+                raise RuntimeError("vertex 429")  # 인라인 번역 실패(삼켜짐)
+
+        enqueued: list[tuple[str, str, dict[str, object]]] = []
+        triggered: list[str] = []
+
+        class FakeQueue:
+            def enqueue(self, *, job_type, job_key, payload, **kwargs):
+                enqueued.append((job_type, job_key, payload))
+
+        with (
+            patch("app.services.content_extraction_service.get_supabase_client", return_value=client),
+            patch("app.services.content_extraction_service.get_settings", return_value=settings),
+            patch("app.services.notice_service.NoticeService", return_value=FailingNoticeService()),
+            patch("app.services.content_extraction_service.translate_sources_for_locale"),
+            patch("app.services.job_queue_service.JobQueueService", return_value=FakeQueue()),
+            patch("app.services.worker_trigger.schedule_worker_trigger", side_effect=triggered.append),
+        ):
+            import asyncio
+
+            asyncio.run(_auto_translate_notice_locales({"id": "notice-1", "school_id": "school-1"}))
+
+        # 누락된 ru 로케일에 대해 정확한 형식의 재시도 잡이 등록되고 워커가 깨워진다.
+        self.assertEqual(
+            enqueued,
+            [("notice_translation", "notice-1:ru", {"notice_id": "notice-1", "target_language": "ru"})],
+        )
+        self.assertEqual(triggered, ["notice_translation"])
+
+    def test_auto_translate_no_enqueue_when_all_locales_succeed(self) -> None:
+        # 인라인 번역이 모두 성공하면 재시도 잡을 만들지 않는다(불필요한 큐 적체 방지).
+        client = FakeSupabaseClient()
+        client.children = [{"school_id": "school-1", "user_id": "user-1"}]
+        client.profiles = [{"id": "user-1", "locale": "ru", "native_language": "ru"}]
+        client.translations = []
+        settings = type("FakeSettings", (), {"gemini_configured": True})()
+
+        class OkNoticeService:
+            async def refresh_notice_canonical_artifacts(self, *, notice_id: str, source_text=None):
+                return {"ok": True}
+
+            async def translate_notice(self, *, notice_id: str, target_language: str, **kwargs):
+                client.translations.append(
+                    {
+                        "notice_id": notice_id,
+                        "target_language": target_language,
+                        "translated_text": "ok",
+                        "validation_status": "passed",
+                    }
+                )
+                return {"ok": True}
+
+        enqueued: list[object] = []
+
+        class FakeQueue:
+            def enqueue(self, **kwargs):
+                enqueued.append(kwargs)
+
+        with (
+            patch("app.services.content_extraction_service.get_supabase_client", return_value=client),
+            patch("app.services.content_extraction_service.get_settings", return_value=settings),
+            patch("app.services.notice_service.NoticeService", return_value=OkNoticeService()),
+            patch("app.services.content_extraction_service.translate_sources_for_locale"),
+            patch("app.services.job_queue_service.JobQueueService", return_value=FakeQueue()),
+            patch("app.services.worker_trigger.schedule_worker_trigger"),
+        ):
+            import asyncio
+
+            asyncio.run(_auto_translate_notice_locales({"id": "notice-1", "school_id": "school-1"}))
+
+        self.assertEqual(enqueued, [])
+
+    def test_auto_translate_enqueues_only_the_failed_locale_on_partial_failure(self) -> None:
+        # 여러 로케일 중 일부만 실패하면 실패한 로케일만 재시도 잡으로 등록한다(가장 현실적 케이스).
+        client = FakeSupabaseClient()
+        client.children = [
+            {"school_id": "school-1", "user_id": "user-1"},
+            {"school_id": "school-1", "user_id": "user-2"},
+        ]
+        client.profiles = [
+            {"id": "user-1", "locale": "vi", "native_language": "vi"},
+            {"id": "user-2", "locale": "ru", "native_language": "ru"},
+        ]
+        client.translations = []
+        settings = type("FakeSettings", (), {"gemini_configured": True})()
+
+        class PartialNoticeService:
+            async def refresh_notice_canonical_artifacts(self, *, notice_id: str, source_text=None):
+                return {"ok": True}
+
+            async def translate_notice(self, *, notice_id: str, target_language: str, **kwargs):
+                if target_language == "ru":
+                    raise RuntimeError("vertex 429")  # ru 만 실패
+                client.translations.append(
+                    {
+                        "notice_id": notice_id,
+                        "target_language": target_language,
+                        "translated_text": "ok",
+                        "validation_status": "passed",
+                    }
+                )
+                return {"ok": True}
+
+        enqueued: list[tuple[str, str, dict[str, object]]] = []
+
+        class FakeQueue:
+            def enqueue(self, *, job_type, job_key, payload, **kwargs):
+                enqueued.append((job_type, job_key, payload))
+
+        with (
+            patch("app.services.content_extraction_service.get_supabase_client", return_value=client),
+            patch("app.services.content_extraction_service.get_settings", return_value=settings),
+            patch("app.services.notice_service.NoticeService", return_value=PartialNoticeService()),
+            patch("app.services.content_extraction_service.translate_sources_for_locale"),
+            patch("app.services.job_queue_service.JobQueueService", return_value=FakeQueue()),
+            patch("app.services.worker_trigger.schedule_worker_trigger"),
+        ):
+            import asyncio
+
+            asyncio.run(_auto_translate_notice_locales({"id": "notice-1", "school_id": "school-1"}))
+
+        # vi 는 인라인 성공 → enqueue 안 함, ru 만 재시도 잡 등록.
+        self.assertEqual(
+            enqueued,
+            [("notice_translation", "notice-1:ru", {"notice_id": "notice-1", "target_language": "ru"})],
+        )
 
     def test_normalized_locale_rejects_korean_and_invalid_values(self) -> None:
         self.assertIsNone(_normalized_locale("ko"))
