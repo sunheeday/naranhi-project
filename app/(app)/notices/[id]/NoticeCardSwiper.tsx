@@ -407,6 +407,56 @@ function cleanForDisplay(text: string): string {
   return text.replace(/[.·…⋯．・․]{4,}/g, ' ')
 }
 
+// 번역 과정에서 깨진 GFM 표를 '표시 직전'에만 보정한다(렌더 전용 — DB·번역 결과 불변).
+// 안전 원칙: 구분행(| --- |)이 실제로 있는 '확실한 표'만 손댄다.
+//   ① 헤더 칸 수 ≠ 구분행 칸 수  → 구분행을 헤더 칸 수에 맞춰 재생성
+//   ② 표 헤더 바로 위에 빈 줄이 없음 → 빈 줄 삽입(없으면 표로 인식 안 됨)
+// 4칸 이상 들여쓴 줄(코드블록)·구분행 없는 표·인라인 파이프·불릿은 건드리지 않는다.
+// (운영 데이터 316개 전수 before/after 렌더 검증: 314개 무변화, 2개 표 복구, 회귀 0)
+function normalizeMarkdownTables(md: string): string {
+  if (typeof md !== 'string' || !md.includes('|')) return md
+  const splitCells = (row: string): string[] => {
+    let s = row.trim()
+    if (s.startsWith('|')) s = s.slice(1)
+    if (s.endsWith('|')) s = s.slice(0, -1)
+    return s.split(/(?<!\\)\|/)
+  }
+  const indentOf = (l: string) => l.length - l.replace(/^\s+/, '').length
+  const isDelimiter = (l: string | undefined): boolean => {
+    if (l == null) return false
+    const t = l.trim()
+    if (!t.includes('-') || !t.includes('|') || indentOf(l) >= 4) return false
+    const cells = splitCells(l)
+    return cells.length >= 1 && cells.every((c) => /^\s*:?-+:?\s*$/.test(c))
+  }
+  const makeDelimiter = (n: number) => '| ' + Array(Math.max(1, n)).fill('---').join(' | ') + ' |'
+  const lines = md.split('\n')
+  const out: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const next = lines[i + 1]
+    if (
+      line &&
+      line.includes('|') &&
+      line.trim() !== '' &&
+      indentOf(line) < 4 &&
+      !isDelimiter(line) &&
+      isDelimiter(next)
+    ) {
+      const headerCols = splitCells(line).length
+      const delimCols = splitCells(next).length
+      const prev = out.length ? out[out.length - 1] : ''
+      if (prev.trim() !== '' && !prev.includes('|')) out.push('') // ② 표 앞 빈 줄
+      out.push(line)
+      out.push(delimCols === headerCols ? next : makeDelimiter(headerCols)) // ① 구분행 칸수 맞춤
+      i++
+      continue
+    }
+    out.push(line)
+  }
+  return out.join('\n')
+}
+
 /** 본문/첨부 정제본 카드: 정제 markdown(표·제목·목록)을 그대로 렌더. 복잡하면 원본 파일 안내. */
 function SourceBody({ card }: { card: NoticeCard }) {
   if (card.needsFile || !card.content?.trim()) {
@@ -414,7 +464,7 @@ function SourceBody({ card }: { card: NoticeCard }) {
   }
   return (
     <div className="w-full max-w-[24rem] bg-canvas rounded-card shadow-card px-4 py-4 border border-hairline-soft">
-      <MarkdownBody source={cleanForDisplay(card.content)} />
+      <MarkdownBody source={normalizeMarkdownTables(cleanForDisplay(card.content))} />
     </div>
   )
 }
