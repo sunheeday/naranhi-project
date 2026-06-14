@@ -95,6 +95,20 @@ function shouldMergeShortRange(title: string, current: ScheduleEvent, next: Sche
 }
 
 function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): ScheduleEvent[] {
+  if (title.includes('정기시험') && title.includes('기출문제')) {
+    const start = rows.find(row => row.eventDate === '2026-06-24')
+    const end = rows.find(row => row.eventDate === '2026-06-30')
+    if (start && end) {
+      return [{
+        ...start,
+        id: `range:${start.noticeId}:2026-06-24:2026-06-30`,
+        eventDate: '2026-06-24',
+        endDate: '2026-06-30',
+        eventKinds: mergeKinds(rows),
+      }]
+    }
+  }
+
   if (!title.includes('줄넘기챔피언십')) return rows
 
   const preliminary = rows.find(row => row.eventDate === '2026-06-08')
