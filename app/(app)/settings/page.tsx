@@ -10,6 +10,8 @@ import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
 import LogoutButton from './LogoutButton'
 import SchoolReselect from './SchoolReselect'
+import DietaryRestrictionsForm from './DietaryRestrictionsForm'
+import type { DietaryRestrictionId } from '@/lib/dietary-restrictions'
 
 export default async function SettingsPage() {
   const cookieStore = await cookies()
@@ -23,6 +25,7 @@ export default async function SettingsPage() {
     neis_school_code: string | null
     grade: number
     class_no: number | null
+    dietary_restrictions: DietaryRestrictionId[]
   } | null = null
 
   const isPreview = await isUiPreviewEnabled()
@@ -35,6 +38,7 @@ export default async function SettingsPage() {
       neis_school_code: 'PREVIEW',
       grade: 1,
       class_no: 1,
+      dietary_restrictions: [],
     }
   } else {
     const supabase = await createSupabaseServerClient()
@@ -53,6 +57,7 @@ export default async function SettingsPage() {
           neis_school_code: latestChild.neis_school_code,
           grade: latestChild.grade,
           class_no: latestChild.class_no,
+          dietary_restrictions: latestChild.dietary_restrictions,
         }
       : null
   }
@@ -87,6 +92,17 @@ export default async function SettingsPage() {
         </section>
 
         <hr className="border-border" />
+
+        {child && !isPreview && !testEntryBypass && (
+          <>
+            <DietaryRestrictionsForm
+              childId={child.id}
+              initialValue={child.dietary_restrictions}
+              locale={locale}
+            />
+            <hr className="border-border" />
+          </>
+        )}
 
         {child && !isPreview && !testEntryBypass && (
           <>

@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
+import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import { serverCacheTags } from '@/lib/server-cache'
 import {
@@ -156,6 +157,29 @@ export async function updateChildSchool(input: UpdateSchoolInput): Promise<void>
   revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
   revalidateTag(serverCacheTags.schoolSummaryTag(school.id), 'max')
   revalidatePath('/')
+  revalidatePath('/settings')
+}
+
+export async function updateChildDietaryRestrictions(input: {
+  childId: string
+  dietaryRestrictions: DietaryRestrictionId[]
+}): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('로그인이 필요합니다.')
+
+  const dietaryRestrictions = parseDietaryRestrictions(input.dietaryRestrictions)
+  const { error } = await supabase
+    .from('children')
+    .update({ dietary_restrictions: dietaryRestrictions })
+    .eq('id', input.childId)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(`식이 설정 저장 실패: ${error.message}`)
+
+  revalidateTag(serverCacheTags.latestChildTag(user.id), 'max')
+  revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
+  revalidatePath('/meals')
   revalidatePath('/settings')
 }
 

@@ -309,6 +309,7 @@ function DishRow({ dish, allergyPrefix }: { dish: MealDish; allergyPrefix: strin
     ? dish.allergenLabels
     : dish.allergens.map(n => ALLERGEN_NAMES[n] ?? `#${n}`)
   ).join(', ')
+  const dietaryWarnings = dish.dietaryWarnings ?? []
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span className="text-sm text-text-primary">{dish.name}</span>
@@ -317,6 +318,18 @@ function DishRow({ dish, allergyPrefix }: { dish: MealDish; allergyPrefix: strin
           {allergyPrefix} {allergyNames}
         </span>
       )}
+      {dietaryWarnings.map(warning => (
+        <span
+          key={warning.id}
+          className={[
+            'text-[11px] font-semibold',
+            warning.confidence === 'allergen' ? 'text-card-action' : 'text-amber-600',
+          ].join(' ')}
+          title={warning.reason}
+        >
+          ⚠ {warning.label}
+        </span>
+      ))}
     </li>
   )
 }

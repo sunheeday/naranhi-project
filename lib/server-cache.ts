@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { getSchoolCrawlerState } from '@/lib/school-crawl-state'
 
 const USER_CONTEXT_TTL_SECONDS = 30
@@ -30,6 +31,7 @@ export interface CachedChildSummary {
   class_no: number | null
   neis_office_code: string | null
   neis_school_code: string | null
+  dietary_restrictions: DietaryRestrictionId[]
 }
 
 export interface CachedSchoolSummary {
@@ -45,6 +47,7 @@ interface ChildRow {
   name?: string
   grade: number
   class_no: number | null
+  dietary_restrictions?: unknown
 }
 
 interface SchoolLookupRow {
@@ -64,6 +67,7 @@ function mergeChildSchoolFields(
     school_name: school?.name ?? '',
     neis_office_code: school?.neis_office_code ?? null,
     neis_school_code: school?.neis_school_code ?? null,
+    dietary_restrictions: parseDietaryRestrictions(child.dietary_restrictions),
   }
 }
 
@@ -89,7 +93,7 @@ export async function getLatestChildForUser(userId: string): Promise<CachedChild
       const serviceClient = createSupabaseServiceClient()
       const { data } = await serviceClient
         .from('children')
-        .select('id, school_id, name, grade, class_no')
+        .select('id, school_id, name, grade, class_no, dietary_restrictions')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -111,7 +115,7 @@ export async function getChildrenForUser(userId: string): Promise<CachedChildSum
       const serviceClient = createSupabaseServiceClient()
       const { data } = await serviceClient
         .from('children')
-        .select('id, school_id, grade, class_no')
+        .select('id, school_id, name, grade, class_no, dietary_restrictions')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
