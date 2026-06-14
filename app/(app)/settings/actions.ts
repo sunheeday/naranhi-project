@@ -1,9 +1,11 @@
 'use server'
 
 import { revalidatePath, revalidateTag } from 'next/cache'
+import { cookies } from 'next/headers'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
+import { isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import { serverCacheTags } from '@/lib/server-cache'
 import {
@@ -164,11 +166,24 @@ export async function updateChildDietaryRestrictions(input: {
   childId: string
   dietaryRestrictions: DietaryRestrictionId[]
 }): Promise<void> {
+  const dietaryRestrictions = parseDietaryRestrictions(input.dietaryRestrictions)
+
+  if (isTestEntryBypassEnabled()) {
+    const cookieStore = await cookies()
+    cookieStore.set('test_dietary_restrictions', JSON.stringify(dietaryRestrictions), {
+      path: '/',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30,
+    })
+    revalidatePath('/meals')
+    revalidatePath('/settings')
+    return
+  }
+
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) throw new Error('로그인이 필요합니다.')
 
-  const dietaryRestrictions = parseDietaryRestrictions(input.dietaryRestrictions)
   const { error } = await supabase
     .from('children')
     .update({ dietary_restrictions: dietaryRestrictions })
