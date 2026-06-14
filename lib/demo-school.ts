@@ -595,27 +595,27 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
     id: '0d0b8f4c-76a0-4baf-9f41-8f7c2a7d2005',
     sourcePostUid: 'bcbh-2026-homepage-signup',
     detailUrl: 'https://www.bcbh.es.kr/board/notice/2026-homepage-signup',
-    titleKo: '2026학년도 부천부흥초 홈페이지 가입 안내',
+    titleKo: '2026학년도 부천부흥중학교 홈페이지 가입 안내',
     translatedTitle: {
-      en: '2026 Bucheon Buhung Elementary Website Registration Guide',
-      ar: 'دليل التسجيل في موقع مدرسة بوشون بوهونغ الابتدائية لعام 2026',
-      ru: 'Инструкция по регистрации на сайте начальной школы Пучхон Бухын на 2026 год',
+      en: '2026 Bucheon Buhung Middle School Website Registration Guide',
+      ar: 'دليل التسجيل في موقع مدرسة بوشون بوهونغ المتوسطة لعام 2026',
+      ru: 'Инструкция по регистрации на сайте средней школы Пучхон Бухын на 2026 год',
     },
     originalText:
-      '2026학년도 부천부흥초 홈페이지 학부모 계정 가입 안내입니다.\n' +
+      '2026학년도 부천부흥중학교 홈페이지 학부모 계정 가입 안내입니다.\n' +
       '보호자는 3월 11일까지 가입을 완료하고 학생 이름을 연동해 주세요.\n' +
-      '첨부된 안내문과 가입 매뉴얼 PDF를 확인해 주세요.\n\n2026. 3. 4.\n부천부흥초등학교장',
+      '첨부된 안내문과 가입 매뉴얼 PDF를 확인해 주세요.\n\n2026. 3. 4.\n부천부흥중학교장',
     translatedBody: {
       en:
-        'This is the guide for parent account registration on the Bucheon Buhung Elementary website for the 2026 school year.\n' +
+        'This is the guide for parent account registration on the Bucheon Buhung Middle School website for the 2026 school year.\n' +
         'Guardians should complete registration and connect the student name by March 11.\n' +
         'Please review the attached guide and the registration manual PDF.',
       ar:
-        'هذا هو دليل تسجيل حساب أولياء الأمور في موقع مدرسة بوشون بوهونغ الابتدائية للعام الدراسي 2026.\n' +
+        'هذا هو دليل تسجيل حساب أولياء الأمور في موقع مدرسة بوشون بوهونغ المتوسطة للعام الدراسي 2026.\n' +
         'يُرجى من أولياء الأمور إكمال التسجيل وربط اسم الطالب قبل 11 مارس.\n' +
         'يُرجى مراجعة الدليل المرفق وملف PDF الخاص بإرشادات التسجيل.',
       ru:
-        'Это инструкция по регистрации родительской учетной записи на сайте начальной школы Пучхон Бухын на 2026 учебный год.\n' +
+        'Это инструкция по регистрации родительской учетной записи на сайте средней школы Пучхон Бухын на 2026 учебный год.\n' +
         'Родителям нужно завершить регистрацию и привязать имя ученика до 11 марта.\n' +
         'Пожалуйста, ознакомьтесь с приложенной инструкцией и PDF-руководством по регистрации.',
     },
@@ -654,9 +654,9 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
       crawl_checked_at: '2026-06-07T09:00:00+09:00',
       post_rank: 5,
       post: {
-        title: '2026학년도 부천부흥초 홈페이지 가입 안내',
+        title: '2026학년도 부천부흥중학교 홈페이지 가입 안내',
         published_at: '2026-03-04',
-        author: '부천부흥초등학교장',
+        author: '부천부흥중학교장',
       },
     },
     attachmentSources: [
@@ -902,6 +902,8 @@ const DEMO_NOTICE_SEEDS: DemoNoticeSeed[] = [
   },
 ]
 
+export const DEMO_NOTICE_SEED_IDS = DEMO_NOTICE_SEEDS.map(seed => seed.id)
+
 export function isDemoSchoolSelection(input: {
   schoolName?: string | null
   neisOfficeCode?: string | null
@@ -996,6 +998,120 @@ interface ReusedNoticeSeedBundle {
   cards: Array<Database['public']['Tables']['notice_cards']['Insert']>
   cardTranslations: Array<Database['public']['Tables']['notice_card_translations']['Insert']>
   events: Array<Database['public']['Tables']['school_events']['Insert']>
+}
+
+function buildStaticDemoNotices(
+  schoolId: string,
+): ReusedNoticeSeedBundle {
+  const now = Date.now()
+  const notices = DEMO_NOTICE_SEEDS.map((seed, index) => ({
+    id: seed.id,
+    school_id: schoolId,
+    title: seed.titleKo,
+    original_text: seed.originalText,
+    source_post_uid: seed.sourcePostUid ?? `demo-${seed.id}`,
+    detail_url: seed.detailUrl,
+    crawl_result: {
+      ...(jsonRecord(seed.crawlResult)),
+      source: 'demo',
+      board_url: 'demo://naranhi-school/board',
+      board_kind: 'unknown',
+      parser_family: 'demo-seed',
+      crawl_checked_at: new Date(now - index * 60 * 60 * 1000).toISOString(),
+      post_rank: index,
+    } satisfies Json,
+    extracted_content: {
+      summary: {
+        rendered: seed.summaryKo,
+        translations: seed.translatedSummary,
+      },
+      sources: [
+        {
+          source_type: 'body',
+          source_role: 'primary',
+          refined_text: seed.refinedBodyKo,
+          translations: seed.translatedSourceBody,
+        },
+        ...(seed.attachmentSources ?? []).map(source => ({
+          source_type: source.sourceType,
+          source_role: 'attachment',
+          filename: source.filename,
+          origin_url: source.originUrl,
+          fixture_path: source.fixturePath,
+          refined_text: source.refinedTextKo ?? '',
+          translations: source.translatedText ?? {},
+          needs_file: source.needsFile === true,
+          metadata: {
+            file_type: source.fileType,
+          },
+        })),
+      ],
+    } satisfies Json,
+    status: 'done' as const,
+    due_date: seed.dueDate,
+    event_dates: seed.eventDates,
+    event_location: seed.eventLocation,
+    source_hard_facts: {
+      summary: seed.summaryKo,
+      event_dates: seed.eventDates,
+      due_date: seed.dueDate,
+      event_location: seed.eventLocation,
+    } satisfies Json,
+    extraction_attempts: 1,
+    created_at: new Date(now - index * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(now - index * 60 * 60 * 1000).toISOString(),
+  }))
+
+  const translations = DEMO_NOTICE_SEEDS.flatMap(seed =>
+    DEMO_LANGUAGES.map(locale => ({
+      notice_id: seed.id,
+      target_language: locale,
+      source_language: 'ko',
+      translated_title: seed.translatedTitle[locale],
+      translated_location: seed.eventLocation ? seed.translatedSourceBody[locale]?.split('\n').find(line => line.toLowerCase().includes('location') || line.includes('المكان') || line.includes('Место')) ?? null : null,
+      translated_text: seed.translatedBody[locale],
+      validation_status: 'passed' as const,
+    })),
+  )
+
+  const cards = DEMO_NOTICE_SEEDS.flatMap(seed =>
+    seed.cards.map(card => ({
+      id: card.id,
+      notice_id: seed.id,
+      type: card.type,
+      order: card.order,
+      content: {
+        items: card.koItems,
+      } satisfies Json,
+    })),
+  )
+
+  const cardTranslations = DEMO_NOTICE_SEEDS.flatMap(seed =>
+    seed.cards.flatMap(card =>
+      DEMO_LANGUAGES.map(locale => ({
+        notice_card_id: card.id,
+        target_language: locale,
+        translated_content: {
+          items: card.translatedItems[locale],
+        } satisfies Json,
+      })),
+    ),
+  )
+
+  const events = DEMO_NOTICE_SEEDS.flatMap(seed =>
+    buildDemoEventEntries(seed.eventDates, seed.dueDate).map(entry => ({
+      school_id: schoolId,
+      notice_id: seed.id,
+      title: seed.titleKo,
+      event_date: entry.eventDate,
+      event_kinds: entry.eventKinds,
+      location: seed.eventLocation,
+      description: seed.summaryKo,
+      source_language: 'ko',
+    })),
+  )
+
+  return { notices, translations, cards, cardTranslations, events }
 }
 
 async function buildReusedDemoNotices(
@@ -1142,17 +1258,28 @@ async function buildReusedDemoNotices(
 export async function ensureDemoSchoolSeed(
   serviceClient: ServiceClient,
   schoolId: string,
+  options: {
+    schoolName?: string
+    schoolAddress?: string
+    schoolHomepageUrl?: string
+    officeCode?: string
+    schoolCode?: string
+    includeReusedNotices?: boolean
+  } = {},
 ): Promise<void> {
-  const reusedNotices = await buildReusedDemoNotices(serviceClient, schoolId)
+  const reusedNotices = options.includeReusedNotices === false
+    ? { notices: [], translations: [], cards: [], cardTranslations: [], events: [] }
+    : await buildReusedDemoNotices(serviceClient, schoolId)
+  const staticNotices = buildStaticDemoNotices(schoolId)
 
   await serviceClient
     .from('schools')
     .update({
-      name: DEMO_SCHOOL_NAME,
-      address: DEMO_SCHOOL_ADDRESS,
-      homepage_url: DEMO_SCHOOL_HOMEPAGE_URL,
-      neis_office_code: DEMO_SCHOOL_OFFICE_CODE,
-      neis_school_code: DEMO_SCHOOL_CODE,
+      name: options.schoolName ?? DEMO_SCHOOL_NAME,
+      address: options.schoolAddress ?? DEMO_SCHOOL_ADDRESS,
+      homepage_url: options.schoolHomepageUrl ?? DEMO_SCHOOL_HOMEPAGE_URL,
+      neis_office_code: options.officeCode ?? DEMO_SCHOOL_OFFICE_CODE,
+      neis_school_code: options.schoolCode ?? DEMO_SCHOOL_CODE,
     })
     .eq('id', schoolId)
 
@@ -1177,6 +1304,9 @@ export async function ensureDemoSchoolSeed(
   const reusedNoticeIds = reusedNotices.notices
     .map(notice => notice.id)
     .filter((noticeId): noticeId is string => typeof noticeId === 'string' && noticeId.length > 0)
+  const staticNoticeIds = staticNotices.notices
+    .map(notice => notice.id)
+    .filter((noticeId): noticeId is string => typeof noticeId === 'string' && noticeId.length > 0)
 
   const { data: existingDemoNotices } = await serviceClient
     .from('notices')
@@ -1189,6 +1319,7 @@ export async function ensureDemoSchoolSeed(
       const detailUrl = typeof notice.detail_url === 'string' ? notice.detail_url : ''
       const crawlResult = jsonRecord(notice.crawl_result)
       const source = typeof crawlResult.source === 'string' ? crawlResult.source : ''
+      if (staticNoticeIds.includes(notice.id)) return false
       return detailUrl.startsWith('demo://') || source === 'demo' || source === 'demo_reused'
     })
     .map(notice => notice.id)
@@ -1206,10 +1337,22 @@ export async function ensureDemoSchoolSeed(
       .upsert(reusedNotices.notices, { onConflict: 'id' })
   }
 
+  if (staticNotices.notices.length > 0) {
+    await serviceClient
+      .from('notices')
+      .upsert(staticNotices.notices, { onConflict: 'id' })
+  }
+
   if (reusedNotices.translations.length > 0) {
     await serviceClient
       .from('notice_ai_translations')
       .upsert(reusedNotices.translations, { onConflict: 'notice_id,target_language' })
+  }
+
+  if (staticNotices.translations.length > 0) {
+    await serviceClient
+      .from('notice_ai_translations')
+      .upsert(staticNotices.translations, { onConflict: 'notice_id,target_language' })
   }
 
   if (reusedNoticeIds.length > 0) {
@@ -1219,10 +1362,23 @@ export async function ensureDemoSchoolSeed(
       .in('notice_id', reusedNoticeIds)
   }
 
+  if (staticNoticeIds.length > 0) {
+    await serviceClient
+      .from('notice_cards')
+      .delete()
+      .in('notice_id', staticNoticeIds)
+  }
+
   if (reusedNotices.cards.length > 0) {
     await serviceClient
       .from('notice_cards')
       .upsert(reusedNotices.cards, { onConflict: 'id' })
+  }
+
+  if (staticNotices.cards.length > 0) {
+    await serviceClient
+      .from('notice_cards')
+      .upsert(staticNotices.cards, { onConflict: 'id' })
   }
 
   if (reusedNotices.cardTranslations.length > 0) {
@@ -1231,9 +1387,18 @@ export async function ensureDemoSchoolSeed(
       .upsert(reusedNotices.cardTranslations, { onConflict: 'notice_card_id,target_language' })
   }
 
-  await serviceClient
-    .from('school_events')
-    .upsert(reusedNotices.events, { onConflict: 'notice_id,event_date' })
+  if (staticNotices.cardTranslations.length > 0) {
+    await serviceClient
+      .from('notice_card_translations')
+      .upsert(staticNotices.cardTranslations, { onConflict: 'notice_card_id,target_language' })
+  }
+
+  const events = [...reusedNotices.events, ...staticNotices.events]
+  if (events.length > 0) {
+    await serviceClient
+      .from('school_events')
+      .upsert(events, { onConflict: 'notice_id,event_date' })
+  }
 
   await seedDemoMeals(serviceClient)
 }
