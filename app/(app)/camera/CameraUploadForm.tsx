@@ -234,7 +234,6 @@ export default function CameraUploadForm({
               ref={inputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={event => {
                 const selected = event.target.files?.[0]
