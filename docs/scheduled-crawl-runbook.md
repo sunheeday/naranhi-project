@@ -7,8 +7,8 @@
 ## 동작 개요
 
 ```
-06:00 / 18:00  Scheduler → naranhi-school-crawler   (전체 학교 게시판 스캔 → 새 공지 notices에 pending 저장)
-07:00 / 19:00  Scheduler → naranhi-content-extractor (pending 공지 본문 추출 + 카드 + (인라인)번역)
+06:00 / 19:00  Scheduler → naranhi-school-crawler   (전체 학교 게시판 스캔 → 새 공지 notices에 pending 저장)
+07:00 / 20:00  Scheduler → naranhi-content-extractor (pending 공지 본문 추출 + 카드 + (인라인)번역)
 ```
 
 - 크롤러는 게시판 상위 `CRAWLER_SCHEDULE_NOTICE_COUNT`(워크플로 기본 8)개를 스캔한다.
@@ -51,7 +51,7 @@ done
 ## Cloud Scheduler 4개
 
 콘솔로 하려면: Cloud Run → 작업 → 각 Job → **트리거 탭 → 스케줄러 트리거 추가**(백스톱 만들 때와 동일).
-크롤러에 `0 6 * * *`·`0 18 * * *`, 추출기에 `0 7 * * *`·`0 19 * * *`, 시간대 Asia/Seoul.
+크롤러에 `0 6 * * *`·`0 19 * * *`, 추출기에 `0 7 * * *`·`0 20 * * *`, 시간대 Asia/Seoul.
 
 gcloud로:
 ```bash
@@ -62,9 +62,9 @@ COMMON="--location=${REGION} --time-zone=Asia/Seoul --http-method=POST \
   --oauth-token-scope=https://www.googleapis.com/auth/cloud-platform --message-body={}"
 
 gcloud scheduler jobs create http naranhi-school-crawler-0600 --schedule="0 6 * * *"  --uri="$T_URI" $COMMON
-gcloud scheduler jobs create http naranhi-school-crawler-1800 --schedule="0 18 * * *" --uri="$T_URI" $COMMON
+gcloud scheduler jobs create http naranhi-school-crawler-1900 --schedule="0 19 * * *" --uri="$T_URI" $COMMON
 gcloud scheduler jobs create http naranhi-content-extractor-0700 --schedule="0 7 * * *"  --uri="$E_URI" $COMMON
-gcloud scheduler jobs create http naranhi-content-extractor-1900 --schedule="0 19 * * *" --uri="$E_URI" $COMMON
+gcloud scheduler jobs create http naranhi-content-extractor-2000 --schedule="0 20 * * *" --uri="$E_URI" $COMMON
 ```
 
 ## 튜닝 / 비상
