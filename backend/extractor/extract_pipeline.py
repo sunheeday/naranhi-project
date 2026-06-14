@@ -78,6 +78,29 @@ async def run_cases(cases: list[CaseConfig], *, output_dir: Path = OUTPUT_DIR) -
     return results
 
 
+def _ocr_concurrency_limit() -> int:
+    try:
+        return max(1, int(os.getenv("EXTRACTOR_OCR_CONCURRENCY", "6")))
+    except ValueError:
+        return 6
+
+
+_OCR_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _get_ocr_semaphore() -> asyncio.Semaphore:
+    """동시 소스 추출(OCR 포함) 수의 전역 상한(추출기 프로세스 단위 DSQ guard).
+
+    공지 내부 소스 병렬 + 여러 공지 동시 처리(EXTRACTOR_NOTICE_CONCURRENCY)가 합쳐져도
+    Vertex/AI Studio 동시 콜을 EXTRACTOR_OCR_CONCURRENCY(기본 6) 이하로 묶어 429를 막는다.
+    실행 중인 이벤트 루프에 지연 바인딩한다.
+    """
+    global _OCR_SEMAPHORE
+    if _OCR_SEMAPHORE is None:
+        _OCR_SEMAPHORE = asyncio.Semaphore(_ocr_concurrency_limit())
+    return _OCR_SEMAPHORE
+
+
 async def extract_case(
     case: CaseConfig,
     *,
@@ -111,18 +134,25 @@ async def extract_case(
                 (c.source_text for c in inventory if c.source_type == "html_body"),
                 "",
             )
-            sources: list[SourceExtraction] = []
-            for candidate in inventory:
-                source = await _extract_source(
-                    candidate,
-                    fetched_final_url=fetched.final_url,
-                    html_text=html_text,
-                    temp_dir=temp_dir,
-                    gemini=gemini,
-                    budget=budget,
-                    on_attachment=on_attachment,
-                )
-                sources.append(source)
+            # 소스(첨부·본문 이미지)별 추출을 병렬로 처리한다. 직렬 OCR가 한 공지를 수십 초씩
+            # 잡아먹던 병목이었다. 동시 콜 수는 _get_ocr_semaphore()로 캡해 429를 막고, gather가
+            # inventory 순서를 보존하므로 이후 dedupe/역할부여 로직은 그대로 동작한다.
+            # (budget 예약은 동기 check+increment라 코루틴 간 경쟁이 없다.)
+            ocr_semaphore = _get_ocr_semaphore()
+
+            async def _extract_one(candidate: SourceCandidate) -> SourceExtraction:
+                async with ocr_semaphore:
+                    return await _extract_source(
+                        candidate,
+                        fetched_final_url=fetched.final_url,
+                        html_text=html_text,
+                        temp_dir=temp_dir,
+                        gemini=gemini,
+                        budget=budget,
+                        on_attachment=on_attachment,
+                    )
+
+            sources = list(await asyncio.gather(*(_extract_one(c) for c in inventory)))
 
         sources, included_source_ids = assign_roles_and_dedupe(sources)
         raw_text = combined_raw_text(sources, included_source_ids)
