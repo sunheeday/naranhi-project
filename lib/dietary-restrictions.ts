@@ -30,8 +30,8 @@ export const dietaryPreferenceUiCopy: Record<Locale, {
 }> = {
   ko: {
     title: '종교/식이 금기',
-    onboardingTitle: '피해야 할 음식이 있나요?',
-    description: '알레르기 코드는 정확히, 메뉴명 키워드는 보조로 확인해 경고를 보여줘요.',
+    onboardingTitle: '내 아이, 피해야 할 음식이 있나요?',
+    description: '종교 또는 식이 금기 사항이 있다면 중복으로 선택할 수 있어요',
     empty: '선택 안 함',
     select: '선택하기',
     close: '닫기',
