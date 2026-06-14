@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
+import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { backfillSchoolEventsForSchool } from '@/lib/schedule-backfill'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import { serverCacheTags } from '@/lib/server-cache'
@@ -24,6 +25,7 @@ export interface SaveChildInput {
   classNo: number
   childName: string
   locale: Locale
+  dietaryRestrictions?: DietaryRestrictionId[]
 }
 
 export async function saveChildAndProfile(input: SaveChildInput) {
@@ -40,6 +42,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
   const schoolCode = input.neisSchoolCode.trim()
   const homepageUrl = input.schoolHomepageUrl?.trim() || null
   const childName = input.childName.trim()
+  const dietaryRestrictions = parseDietaryRestrictions(input.dietaryRestrictions)
   const isDemoSchool = isDemoSchoolSelection({
     schoolName,
     neisOfficeCode: officeCode,
@@ -174,6 +177,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     name: childName,
     grade: input.grade,
     class_no: input.classNo,
+    dietary_restrictions: dietaryRestrictions,
   }).select('id').single()
 
   if (error || !child) {

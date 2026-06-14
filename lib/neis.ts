@@ -30,6 +30,12 @@ export interface MealDish {
   name: string
   allergens: number[]  // 1~19 알레르기 코드
   allergenLabels?: string[]
+  dietaryWarnings?: Array<{
+    id: string
+    label: string
+    reason: string
+    confidence: 'allergen' | 'keyword'
+  }>
 }
 
 export interface Meal {

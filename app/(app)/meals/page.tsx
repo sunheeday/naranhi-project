@@ -9,6 +9,7 @@ import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
 import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
+import { annotateMealsWithDietaryWarnings, parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import { getCachedOrFetchMealsForRange, type Meal } from '@/lib/neis'
 import BrandHeader from '@/components/brand/BrandHeader'
@@ -16,6 +17,15 @@ import MealWeekView, { type DayEntry } from './MealWeekView'
 
 interface Props {
   searchParams: Promise<{ week?: string }>
+}
+
+function parseJsonCookie(value: string | undefined): unknown {
+  if (!value) return []
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -62,6 +72,7 @@ function todayKstIso(): string {
 export default async function MealsPage({ searchParams }: Props) {
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get('locale')?.value
+  const testDietaryRestrictions = parseDietaryRestrictions(parseJsonCookie(cookieStore.get('test_dietary_restrictions')?.value))
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
@@ -76,6 +87,7 @@ export default async function MealsPage({ searchParams }: Props) {
   let unsupported = false
   let errorMessage: string | null = null
   let childLabel = ''
+  let dietaryRestrictions: DietaryRestrictionId[] = []
 
   if (await isUiPreviewEnabled()) {
     dayEntries = await previewMealEntries(monday, locale)
@@ -96,6 +108,9 @@ export default async function MealsPage({ searchParams }: Props) {
 
     if (!child) redirect('/onboarding')
     childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
+    dietaryRestrictions = testEntryBypass
+      ? testDietaryRestrictions
+      : child.dietary_restrictions
 
     const isDemoSchool = isDemoSchoolSelection({
       schoolName: child.school_name,
@@ -165,6 +180,13 @@ export default async function MealsPage({ searchParams }: Props) {
         }
         dayEntries = days
       }
+    }
+
+    if (dietaryRestrictions.length > 0) {
+      dayEntries = dayEntries.map(day => ({
+        ...day,
+        meals: annotateMealsWithDietaryWarnings(day.meals, dietaryRestrictions, locale),
+      }))
     }
   }
 

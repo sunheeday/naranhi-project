@@ -131,6 +131,7 @@ export interface Database {
           name: string
           grade: number
           class_no: number | null
+          dietary_restrictions: string[]
           created_at: string
         }
         Insert: {
@@ -140,6 +141,7 @@ export interface Database {
           name: string
           grade: number
           class_no?: number | null
+          dietary_restrictions?: string[]
           created_at?: string
         }
         Update: {
@@ -147,6 +149,7 @@ export interface Database {
           name?: string
           grade?: number
           class_no?: number | null
+          dietary_restrictions?: string[]
         }
         Relationships: []
       }

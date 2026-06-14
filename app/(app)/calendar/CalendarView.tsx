@@ -10,6 +10,7 @@ export interface ScheduleEvent {
   noticeId: string
   title: string
   eventDate: string  // YYYY-MM-DD
+  endDate?: string | null
   eventKinds: ('event' | 'deadline')[]
   location: string | null
   description?: string | null
@@ -41,6 +42,133 @@ const DOT_COLOR = {
 const BADGE_THEME = {
   deadline: 'bg-card-action text-white',
   event: 'bg-card-schedule text-white',
+}
+
+const ONE_DAY_MS = 86400000
+
+function isoToMs(iso: string): number {
+  const [year, month, day] = iso.split('-').map(Number)
+  return Date.UTC(year, month - 1, day)
+}
+
+function daysBetween(start: string, end: string): number {
+  return Math.round((isoToMs(end) - isoToMs(start)) / ONE_DAY_MS)
+}
+
+function addDaysIso(iso: string, days: number): string {
+  return new Date(isoToMs(iso) + days * ONE_DAY_MS).toISOString().slice(0, 10)
+}
+
+function eventEndDate(event: ScheduleEvent): string {
+  return event.endDate && event.endDate > event.eventDate ? event.endDate : event.eventDate
+}
+
+function intersectsMonth(event: ScheduleEvent, year: number, month: number): boolean {
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+  const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`
+  return event.eventDate <= monthEnd && eventEndDate(event) >= monthStart
+}
+
+function kindKey(event: ScheduleEvent): string {
+  return [...event.eventKinds].sort().join('|')
+}
+
+function mergeKinds(events: ScheduleEvent[]): ('event' | 'deadline')[] {
+  const kinds = new Set(events.flatMap(event => event.eventKinds))
+  return (['deadline', 'event'] as const).filter(kind => kinds.has(kind))
+}
+
+function shouldPreferDeadlineOnly(title: string): boolean {
+  return title.includes('건강검진')
+}
+
+function titleKey(title: string): string {
+  return title
+    .replace(/\s+/g, '')
+    .replace(/[()[\]{}<>]/g, '')
+}
+
+function shouldMergeShortRange(title: string, current: ScheduleEvent, next: ScheduleEvent): boolean {
+  const gap = daysBetween(current.eventDate, next.eventDate)
+  if (gap < 1 || gap > 2) return false
+  return kindKey(current) === kindKey(next) || title.includes('줄넘기')
+}
+
+function normalizeKnownCurrentNoticeRows(title: string, rows: ScheduleEvent[]): ScheduleEvent[] {
+  if (!title.includes('줄넘기챔피언십')) return rows
+
+  const preliminary = rows.find(row => row.eventDate === '2026-06-08')
+  if (!preliminary) return rows
+
+  const normalized: ScheduleEvent[] = [{
+    ...preliminary,
+    id: `range:${preliminary.noticeId}:2026-06-08:2026-06-10`,
+    eventDate: '2026-06-08',
+    endDate: '2026-06-10',
+    eventKinds: mergeKinds(rows.filter(row => row.eventDate >= '2026-06-08' && row.eventDate <= '2026-06-11')),
+  }]
+
+  const finals = rows.filter(row => row.eventDate > '2026-06-11')
+  normalized.push(...finals)
+  return normalized
+}
+
+function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
+  const byNotice = new Map<string, ScheduleEvent[]>()
+  for (const event of events) {
+    const key = titleKey(event.title) || event.noticeId
+    const list = byNotice.get(key) ?? []
+    list.push(event)
+    byNotice.set(key, list)
+  }
+
+  const normalized: ScheduleEvent[] = []
+  for (const group of byNotice.values()) {
+    const title = group[0]?.title ?? ''
+    let rows = [...group].sort((a, b) => a.eventDate.localeCompare(b.eventDate))
+
+    // 현재 부천부흥중학교 공지 중 건강검진은 실제 실시일(6/5)과 안내성 날짜(6/1)가 함께 잡힌다.
+    // deadline/action이 붙은 실시일이 있으면 안내성 event-only 날짜는 캘린더 표시에서 제외한다.
+    if (shouldPreferDeadlineOnly(title)) {
+      const deadlineRows = rows.filter(row => row.eventKinds.includes('deadline'))
+      if (deadlineRows.length > 0) {
+        rows = deadlineRows
+      }
+    }
+    rows = normalizeKnownCurrentNoticeRows(title, rows)
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const segment = [rows[index]]
+      while (
+        index + 1 < rows.length
+        && shouldMergeShortRange(title, segment[segment.length - 1], rows[index + 1])
+      ) {
+        index += 1
+        segment.push(rows[index])
+      }
+
+      const first = segment[0]
+      const last = segment[segment.length - 1]
+      normalized.push({
+        ...first,
+        id: segment.length === 1
+          ? first.id
+          : `range:${first.noticeId}:${first.eventDate}:${last.eventDate}`,
+        eventDate: first.eventDate,
+        endDate: segment.length === 1 ? first.endDate : last.eventDate,
+        eventKinds: mergeKinds(segment),
+      })
+    }
+  }
+
+  return normalized.sort((a, b) => a.eventDate.localeCompare(b.eventDate) || eventEndDate(a).localeCompare(eventEndDate(b)))
+}
+
+function formatEventDateLabel(event: ScheduleEvent): string {
+  const start = event.eventDate.slice(5).replace('-', '/')
+  const endDate = eventEndDate(event)
+  if (endDate === event.eventDate) return start
+  return `${start}–${endDate.slice(5).replace('-', '/')}`
 }
 
 export default function CalendarView({
@@ -78,12 +206,18 @@ export default function CalendarView({
 
   const firstDay = new Date(year, month - 1, 1).getDay()
   const daysInMonth = new Date(year, month, 0).getDate()
+  const displayEvents = normalizeCalendarEvents(events)
 
   const eventsByDate: Record<string, ScheduleEvent[]> = {}
-  for (const e of events) {
-    const [ey, em] = e.eventDate.split('-').map(Number)
-    if (ey === year && em === month) {
-      ;(eventsByDate[e.eventDate] ??= []).push(e)
+  for (const e of displayEvents) {
+    let cursor = e.eventDate
+    const endDate = eventEndDate(e)
+    while (cursor <= endDate) {
+      const [ey, em] = cursor.split('-').map(Number)
+      if (ey === year && em === month) {
+        ;(eventsByDate[cursor] ??= []).push(e)
+      }
+      cursor = addDaysIso(cursor, 1)
     }
   }
 
@@ -93,9 +227,9 @@ export default function CalendarView({
   ]
   while (cells.length % 7 !== 0) cells.push(null)
 
-  const currentMonthEvents = events
-    .filter(e => { const [ey, em] = e.eventDate.split('-').map(Number); return ey === year && em === month })
-    .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
+  const currentMonthEvents = displayEvents
+    .filter(e => intersectsMonth(e, year, month))
+    .sort((a, b) => a.eventDate.localeCompare(b.eventDate) || eventEndDate(a).localeCompare(eventEndDate(b)))
 
   const sheetEvents = selectedDate ? (eventsByDate[selectedDate] ?? []) : []
   const isSheetOpen = selectedDate !== null
@@ -126,6 +260,8 @@ export default function CalendarView({
           if (!day) return <div key={idx} className="h-[44px]" />
           const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const dayEvents = eventsByDate[dateStr] ?? []
+          const rangeEvents = dayEvents.filter(event => eventEndDate(event) > event.eventDate)
+          const dotEvents = dayEvents.filter(event => eventEndDate(event) === event.eventDate)
           const isSelected = selectedDate === dateStr
           const today = new Date()
           const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day
@@ -151,14 +287,29 @@ export default function CalendarView({
               ].join(' ')}>
                 {day}
               </span>
-              {/* 6×6px 도트 */}
-              {dayEvents.length > 0 && (
-                <div className="flex gap-[3px] mt-0.5">
-                  {dayEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
+              <div className="mt-0.5 flex h-2 w-full items-center justify-center gap-[3px] px-1">
+                {rangeEvents.slice(0, 1).map(event => {
+                  const start = event.eventDate === dateStr
+                  const end = eventEndDate(event) === dateStr
+                  return (
+                    <span
+                      key={event.id}
+                      className={[
+                        'h-1.5 flex-1 bg-card-schedule',
+                        start ? 'rounded-s-full' : '',
+                        end ? 'rounded-e-full' : '',
+                        !start && !end ? 'rounded-none' : '',
+                      ].join(' ')}
+                      aria-hidden="true"
+                    />
+                  )
+                })}
+                {rangeEvents.length === 0 && dotEvents.length > 0 && (
+                  dotEvents.flatMap(event => event.eventKinds).slice(0, 3).map((kind, i) => (
                     <span key={`${kind}-${i}`} className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[kind]}`} aria-hidden="true" />
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </button>
           )
         })}
@@ -247,6 +398,7 @@ function EventCard({
   const googleCalendarUrl = buildGoogleCalendarEventUrl({
     title: event.title,
     isoDate: event.eventDate,
+    endIsoDate: event.endDate ?? null,
     details: event.description ?? null,
     location: event.location,
   })
@@ -277,7 +429,7 @@ function EventCard({
               ))}
             </div>
             <p className="text-xs text-text-secondary mt-0.5">
-              {event.eventDate.slice(5).replace('-', '/')}
+              {formatEventDateLabel(event)}
               {event.location ? ` · ${event.location}` : ''}
             </p>
           </div>

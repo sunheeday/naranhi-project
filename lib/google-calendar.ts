@@ -11,15 +11,17 @@ function addDaysToIso(isoDate: string, days: number): string {
 export function buildGoogleCalendarEventUrl({
   title,
   isoDate,
+  endIsoDate,
   details,
   location,
 }: {
   title: string
   isoDate: string
+  endIsoDate?: string | null
   details?: string | null
   location?: string | null
 }): string {
-  const endDateExclusive = addDaysToIso(isoDate, 1)
+  const endDateExclusive = addDaysToIso(endIsoDate && endIsoDate > isoDate ? endIsoDate : isoDate, 1)
   const url = new URL('https://calendar.google.com/calendar/render')
 
   url.searchParams.set('action', 'TEMPLATE')

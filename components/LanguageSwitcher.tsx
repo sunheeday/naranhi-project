@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { locales, localeNames, localeFlags, type Locale } from '@/lib/i18n'
+import { selectableLocales, localeNames, localeFlags, type Locale } from '@/lib/i18n'
 
 interface LanguageSwitcherProps {
   currentLocale: Locale
@@ -55,7 +55,7 @@ export default function LanguageSwitcher({ currentLocale, compact = false }: Lan
               role="listbox"
               className="absolute end-0 top-12 z-50 min-w-[180px] bg-canvas border border-hairline rounded-card shadow-soft py-1.5"
             >
-              {locales.map(locale => {
+              {selectableLocales.map(locale => {
                 const isActive = locale === currentLocale
                 return (
                   <li key={locale} role="option" aria-selected={isActive}>
@@ -87,7 +87,7 @@ export default function LanguageSwitcher({ currentLocale, compact = false }: Lan
       role="group"
       aria-label="언어 선택"
     >
-      {locales.map((locale) => {
+      {selectableLocales.map((locale) => {
         const isActive = locale === currentLocale
         return (
           <li key={locale}>

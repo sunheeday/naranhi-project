@@ -146,6 +146,7 @@ export async function ensureTestBypassChild(): Promise<CachedChildSummary> {
     class_no: 1,
     neis_office_code: TEST_BYPASS_OFFICE_CODE,
     neis_school_code: TEST_BYPASS_SCHOOL_CODE,
+    dietary_restrictions: [],
   }
 }
 

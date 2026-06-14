@@ -5,6 +5,12 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { Locale } from '@/lib/i18n'
+import {
+  dietaryPreferenceUiCopy,
+  dietaryRestrictionIds,
+  dietaryRestrictionLabel,
+  type DietaryRestrictionId,
+} from '@/lib/dietary-restrictions'
 import CharacterImage from '@/components/brand/CharacterImage'
 import { saveChildAndProfile } from './actions'
 import SchoolSearchInput, { type SchoolPick } from './SchoolSearchInput'
@@ -57,6 +63,7 @@ export default function OnboardingFlow({ messages, locale }: Props) {
   const [school, setSchool] = useState<SchoolPick | null>(null)
   const [step1Error, setStep1Error] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<DietaryRestrictionId[]>([])
   const [isPending, startTransition] = useTransition()
 
   const totalSteps = 2
@@ -93,6 +100,7 @@ export default function OnboardingFlow({ messages, locale }: Props) {
           classNo: data.classNo,
           childName: data.childName,
           locale,
+          dietaryRestrictions,
         })
       } catch (e) {
         setServerError(e instanceof Error ? e.message : '저장에 실패했습니다.')
@@ -102,6 +110,15 @@ export default function OnboardingFlow({ messages, locale }: Props) {
 
   const handleBack = () => setStep(s => s - 1)
   const schoolLevel = school?.level ?? ''
+  const dietaryCopy = dietaryPreferenceUiCopy[locale] ?? dietaryPreferenceUiCopy.ko
+
+  function toggleDietaryRestriction(id: DietaryRestrictionId) {
+    setDietaryRestrictions(current =>
+      current.includes(id)
+        ? current.filter(item => item !== id)
+        : [...current, id],
+    )
+  }
 
   return (
     <main className="flex flex-col min-h-screen px-6 pt-6 pb-24">
@@ -197,6 +214,31 @@ export default function OnboardingFlow({ messages, locale }: Props) {
                 {studentForm.formState.errors.childName.message}
               </p>
             )}
+            <section className="rounded-card border border-border bg-surface p-4">
+              <h2 className="text-sm font-bold text-text-primary">{dietaryCopy.onboardingTitle}</h2>
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">{dietaryCopy.description}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {dietaryRestrictionIds.map(id => {
+                  const selected = dietaryRestrictions.includes(id)
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => toggleDietaryRestriction(id)}
+                      className={[
+                        'rounded-pill border px-3 py-2 text-xs font-semibold transition-colors',
+                        selected
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-border bg-bg text-text-primary active:bg-primary-light',
+                      ].join(' ')}
+                    >
+                      {dietaryRestrictionLabel(id, locale)}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
           </div>
 
           {serverError && (
