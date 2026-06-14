@@ -201,7 +201,9 @@ const markdownComponents: Components = {
   h3: ({ children }) => <h3 className="text-[13px] font-semibold text-ink mt-2.5 mb-1">{children}</h3>,
   p: ({ children }) => <p className="text-[13px] leading-[1.65] text-body my-1.5">{children}</p>,
   ul: ({ children }) => <ul className="list-disc pl-5 my-1.5 flex flex-col gap-1">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal pl-5 my-1.5 flex flex-col gap-1">{children}</ol>,
+  ol: ({ children, start }) => (
+    <ol start={typeof start === 'number' ? start : undefined} className="list-decimal pl-5 my-1.5 flex flex-col gap-1">{children}</ol>
+  ),
   li: ({ children }) => <li className="text-[13px] leading-[1.55] text-body">{children}</li>,
   a: ({ href, children }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="text-cat-action underline break-all">
@@ -407,6 +409,64 @@ function cleanForDisplay(text: string): string {
   return text.replace(/[.·…⋯．・․]{4,}/g, ' ')
 }
 
+// 정제본이 한국식 열거('가.'/'1)'/'①'/'(1)')를 마크다운 마커가 아닌 '텍스트 + 공백 들여쓰기'로
+// 흉내내면 react-markdown(remark-gfm)이 구조를 못 읽고 한 문단으로 뭉개 '글 벽'이 된다.
+// 표시 직전에 이런 줄을 진짜 마크다운 중첩 불릿('- ')으로 변환한다(DB·번역 결과 불변, 렌더 전용).
+// 부모 마커 너비를 누적해 자식 들여쓰기를 정확히 만들어 실제 중첩 리스트로 파싱되게 한다.
+// 안전 원칙(normalizeMarkdownTables와 동일): 표(| 줄)·제목(#)·인용(>)·코드펜스·일반 산문·이미
+// 마크다운인 줄은 건드리지 않는다. (운영 데이터를 repo의 remark-parse+remark-gfm로 before/after 검증.)
+const _LIST_FENCE_RE = /^\s*(```|~~~)/
+const _LIST_BULLET_RE = /^([-*+])\s+(.*)$/
+// enumerator: ASCII(1. 1) 10.) | 한글(가. 가)) | 원문자(① ①)) | 괄호숫자((1)). 영문 알파벳·4자리 연도는 제외.
+const _LIST_ENUM_RE = /^(\d{1,2}[.)]|[가-힣][.)]|[①-⑳㉑-㉟]\)?|\(\d{1,2}\))\s+(.*)$/
+
+function normalizeMarkdownLists(md: string): string {
+  if (typeof md !== 'string' || !md.trim()) return md
+  const lines = md.split('\n')
+  const out: string[] = []
+  let inFence = false
+  let stack: { srcIndent: number; outIndent: number; markerWidth: number }[] = []
+  const reset = () => { stack = [] }
+  for (const raw of lines) {
+    if (_LIST_FENCE_RE.test(raw)) { inFence = !inFence; out.push(raw); reset(); continue }
+    if (inFence) { out.push(raw); continue }
+    const trimmed = raw.replace(/^\s+/, '')
+    const srcIndent = raw.length - trimmed.length
+    // 표·제목·인용·빈줄은 그대로 두고 리스트 흐름을 끊는다(연속 문단 흡수 방지).
+    if (trimmed === '' || trimmed.startsWith('|') || trimmed.startsWith('#') || trimmed.startsWith('>')) {
+      out.push(raw); reset(); continue
+    }
+    const bullet = _LIST_BULLET_RE.exec(trimmed)
+    const em = bullet ? null : _LIST_ENUM_RE.exec(trimmed)
+    if (!bullet && !em) { out.push(raw); reset(); continue } // 일반 산문 → 리스트 종료
+    while (stack.length && srcIndent < stack[stack.length - 1].srcIndent) stack.pop()
+    if (stack.length && srcIndent === stack[stack.length - 1].srcIndent) stack.pop() // 형제 항목
+    const parent = stack[stack.length - 1]
+    const outIndent = parent ? parent.outIndent + parent.markerWidth : 0
+    let emitted: string
+    let markerWidth: number
+    if (bullet) {
+      emitted = ' '.repeat(outIndent) + '- ' + bullet[2]
+      markerWidth = 2
+    } else {
+      const tok = em![1]
+      const rest = em![2]
+      const ascii = tok.match(/^(\d{1,2})[.)]$/)
+      if (!parent && ascii) {
+        emitted = ascii[1] + '. ' + rest             // 최상위 숫자 → ordered 리스트로 유지
+        markerWidth = (ascii[1] + '. ').length
+      } else {
+        const label = ascii ? `(${ascii[1]})` : tok  // 깊은 ASCII 숫자는 (n) 텍스트로 보존(마커 흡수 방지)
+        emitted = ' '.repeat(outIndent) + '- ' + label + ' ' + rest
+        markerWidth = 2
+      }
+    }
+    stack.push({ srcIndent, outIndent, markerWidth })
+    out.push(emitted)
+  }
+  return out.join('\n')
+}
+
 // 번역 과정에서 깨진 GFM 표를 '표시 직전'에만 보정한다(렌더 전용 — DB·번역 결과 불변).
 // 안전 원칙: 구분행(| --- |)이 실제로 있는 '확실한 표'만 손댄다.
 //   ① 헤더 칸 수 ≠ 구분행 칸 수  → 구분행을 헤더 칸 수에 맞춰 재생성
@@ -464,7 +524,7 @@ function SourceBody({ card }: { card: NoticeCard }) {
   }
   return (
     <div className="w-full max-w-[24rem] bg-canvas rounded-card shadow-card px-4 py-4 border border-hairline-soft">
-      <MarkdownBody source={normalizeMarkdownTables(cleanForDisplay(card.content))} />
+      <MarkdownBody source={normalizeMarkdownTables(normalizeMarkdownLists(cleanForDisplay(card.content)))} />
     </div>
   )
 }
