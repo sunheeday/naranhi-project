@@ -645,6 +645,88 @@ def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
         raise RuntimeError(f"Failed to save school crawler result: {exc}") from exc
 
 
+_WATERMARK_EXCLUDED_SOURCES = {"path numeric segment", "href query id"}
+_WATERMARK_EXCLUDED_METHODS = {"generated", "file_download"}
+
+
+def _watermark_post_value(post: DiscoveredPostPreview) -> int | None:
+    """워터마크 비교에 쓸 글번호(정수). 신뢰 가능한 숫자 일련번호일 때만 반환.
+
+    Gemini/해시 생성(method='generated'), 첨부 파일번호(method='file_download'),
+    경로 숫자·카테고리 id(source 제외목록), 비숫자 post_id는 시간순이 보장되지 않으므로
+    None을 반환해 워터마크 비대상으로 둔다(기존 중복제거 방식으로 처리).
+    """
+    if post.method in _WATERMARK_EXCLUDED_METHODS:
+        return None
+    if post.source in _WATERMARK_EXCLUDED_SOURCES:
+        return None
+    post_id = (post.post_id or "").strip()
+    if not post_id.isdigit():
+        return None
+    return int(post_id)
+
+
+def _apply_watermark_filter(
+    valid_posts: list[DiscoveredPostPreview],
+    watermarks: dict[str, int],
+) -> tuple[list[DiscoveredPostPreview], dict[str, int]]:
+    """기준선(board_key→최대 글번호) 이하의 신뢰가능 번호 글을 신규 저장에서 제외한다.
+
+    반환: (저장 대상 글, 갱신된 watermarks). 워터마크 비대상 글은 항상 유지(기존 동작).
+    번호 공간은 게시판(board_key)별로 다르므로 board_key 단위로 비교/기록한다.
+    """
+    kept: list[DiscoveredPostPreview] = []
+    updated = dict(watermarks)
+    for post in valid_posts:
+        value = _watermark_post_value(post)
+        if value is None:
+            kept.append(post)
+            continue
+        board_key = post.board_key
+        updated[board_key] = max(updated.get(board_key, 0), value)
+        baseline = watermarks.get(board_key)
+        if baseline is not None and value <= baseline:
+            continue
+        kept.append(post)
+    return kept, updated
+
+
+def _read_board_watermarks(school_id: str) -> dict[str, int]:
+    try:
+        rows = (
+            get_supabase_client()
+            .table("school_crawl_state")
+            .select("board_watermarks")
+            .eq("school_id", school_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:  # noqa: BLE001 - watermark는 best-effort; 실패 시 비활성처럼 동작.
+        LOGGER.warning("Failed to read board watermarks: school_id=%s", school_id, exc_info=True)
+        return {}
+    raw = rows[0].get("board_watermarks") if rows else None
+    if not isinstance(raw, dict):
+        return {}
+    parsed: dict[str, int] = {}
+    for key, value in raw.items():
+        try:
+            parsed[str(key)] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return parsed
+
+
+def _write_board_watermarks(school_id: str, watermarks: dict[str, int]) -> None:
+    try:
+        get_supabase_client().table("school_crawl_state").update(
+            {"board_watermarks": watermarks}
+        ).eq("school_id", school_id).execute()
+    except Exception:  # noqa: BLE001 - best-effort; 다음 크롤에서 다시 갱신된다.
+        LOGGER.warning("Failed to write board watermarks: school_id=%s", school_id, exc_info=True)
+
+
 def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> int:
     saved = 0
     valid_posts = [
@@ -652,6 +734,14 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
         for post in result.sample_posts
         if post.status in POST_SUCCESS_STATUSES and post.detail_url
     ]
+
+    watermark_enabled = get_settings().crawler_watermark_enabled
+    existing_watermarks: dict[str, int] = {}
+    updated_watermarks: dict[str, int] = {}
+    if watermark_enabled:
+        existing_watermarks = _read_board_watermarks(result.school_id)
+        valid_posts, updated_watermarks = _apply_watermark_filter(valid_posts, existing_watermarks)
+
     crawl_checked_at = datetime.now(UTC).isoformat()
 
     for post_rank, post in enumerate(valid_posts):
@@ -688,6 +778,8 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
                 continue
             raise RuntimeError(f"Failed to save crawled notice candidate: {exc}") from exc
     _trim_school_notice_cache(result.school_id)
+    if watermark_enabled and updated_watermarks != existing_watermarks:
+        _write_board_watermarks(result.school_id, updated_watermarks)
     return saved
 
 

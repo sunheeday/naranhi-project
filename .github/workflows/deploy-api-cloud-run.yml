@@ -14,6 +14,8 @@ env:
   SERVICE_NAME: ${{ vars.CLOUD_RUN_API_SERVICE }}
   TRANSLATION_WORKER_JOB: ${{ vars.CLOUD_RUN_TRANSLATION_WORKER_JOB }}
   CRAWLER_WORKER_JOB: ${{ vars.CLOUD_RUN_CRAWLER_WORKER_JOB }}
+  SCHOOL_CRAWLER_JOB: ${{ vars.CLOUD_RUN_SCHOOL_CRAWLER_JOB }}
+  CONTENT_EXTRACTOR_JOB: ${{ vars.CLOUD_RUN_CONTENT_EXTRACTOR_JOB }}
   IMAGE_NAME: naranhi-api
 
 jobs:
@@ -124,6 +126,38 @@ jobs:
             --args="-m,app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3" \
             --task-timeout=3600 \
             --max-retries=1 \
+            --memory=512Mi \
+            --cpu=1 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+
+      # 정기 배치: 매일 06/18시 Cloud Scheduler가 직접 깨우는 전체학교 크롤 + 본문추출 Job.
+      # 큐(app_jobs) 미사용 — Scheduler가 jobs:run으로 직접 실행. CRAWLER_SCHEDULE_NOTICE_COUNT=게시판 스캔 깊이.
+      - name: Deploy scheduled school crawler Job to Cloud Run
+        if: ${{ env.SCHOOL_CRAWLER_JOB != '' }}
+        run: |
+          gcloud run jobs deploy "$SCHOOL_CRAWLER_JOB" \
+            --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
+            --region="$REGION" \
+            --command=python \
+            --args="-m,app.jobs.scheduled_school_crawler" \
+            --task-timeout=14400 \
+            --max-retries=0 \
+            --memory=512Mi \
+            --cpu=1 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},CRAWLER_SCHEDULE_NOTICE_COUNT=8" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+
+      - name: Deploy scheduled content extractor Job to Cloud Run
+        if: ${{ env.CONTENT_EXTRACTOR_JOB != '' }}
+        run: |
+          gcloud run jobs deploy "$CONTENT_EXTRACTOR_JOB" \
+            --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
+            --region="$REGION" \
+            --command=python \
+            --args="-m,app.jobs.scheduled_content_extractor,--max-notices,30" \
+            --task-timeout=14400 \
+            --max-retries=0 \
             --memory=512Mi \
             --cpu=1 \
             --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \

@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     )
     crawler_max_posts: int = Field(default=5, alias="CRAWLER_MAX_POSTS")
     crawler_enable_gemini: bool = Field(default=False, alias="CRAWLER_ENABLE_GEMINI")
+    # 증분수집(watermark): 게시판별 마지막 최대 글번호보다 큰 글만 신규 처리(트림된 옛 글 재추출 방지).
+    # 신뢰 가능한 숫자 일련번호에만 적용되고 그 외는 기존 중복제거로 폴백. 문제 시 false로 즉시 비활성.
+    crawler_watermark_enabled: bool = Field(
+        default=True,
+        alias="CRAWLER_WATERMARK_ENABLED",
+    )
     crawler_schedule_concurrency: int = Field(
         default=3,
         ge=1,
