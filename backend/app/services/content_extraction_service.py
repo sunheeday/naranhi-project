@@ -879,6 +879,40 @@ async def _auto_translate_notice_locales(notice: dict[str, Any]) -> None:
 
     await asyncio.gather(*(_run_locale(locale) for locale in target_locales))
 
+    # 인라인 번역이 실패/누락한 로케일은 durable 잡으로 넘겨 워커가 재시도(max_attempts)하게 한다.
+    # 긴/복잡한 공지가 일시 오류로 빠져도, 사용자가 앱을 다시 열거나 운영자가 손대지 않아도
+    # 백그라운드에서 자동으로 채워진다. (이미 완료된 로케일은 _missing_translation_locales가 제외)
+    still_missing = [
+        locale
+        for locale in _missing_translation_locales(notice_id, locales)
+        if locale != "ko"
+    ]
+    if still_missing:
+        from app.services.job_queue_service import JobQueueService
+        from app.services.worker_trigger import schedule_worker_trigger
+
+        queue = JobQueueService()
+        for locale in still_missing:
+            try:
+                queue.enqueue(
+                    job_type="notice_translation",
+                    job_key=f"{notice_id}:{locale}",
+                    payload={"notice_id": notice_id, "target_language": locale},
+                )
+            except Exception as exc:  # noqa: BLE001 - enqueue 실패가 추출을 깨면 안 된다.
+                LOGGER.warning(
+                    "failed to enqueue translation retry job: notice_id=%s locale=%s error=%s",
+                    notice_id,
+                    locale,
+                    sanitize_error(exc),
+                )
+        schedule_worker_trigger("notice_translation")
+        LOGGER.warning(
+            "auto translation incomplete inline; enqueued retry jobs: notice_id=%s locales=%s",
+            notice_id,
+            still_missing,
+        )
+
 
 async def translate_sources_for_locale(service: Any, notice_id: str, target_language: str) -> None:
     """요약·본문·첨부 정제본을 팀 translate_text(기존 번역 함수)로 번역해 extracted_content 에 저장.
