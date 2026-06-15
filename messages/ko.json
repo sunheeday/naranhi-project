@@ -197,6 +197,7 @@
     "message_error": "메시지 번역에 실패했어요. 잠시 후 다시 시도해주세요."
   },
   "settings": {
+    "demo_school_select": "학교 선택",
     "title": "설정",
     "language": "언어",
     "language_ko": "한국어",

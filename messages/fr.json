@@ -158,6 +158,7 @@
     "gcal_error": "Échec de la connexion à Google Agenda. Veuillez vous déconnecter et vous reconnecter."
   },
   "settings": {
+    "demo_school_select": "Sélection de l'école",
     "title": "Paramètres",
     "language": "Langue",
     "language_ko": "한국어",

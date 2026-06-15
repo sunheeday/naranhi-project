@@ -154,6 +154,7 @@
     "gcal_error": "Google日历连接失败，请退出后重新登录。"
   },
   "settings": {
+    "demo_school_select": "选择学校",
     "title": "设置",
     "language": "语言",
     "language_ko": "한국어",

@@ -158,6 +158,7 @@
     "gcal_error": "เชื่อมต่อ Google Calendar ล้มเหลว กรุณาออกจากระบบและเข้าสู่ระบบอีกครั้ง"
   },
   "settings": {
+    "demo_school_select": "เลือกโรงเรียน",
     "title": "ตั้งค่า",
     "language": "ภาษา",
     "language_ko": "한국어",

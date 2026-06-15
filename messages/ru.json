@@ -197,6 +197,7 @@
     "message_error": "Не удалось перевести сообщение. Повторите попытку позже."
   },
   "settings": {
+    "demo_school_select": "Выбор школы",
     "title": "Настройки",
     "language": "Язык",
     "language_ko": "한국어",

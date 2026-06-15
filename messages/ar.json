@@ -197,6 +197,7 @@
     "message_error": "فشلت ترجمة الرسالة. يرجى المحاولة لاحقًا."
   },
   "settings": {
+    "demo_school_select": "اختيار المدرسة",
     "title": "الإعدادات",
     "language": "اللغة",
     "language_ko": "한국어",
