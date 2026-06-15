@@ -108,7 +108,7 @@ jobs:
             --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
             --region="$REGION" \
             --command=python \
-            --args="-m,app.jobs.translation_worker,--max-jobs,0,--idle-grace-seconds,3,--batch-size,8" \
+            --args="-m,app.jobs.translation_worker,--max-jobs,0,--idle-grace-seconds,3,--batch-size,10" \
             --task-timeout=3600 \
             --max-retries=1 \
             --memory=512Mi \
