@@ -1169,6 +1169,7 @@ class NoticeService:
                 "notice_id": notice_id,
                 "title": title,
                 "event_date": entry["event_date"],
+                "end_date": entry.get("end_date"),
                 "event_kinds": entry["event_kinds"],
                 "location": location,
                 "description": description,
@@ -1540,28 +1541,66 @@ def _school_event_entries_from_pipeline(pipeline_result: dict[str, Any]) -> list
     metadata = pipeline_result.get("metadata") if isinstance(pipeline_result.get("metadata"), dict) else {}
     order: list[str] = []
     kinds_by_date: dict[str, set[str]] = {}
+    end_by_date: dict[str, str] = {}
 
-    def add(values: list[str], kind: str) -> None:
+    def add_point(value: str, kind: str) -> None:
+        if value not in kinds_by_date:
+            kinds_by_date[value] = set()
+            order.append(value)
+        kinds_by_date[value].add(kind)
+
+    def add_span(start: str, end: str, kind: str) -> None:
+        add_point(start, kind)
+        existing = end_by_date.get(start)
+        end_by_date[start] = end if existing is None else max(existing, end)
+
+    def add_fact_dates(items: object, kind: str) -> None:
+        for item in _list_of_dicts(items):
+            normalized = _optional_str(item.get("normalized")) or _optional_str(item.get("value"))
+            raw_text = (
+                _optional_str(item.get("raw_text"))
+                or _optional_str(item.get("text"))
+                or _optional_str(item.get("date"))
+            )
+            span = _event_date_span(normalized, raw_text)
+            if span:
+                add_span(span[0], span[1], kind)
+            else:
+                for iso in _normalized_iso_dates([item]):
+                    add_point(iso, kind)
+
+    def add_string_dates(values: list[str], kind: str) -> None:
         for value in values:
-            if value not in kinds_by_date:
-                kinds_by_date[value] = set()
-                order.append(value)
-            kinds_by_date[value].add(kind)
+            span = _event_date_span(value, value)
+            if span:
+                add_span(span[0], span[1], kind)
+                continue
+            for iso in _iso_dates_from_value(value) or _infer_iso_dates_from_raw_text(value):
+                add_point(iso, kind)
 
     for container in (target_facts, source_facts):
-        add(_normalized_iso_dates(container.get("dates")), "event")
-        add(_normalized_iso_dates(container.get("deadlines")), "deadline")
-    add(_canonical_metadata_iso_dates(metadata, "important_dates"), "event")
-    add(_canonical_metadata_iso_dates(metadata, "deadlines"), "deadline")
-    add(_metadata_card_section_dates(metadata, "action"), "deadline")
+        add_fact_dates(container.get("dates"), "event")
+        add_fact_dates(container.get("deadlines"), "deadline")
+    add_string_dates(_canonical_metadata_values(metadata, "important_dates"), "event")
+    add_string_dates(_canonical_metadata_values(metadata, "deadlines"), "deadline")
+    add_string_dates(_metadata_card_section_dates(metadata, "action"), "deadline")
 
-    return [
-        {
-            "event_date": value,
-            "event_kinds": [kind for kind in ("deadline", "event") if kind in kinds_by_date.get(value, set())],
-        }
-        for value in order
-    ]
+    # 연속 구간(end_date)이 잡히면, 그 구간의 '끝 경계'와 같은 날짜가 '행사 전용' 단일 점으로
+    # 따로 새어 들어온 것(메타데이터가 범위 끝 날짜를 개별로도 나열하는 경우)은 범위 막대와
+    # 중복이므로 제외한다. 단, 구간 내부의 '별개 행사'(예: 5/18~5/22 기간 중 5/20 행사)는
+    # 끝 경계가 아니므로 유지한다.
+    span_ends = {end for start, end in end_by_date.items() if end > start}
+    entries: list[dict[str, Any]] = []
+    for value in order:
+        kinds = [kind for kind in ("deadline", "event") if kind in kinds_by_date.get(value, set())]
+        end = end_by_date.get(value)
+        if end and end > value:
+            entries.append({"event_date": value, "end_date": end, "event_kinds": kinds})
+            continue
+        if kinds == ["event"] and value in span_ends:
+            continue
+        entries.append({"event_date": value, "event_kinds": kinds})
+    return entries
 
 
 def _schedule_location_from_pipeline(pipeline_result: dict[str, Any]) -> str | None:
@@ -2070,10 +2109,19 @@ def _looks_like_admin_or_footer_date_value(raw_text: str | None, source_text: st
             if match_index < 0:
                 break
 
+            after_index = match_index + len(compact_token)
+            # 숫자 경계 가드: 짧은 날짜 토큰("2026.6.1")이 더 긴 날짜("2026.6.15")의 부분
+            # 문자열로 잘못 매칭되어 실제 행사일을 행정/푸터로 오판하지 않게 한다.
+            before_is_digit = match_index > 0 and compact_source[match_index - 1].isdigit()
+            after_is_digit = after_index < len(compact_source) and compact_source[after_index].isdigit()
+            if before_is_digit or after_is_digit:
+                start = after_index
+                continue
+
             context_start = max(0, match_index - 40)
-            context_end = min(len(compact_source), match_index + len(compact_token) + 40)
+            context_end = min(len(compact_source), after_index + 40)
             context = compact_source[context_start:context_end]
-            trailing = compact_source[match_index + len(compact_token) :]
+            trailing = compact_source[after_index:]
 
             has_admin_keyword = any(keyword in context for keyword in admin_keywords)
             has_schedule_keyword = any(keyword in context for keyword in schedule_keywords)
@@ -2088,7 +2136,7 @@ def _looks_like_admin_or_footer_date_value(raw_text: str | None, source_text: st
             else:
                 saw_non_admin_context = True
 
-            start = match_index + len(compact_token)
+            start = after_index
 
     return saw_admin_context and not saw_non_admin_context
 
@@ -2099,8 +2147,16 @@ def _date_search_tokens(raw_text: str | None) -> list[str]:
         return []
 
     tokens = [text]
-    iso = _iso_date(text)
-    if iso:
+    # 점 표기(2026.6.1)·연도 없는 표기도 원문(2026년 6월 1일)과 매칭되도록 ISO로 정규화한 뒤
+    # 같은 날짜의 표준 표기 변형을 토큰으로 펼친다. 정규화 기준은 event_date 생성과 동일
+    # (_infer_iso_dates_from_raw_text)이라, "추출은 되는데 행정/푸터 필터엔 안 잡히는" 포맷 비대칭을 없앤다.
+    iso_dates: list[str] = []
+    exact = _iso_date(text)
+    if exact:
+        iso_dates.append(exact)
+    else:
+        iso_dates.extend(_infer_iso_dates_from_raw_text(text))
+    for iso in iso_dates:
         year, month, day = iso.split("-")
         tokens.extend(
             [
@@ -2371,6 +2427,33 @@ def _normalized_iso_dates(value: object) -> list[str]:
             candidates = _infer_iso_dates_from_raw_text(raw_text)
         dates.extend(candidates)
     return _dedupe(dates)
+
+
+# 행사 '기간(연속 구간)'을 나타내는 연결 기호. 단일 날짜 나열과 구분하는 신호다.
+_DATE_RANGE_MARKERS = ("~", "～", "〜", "∼", "–", "—", "－", "─", "부터", "까지")
+
+
+def _event_date_span(normalized: str | None, raw_text: str | None) -> tuple[str, str] | None:
+    """한 날짜 fact가 '연속 구간'이면 (시작ISO, 끝ISO)을, 아니면 None을 반환.
+
+    추출 단계에서 범위는 이미 normalized에 두 ISO로 기록된다
+    (예: '2026-06-08~2026-06-11', '2026-07-01 - 2026-07-02'). 단일 날짜는 ISO가 하나뿐이다.
+    그래서 'normalized 안에 서로 다른 ISO가 2개 이상' = 연속 구간으로 판정한다(가장 신뢰 가능한 신호).
+    normalized에 ISO가 없을 때만 raw_text를 보되, 이때는 연결 기호가 있을 때만 구간으로 본다
+    (시간 범위 '19:00~19:40' 오인 방지 — 시간엔 ISO가 없어 애초에 잡히지 않는다)."""
+    normalized_text = _optional_str(normalized)
+    if normalized_text:
+        isos = sorted(_dedupe(re.findall(r"\d{4}-\d{2}-\d{2}", normalized_text)))
+        if len(isos) >= 2:
+            return isos[0], isos[-1]
+        if isos:
+            return None
+    raw = _optional_str(raw_text)
+    if raw and any(marker in raw for marker in _DATE_RANGE_MARKERS):
+        isos = sorted(_dedupe(_infer_iso_dates_from_raw_text(raw)))
+        if len(isos) >= 2:
+            return isos[0], isos[-1]
+    return None
 
 
 def _canonical_metadata_iso_dates(metadata: dict[str, Any], field_name: str) -> list[str]:

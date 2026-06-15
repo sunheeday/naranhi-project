@@ -117,7 +117,7 @@ export default async function CalendarPage({ searchParams }: Props) {
       if (schoolIds.length > 0) {
         let { data: rows, error } = await supabase
           .from('school_events')
-          .select('id, notice_id, title, event_date, event_kinds, location, description')
+          .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
           .in('school_id', schoolIds)
           .gte('event_date', from)
           .lt('event_date', to)
@@ -135,7 +135,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
           const retry = await supabase
             .from('school_events')
-            .select('id, notice_id, title, event_date, event_kinds, location, description')
+            .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
             .in('school_id', schoolIds)
             .gte('event_date', from)
             .lt('event_date', to)
@@ -206,6 +206,7 @@ export default async function CalendarPage({ searchParams }: Props) {
             ),
             sourceTitle,
             eventDate: row.event_date,
+            endDate: row.end_date,
             eventKinds: parseEventKinds(row.event_kinds),
             location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
             description: row.description,

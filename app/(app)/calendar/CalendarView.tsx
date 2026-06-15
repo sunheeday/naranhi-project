@@ -52,10 +52,6 @@ function isoToMs(iso: string): number {
   return Date.UTC(year, month - 1, day)
 }
 
-function daysBetween(start: string, end: string): number {
-  return Math.round((isoToMs(end) - isoToMs(start)) / ONE_DAY_MS)
-}
-
 function addDaysIso(iso: string, days: number): string {
   return new Date(isoToMs(iso) + days * ONE_DAY_MS).toISOString().slice(0, 10)
 }
@@ -70,15 +66,6 @@ function intersectsMonth(event: ScheduleEvent, year: number, month: number): boo
   return event.eventDate <= monthEnd && eventEndDate(event) >= monthStart
 }
 
-function kindKey(event: ScheduleEvent): string {
-  return [...event.eventKinds].sort().join('|')
-}
-
-function mergeKinds(events: ScheduleEvent[]): ('event' | 'deadline')[] {
-  const kinds = new Set(events.flatMap(event => event.eventKinds))
-  return (['deadline', 'event'] as const).filter(kind => kinds.has(kind))
-}
-
 function eventTitleForNormalization(event: ScheduleEvent): string {
   return event.sourceTitle || event.title
 }
@@ -91,45 +78,6 @@ function titleKey(title: string): string {
   return title
     .replace(/\s+/g, '')
     .replace(/[()[\]{}<>]/g, '')
-}
-
-function shouldMergeShortRange(normalizedTitle: string, current: ScheduleEvent, next: ScheduleEvent): boolean {
-  const gap = daysBetween(current.eventDate, next.eventDate)
-  if (gap < 1 || gap > 2) return false
-  return kindKey(current) === kindKey(next) || normalizedTitle.includes('줄넘기')
-}
-
-function normalizeKnownCurrentNoticeRows(normalizedTitle: string, rows: ScheduleEvent[]): ScheduleEvent[] {
-  if (normalizedTitle.includes('정기시험') && normalizedTitle.includes('기출문제')) {
-    const start = rows.find(row => row.eventDate === '2026-06-24')
-    const end = rows.find(row => row.eventDate === '2026-06-30')
-    if (start && end) {
-      return [{
-        ...start,
-        id: `range:${start.noticeId}:2026-06-24:2026-06-30`,
-        eventDate: '2026-06-24',
-        endDate: '2026-06-30',
-        eventKinds: mergeKinds(rows),
-      }]
-    }
-  }
-
-  if (!normalizedTitle.includes('줄넘기챔피언십')) return rows
-
-  const preliminary = rows.find(row => row.eventDate === '2026-06-08')
-  if (!preliminary) return rows
-
-  const normalized: ScheduleEvent[] = [{
-    ...preliminary,
-    id: `range:${preliminary.noticeId}:2026-06-08:2026-06-10`,
-    eventDate: '2026-06-08',
-    endDate: '2026-06-10',
-    eventKinds: mergeKinds(rows.filter(row => row.eventDate >= '2026-06-08' && row.eventDate <= '2026-06-11')),
-  }]
-
-  const finals = rows.filter(row => row.eventDate > '2026-06-11')
-  normalized.push(...finals)
-  return normalized
 }
 
 function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
@@ -154,30 +102,10 @@ function normalizeCalendarEvents(events: ScheduleEvent[]): ScheduleEvent[] {
         rows = deadlineRows
       }
     }
-    rows = normalizeKnownCurrentNoticeRows(normalizedTitle, rows)
 
-    for (let index = 0; index < rows.length; index += 1) {
-      const segment = [rows[index]]
-      while (
-        index + 1 < rows.length
-        && shouldMergeShortRange(normalizedTitle, segment[segment.length - 1], rows[index + 1])
-      ) {
-        index += 1
-        segment.push(rows[index])
-      }
-
-      const first = segment[0]
-      const last = segment[segment.length - 1]
-      normalized.push({
-        ...first,
-        id: segment.length === 1
-          ? first.id
-          : `range:${first.noticeId}:${first.eventDate}:${last.eventDate}`,
-        eventDate: first.eventDate,
-        endDate: segment.length === 1 ? first.endDate : last.eventDate,
-        eventKinds: mergeKinds(segment),
-      })
-    }
+    // 연속 구간은 백엔드가 endDate로 내려준다(원문에 범위로 표현된 경우만).
+    // 프론트는 더 이상 근접 날짜를 추측 병합하지 않는다 — 별개 날짜(예: 학생 6/9·학부모 6/11)는 따로 둔다.
+    normalized.push(...rows)
   }
 
   return normalized.sort((a, b) => a.eventDate.localeCompare(b.eventDate) || eventEndDate(a).localeCompare(eventEndDate(b)))
