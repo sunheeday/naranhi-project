@@ -158,6 +158,7 @@
     "gcal_error": "Gagal terhubung ke Google Calendar. Silakan keluar dan masuk lagi."
   },
   "settings": {
+    "demo_school_select": "Pilih sekolah",
     "title": "Pengaturan",
     "language": "Bahasa",
     "language_ko": "한국어",

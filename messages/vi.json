@@ -156,6 +156,7 @@
     "gcal_error": "Kết nối Google Calendar thất bại. Vui lòng đăng xuất và đăng nhập lại."
   },
   "settings": {
+    "demo_school_select": "Chọn trường",
     "title": "Cài đặt",
     "language": "Ngôn ngữ",
     "language_ko": "한국어",

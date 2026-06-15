@@ -197,6 +197,7 @@
     "message_error": "Message translation failed. Please try again later."
   },
   "settings": {
+    "demo_school_select": "Select school",
     "title": "Settings",
     "language": "Language",
     "language_ko": "한국어",

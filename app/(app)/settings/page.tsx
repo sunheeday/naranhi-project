@@ -164,6 +164,7 @@ export default async function SettingsPage() {
             <DemoSchoolPicker
               schools={BYPASS_SCHOOLS.map(s => ({ key: s.key, name: s.name }))}
               currentKey={selectedBypassKey}
+              title={messages.settings.demo_school_select ?? '학교 선택'}
             />
             <hr className="border-border" />
           </>

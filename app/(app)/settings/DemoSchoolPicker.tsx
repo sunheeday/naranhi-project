@@ -11,9 +11,10 @@ export interface DemoSchoolItem {
 interface Props {
   schools: DemoSchoolItem[]
   currentKey: string
+  title: string
 }
 
-export default function DemoSchoolPicker({ schools, currentKey }: Props) {
+export default function DemoSchoolPicker({ schools, currentKey, title }: Props) {
   const [open, setOpen] = useState(false)
   const [selectedKey, setSelectedKey] = useState(currentKey)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +53,7 @@ export default function DemoSchoolPicker({ schools, currentKey }: Props) {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="demo-school-heading">
       <h2 id="demo-school-heading" className="text-sm font-semibold text-text-secondary">
-        학교 선택
+        {title}
       </h2>
 
       <div ref={containerRef} className="flex flex-col">
@@ -78,7 +79,7 @@ export default function DemoSchoolPicker({ schools, currentKey }: Props) {
         {open && (
           <ul
             role="listbox"
-            aria-label="학교 선택"
+            aria-label={title}
             className="mt-2 overflow-hidden rounded-btn border border-border bg-surface"
           >
             {schools.map((school, index) => {
