@@ -58,15 +58,6 @@ export const BYPASS_SCHOOLS: BypassSchool[] = [
     address: '인천광역시 연수구 함박뫼로 87',
     homepageUrl: 'https://hambak.icees.kr',
   },
-  {
-    key: 'incheon-munnam-e',
-    name: '인천문남초등학교',
-    level: 'elementary',
-    officeCode: 'E10',
-    schoolCode: '7341032',
-    address: '인천광역시 연수구 먼우금로 273',
-    homepageUrl: 'http://munnam.icees.kr/',
-  },
 ]
 
 export const DEFAULT_BYPASS_SCHOOL: BypassSchool = BYPASS_SCHOOLS[0]
