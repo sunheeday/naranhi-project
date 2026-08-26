@@ -23,7 +23,7 @@ SQL Editor 수동 실행을 안내한다(`docs/scheduled-crawl-runbook.md:23-28`
 `0030_school_events_end_date.sql`) 존재한다.
 
 > 실측 확인: 두 `0030` 모두 실제 DB에 **적용되어 있다**(운영 컬럼 조회로 확인).
-> 즉 지금 데이터 문제는 없다. 문제는 **앞으로 자동화를 붙일 때** 드러난다 (§5.4).
+> 즉 지금 데이터 문제는 없다. 문제는 **앞으로 자동화를 붙일 때** 드러난다 (§7.4).
 
 사업 D(DB 정리)는 마이그레이션 6~7개를 만든다. 그것을 손으로 넣기 시작하면
 같은 사고가 반복된다. 그래서 **배포 자동화가 DB 정리의 선행 조건**이다.
@@ -107,12 +107,20 @@ anon 키로 돌리면 에러가 아니라 **빈 배열**이 와서 조용히 오
 
 ### 5.2 변경
 
-**(a) 프로덕션 우회 해제**
+**(a) 우회 경로를 하나로 통합한다**
 
-`.github/workflows/deploy-cloud-run.yml:84`의 `TEST_ENTRY_BYPASS=true` 제거.
+지금 우회 스위치가 사실상 둘이다 — `TEST_ENTRY_BYPASS`(전 경로 무인증 통과)와
+`DEV_LOGIN_ENABLED`(개발 계정 즉시 로그인). 사용자 결정에 따라 개발 진입로는
+당분간 켜두므로, **스위치가 둘로 남으면 나중에 하나를 꺼도 열려 있게 된다.**
 
-`middleware.ts:19-27`의 우회 분기 자체는 **남긴다** — 로컬 개발에서 유용하고,
-env가 없으면 동작하지 않는다. 코드를 지우는 게 아니라 프로덕션에서 켜지 않는 것이다.
+따라서 이 사업에서:
+
+- `.github/workflows/deploy-cloud-run.yml:84`의 `TEST_ENTRY_BYPASS=true` **제거**
+- `middleware.ts:19-27`의 `TEST_ENTRY_BYPASS` 분기 **제거**
+- `lib/test-entry-bypass.ts` **제거** (§6.3(e) 데모 종료 결정과 같은 작업)
+- 우회는 **`DEV_LOGIN_ENABLED` 하나로만** 제어한다
+
+결과: 로그인 없이 들어오는 길은 `/home` 하나만 남고, env 한 줄로 닫을 수 있다.
 
 **(b) `/home` 개발 진입로**
 
@@ -133,24 +141,25 @@ env가 없으면 동작하지 않는다. 코드를 지우는 게 아니라 프�
 > 분기와 `lib/test-entry-bypass.ts`는 이 사업에서 제거해 **우회 경로를 하나로 통합**한다.
 > 스위치가 두 개면 하나를 끄고도 열려 있게 된다.
 
-**(c) 14일 세션**
+**(c) 14일 세션 — 코드만으로 달성된다**
 
-Supabase 세션은 access token(단명)과 refresh token(장명)으로 나뉜다.
-"14일 자동 로그인"은 refresh token 유효기간과 브라우저 쿠키 만료 둘 다 필요하다.
+Supabase 세션은 access token(단명, 기본 1시간)과 refresh token(장명)으로 나뉜다.
+사용자가 다시 로그인하지 않으려면 **브라우저가 refresh token을 14일간 들고 있으면 된다.**
 
-- 쿠키 만료: `lib/supabase/server.ts`의 `@supabase/ssr` 쿠키 옵션에 `maxAge` 지정
-- refresh token 유효기간: **Supabase 프로젝트 설정 값**이라 코드로 못 바꾼다.
-  대시보드 → Authentication → Sessions 에서 확인·조정 필요 (Owner 권한 필요)
+- **조치**: `lib/supabase/server.ts`의 `@supabase/ssr` 쿠키 옵션에 `maxAge: 60*60*24*14`
+- **프로젝트 설정 변경 불필요**: Supabase 기본값은 refresh token에 시간 제한(time-box)이
+  없고 회전 방식으로 갱신된다. 따라서 쿠키 수명이 곧 자동 로그인 기간이 된다.
 
-> 검증 필요: 현재 프로젝트의 refresh token 만료 설정이 14일보다 짧은지.
-> 짧으면 사용자가 대시보드에서 조정해야 한다.
+> 사용자 확인 1건만: 대시보드 → Authentication → Sessions 에
+> "Time-box user sessions"가 **켜져 있고 14일보다 짧으면** 알려줄 것.
+> 꺼져 있으면(기본값) 아무 조치도 필요 없다.
 
-**(d) 데모 학교 경로 정리**
+**(d) 데모 진입 경로 제거**
 
 `lib/test-entry-bypass.ts`가 화이트리스트 3개 학교에 대해 service_role로
-`schools` insert + 크롤 트리거까지 수행한다. 우회가 꺼지면 이 경로는 죽지만,
-`ensureBypassChildForSchool`이 남아 있으면 나중에 다시 켜질 위험이 있다.
-**우회 env가 없을 때 이 함수가 즉시 반환하도록 가드를 명시한다.**
+`schools` insert + 크롤 트리거까지 수행한다. 데모 종료 결정(§6.3(e))에 따라
+**이 파일과 호출부를 제거한다.** 가드를 추가하는 게 아니라 삭제다 —
+남겨두면 새 데모 데이터가 계속 생길 수 있고, (a)의 "스위치 하나" 원칙에도 어긋난다.
 
 ### 5.3 로그인 이후 흐름
 
@@ -212,7 +221,7 @@ URL은 **읽는 시점에** 발급한다. 저장된 URL은 만료 개념이 없�
 실측: source 108건 중 `public_url` 53건 / `storage_path` **42건**.
 **`public_url`은 있는데 `storage_path`가 없는 건이 존재한다.**
 → 이행 스크립트가 `public_url`에서 오브젝트 키를 역산해 `storage_path`를 채운다.
-역산 실패분은 재추출 대상으로 표시한다.
+역산 실패분 처리는 (f) 참조 — **재추출하지 않고 포기한다.**
 
 **(e) 데모 학교 — 예외를 두지 않는다.**
 **사용자 결정 (2026-08-26): "데모는 끝났다. 데모 학교는 뺀다."**
@@ -343,7 +352,7 @@ Supabase CLI는 `supabase_migrations.schema_migrations` 테이블로 적용 여�
 |---|---|---|
 | **`db push` 첫 실행이 과거 마이그레이션을 재실행** | `drop table` 등 파괴적 구문 재실행 | §7.4 이력 정합을 **먼저** 수행. `db diff`가 깨끗할 때만 push 활성화 |
 | 우회 해제로 시연 불가 | 데모 못 보여줌 | `DEV_LOGIN_ENABLED`로 계정 로그인 경로 확보 |
-| 첨부 이행 누락분이 깨짐 | 일부 공지에서 첨부 안 보임 | 7번 배포 전 `storage_path` 결측 0건 확인. 결측분은 재추출 |
+| 첨부 이행 누락분이 깨짐 | 일부 공지(최대 11건)에서 첨부 안 보임 | **수용한다** (§6.3(f) 결정). 7번 배포 전 결측 건수를 세어 기록하고, 해당 source의 `public_url`을 제거해 깨진 링크가 아니라 «첨부 없음»으로 보이게 한다 |
 | 서명 URL 5분이 짧아 다운로드 실패 | 대용량 첨부 | 발급 시점이 아니라 클릭 시점에 발급(302 리다이렉트 구조라 자연히 해결) |
 | Supabase refresh token 설정이 14일 미만 | 자동 로그인 조기 만료 | 대시보드 설정 확인이 선행 |
 
