@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { appendNextParam } from './lib/auth/redirect'
-import { AUTH_COOKIE_MAX_AGE_SECONDS } from './lib/supabase/config'
+import { withAuthCookieMaxAge } from './lib/supabase/config'
 
 const PUBLIC_PATHS = [
   '/home',
@@ -29,12 +29,7 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
-            // @supabase/ssr 는 DEFAULT_COOKIE_OPTIONS.maxAge(400일)를 항상 채워서 넘기므로
-            // options?.maxAge 는 절대 undefined 가 아니다 — `??` 로는 우리 값이 적용되지 않는다.
-            response.cookies.set(name, value, {
-              ...options,
-              maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
-            })
+            response.cookies.set(name, value, withAuthCookieMaxAge(value, options))
           })
         },
       },
