@@ -1,0 +1,7 @@
+{
+  "origin": "prod-notice",
+  "kind": "safety-notice",
+  "issuer": "(운영 공지 — 검토 시 기입)",
+  "notes": "운영 공지 원문(prod_notice_id=ee994013-735b-4db6-911c-31ea0de70d59). 자동 추출 — 사람 검토 전.",
+  "prod_notice_id": "ee994013-735b-4db6-911c-31ea0de70d59"
+}

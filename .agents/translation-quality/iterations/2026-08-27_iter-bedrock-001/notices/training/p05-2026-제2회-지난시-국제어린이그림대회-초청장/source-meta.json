@@ -1,0 +1,7 @@
+{
+  "origin": "prod-notice",
+  "kind": "event-consent-form",
+  "issuer": "(운영 공지 — 검토 시 기입)",
+  "notes": "운영 공지 원문(prod_notice_id=0fc639f1-e2a2-44e6-967b-4c0c1b6e12fb). 자동 추출 — 사람 검토 전.",
+  "prod_notice_id": "0fc639f1-e2a2-44e6-967b-4c0c1b6e12fb"
+}
