@@ -963,9 +963,9 @@ function hasStorageAttachment(extractedContent: Json | null): boolean {
     const role = typeof sourceObj.source_role === 'string' ? sourceObj.source_role : ''
     const sourceType = typeof sourceObj.source_type === 'string' ? sourceObj.source_type : ''
     const filename = typeof sourceObj.filename === 'string' ? sourceObj.filename.trim() : ''
-    const publicUrl = typeof sourceObj.public_url === 'string' ? sourceObj.public_url.trim() : ''
+    const storagePath = typeof sourceObj.storage_path === 'string' ? sourceObj.storage_path.trim() : ''
     return (
-      Boolean(publicUrl)
+      Boolean(storagePath)
       && (
         role === 'attachment'
         || role === 'primary'
