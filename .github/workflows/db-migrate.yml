@@ -1,3 +1,17 @@
+# DB 마이그레이션 검사·적용.
+#
+# ⚠️ 롤백이 없다는 것을 알고 써라.
+# `supabase db push` 는 마이그레이션을 순차 적용하고, 중간에 실패하면 그 앞까지는
+# 적용된 채로 남는다. 자동 복구 장치는 없고 만들 수도 없다 — DDL 은 트랜잭션으로
+# 묶이지 않는 것이 섞여 있다.
+#
+# 실패 시 대응은 「되돌리기」가 아니라 **「새 마이그레이션으로 앞으로 고치기」**다.
+# `supabase migration list` 로 어디까지 적용됐는지 확인하고, 그 다음 번호로
+# 교정 마이그레이션을 만든다. 이미 적용된 파일을 수정하거나 되돌리려 하지 마라 —
+# 원격 이력과 어긋나 더 큰 사고가 된다.
+#
+# PR 에서는 검사만 하고 적용하지 않는다. 프로덕션 DB 가 하나뿐이라 PR 단계 적용은
+# 되돌릴 수 없기 때문이다.
 name: DB migrations
 
 on:
@@ -9,7 +23,14 @@ on:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - '.github/workflows/db-migrate.yml'
   workflow_dispatch:
+
+# 프로덕션 DB 는 하나뿐이다. 적용 잡이 동시에 돌면 마이그레이션 순서가 엉킨다.
+# 진행 중인 것을 취소하지 않는다 — DB 를 건드리는 중에 끊으면 부분 적용이 남는다.
+concurrency:
+  group: db-migrate-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   check:
@@ -40,6 +61,11 @@ jobs:
     name: 적용
     if: github.event_name != 'pull_request'
     needs: check
+    # GitHub 는 여기 참조된 환경을 자동 생성한다. 보호 규칙이 없으면 그대로 통과하므로
+    # 지금 당장 동작은 바뀌지 않는다. 저장소 Settings → Environments → production 에서
+    # "Required reviewers" 를 켜는 순간, 코드 수정 없이 승인 게이트가 걸린다.
+    # 사업 D 의 파괴적 마이그레이션(컬럼 삭제·데이터 삭제)을 보내기 전에 반드시 켤 것.
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
