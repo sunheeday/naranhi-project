@@ -26,7 +26,7 @@
 - **파괴적 변경은 4단계로 쪼갠다**: 코드 선배포 → 백필/확인 → 읽기 전환 → 삭제. `-a`/`-b` 로 나뉜 Task 를 **한 PR 에 합치지 않는다.**
 - **사전 카운트가 0 이 아니면 그 항목은 이번 사업에서 빠진다.** 자동 판단하지 않고 중단하고 보고한다.
 - **테스트 실행**:
-  - 백엔드: `PYTHONPATH=backend python -m unittest discover backend/tests`
+  - 백엔드: `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests`
   - 프론트: `npm run typecheck` + `npm run build` (**프론트 테스트 러너가 없다** — `package.json` 에 test 스크립트 없음)
 - **커밋 메시지**: 한국어, `type(scope): 요약` 형식.
 
@@ -1381,7 +1381,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_crawler_state_write -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_crawler_state_write -v
 ```
 
 Expected: FAIL — `AttributeError: module 'app.services.school_crawler_service' has no attribute '_school_backfill_payload'` (4건 전부)
@@ -1443,8 +1443,8 @@ def _school_backfill_payload(result: SchoolBoardDiscoveryResult) -> dict[str, An
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_crawler_state_write -v
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_crawler_state_write -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 새 테스트 4건 PASS, 전체 스위트도 전부 통과
@@ -1900,7 +1900,7 @@ Expected (2026-08-27 실측): `source_language` 는 `{'ko': 68}`, `validation_st
 - [ ] **Step 3: 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 npm run typecheck
 ```
 

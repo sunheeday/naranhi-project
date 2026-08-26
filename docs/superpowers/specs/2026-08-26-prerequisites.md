@@ -215,3 +215,66 @@ Cloud Run에서 Bedrock을 호출하려면 컨테이너 안에 AWS 자격증명�
 
 **셋만 먼저 해도 사업 A는 시작된다** — `supabase login`, GitHub 시크릿 3개, 구글 OAuth 설정 확인.
 Bedrock 항목은 사업 B 착수 전까지만 되면 되지만, **모델 액세스 승인이 오래 걸릴 수 있으니 지금 신청**하는 편이 좋다.
+
+---
+
+# 부록 — 착수 전 전면 점검 결과 (2026-08-27)
+
+모든 항목을 **실제로 실행해** 확인했다. 「있어 보인다」가 아니라 「돌았다」 기준이다.
+
+## ✅ 확인된 것
+
+| 항목 | 결과 |
+|---|---|
+| GCP Secret Manager | 8개 — `aws-bedrock-access-key-id`, `aws-bedrock-secret-access-key`, `crawler-internal-token`, `dev-login-email`, `dev-login-password`, `gemini-api-key`, `neis-api-key`, `supabase-service-role-key` |
+| **백엔드 테스트** | **322개 전부 통과** (`backend/venv` 파이썬 기준) |
+| 프론트 타입체크 | 통과 |
+| 프론트 빌드 | 통과 |
+| Vertex AI ADC | 토큰 확보 — 현행 Gemini 경로 정상 |
+| **Bedrock 글로벌** | Claude Sonnet 4.6 **1,303ms** · Claude Haiku 4.5 **920ms** · Nova Lite(APAC) **341ms** |
+| NEIS `schoolInfo` | 정상 (`.env.local` 및 금고의 32자 키) |
+| Google OAuth 자격 | `.env.local` 에 client id(72자)·secret(35자) 존재 |
+| 구조화 | `.env.local` 21개 · `backend/.env` 10개 · `.env.extractor.local` 19개 |
+
+## 🔴 발견된 문제 2건
+
+### 1. 테스트용 파이썬이 따로 있다 — 계획서 117곳을 고쳤다
+
+시스템 파이썬으로 돌리면 **158개 중 25개가 `ModuleNotFoundError: postgrest`** 로 실패한다.
+백엔드 의존성은 `backend/venv` 에만 설치되어 있다.
+
+```
+❌ PYTHONPATH=backend python -m unittest discover backend/tests
+   → Ran 158 tests, FAILED (errors=25)
+
+✅ PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
+   → Ran 322 tests, OK
+```
+
+**모든 계획서의 테스트 명령을 후자로 교체했다** (117곳). 서브에이전트가 이걸 모르면
+「테스트가 원래 깨져 있다」고 오판한다.
+
+### 2. `backend/.env` 의 NEIS 키가 무효다
+
+```
+.env.local     32자  → ✅ 동작
+GCP 금고        32자  → ✅ 동작
+backend/.env   15자  → ❌ ERROR-290 인증키가 유효하지 않습니다
+```
+
+백엔드 프로세스가 `backend/.env` 를 먼저 읽으므로(`config.py:9` 의 탐색 순서),
+**로컬에서 백엔드를 띄우면 NEIS 조회가 실패한다.** 사업 E 가 NEIS 를 본격적으로
+쓰므로 착수 전에 32자 키로 교체해야 한다.
+
+> 교체는 값을 화면에 노출하지 않는 방식으로:
+> `gcloud secrets versions access latest --secret=neis-api-key` 결과를 `backend/.env` 에 반영
+
+## ⚠️ 알아둘 것
+
+- **AWS 자격이 `.env` 파일에 없다.** 의도된 것이다 — 계획서는 GCP 금고에서 읽어
+  환경변수로 주입하도록 지시한다. 관리자 키를 파일에 두지 않는다.
+- **`aws` 명령이 PATH 에서는 아직 구버전(2.6.4)** 을 가리킨다. 새 셸에서만 2.36.31 로
+  갱신된다. 확실히 하려면 전체 경로:
+  `C:/Users/david/AppData/Local/Programs/Amazon/AWSCLIV2/aws.exe`
+- `.env.local` 의 `OPENAI_API_KEY` 는 **빈 값이고 코드 참조도 0건** — 사문화된 설정이다.
+- `GOOGLE_CALENDAR_CREDENTIALS_JSON` 도 `config.py:55-57` 에 선언만 있고 사용처 0건.

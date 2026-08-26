@@ -21,7 +21,7 @@
 - **로그인 게시판 우회 금지**: RSS 경로도 `_validate_candidate`(`notice_post_extractor.py:651`)를 그대로 탄다. `unsupported_login_required` 판정이 유지되어야 한다.
 - **열쇠 취급**: 토큰·키를 명령줄 인자나 URL 쿼리에 넣지 않는다. 값 출력 금지(길이만). 단, **NEIS API는 `KEY` 쿼리 파라미터 외의 인증 수단이 없고 기존 코드가 이미 그렇게 호출한다**(`neis_client.py:104`, `lib/neis.ts:81`) — 이 계획은 그 방식을 바꾸지 않는다. 셸에서 NEIS를 찔러 볼 때는 **일부러 무효한 문자열**(`invalid-key-probe`)이나 **키 없는 5건 모드**만 쓴다.
 - **테스트 실행**:
-  - 백엔드: `PYTHONPATH=backend python -m unittest discover backend/tests`
+  - 백엔드: `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests`
   - 프론트: **테스트 러너가 없다**(`package.json`에 test 스크립트 없음). `npm run typecheck` + `npm run build`로 검증하고, 순수 함수는 Node 22의 타입 스트리핑으로 직접 호출해 확인한다:
     `node --experimental-strip-types --input-type=module -e "const m = await import('./lib/neis.ts'); …"`
     (`lib/neis.ts`의 import는 전부 `import type`이라 값 의존성이 없다 — 이 방식이 실제로 동작하는 것을 확인했다.)
@@ -156,7 +156,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_neis_result_code -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_neis_result_code -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'NeisApiError'`
@@ -231,7 +231,7 @@ def _extract_rows(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_neis_result_code -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_neis_result_code -v
 ```
 
 Expected: PASS (6 tests)
@@ -239,7 +239,7 @@ Expected: PASS (6 tests)
 - [ ] **Step 5: 기존 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. `_extract_rows`를 모킹 없이 쓰는 테스트가 있으면 payload에 `RESULT` 블록이 없어 그대로 통과한다(Step 1의 마지막 케이스가 그 보장이다).
@@ -473,7 +473,7 @@ const inputs = ['http://','https://','http:','https:','','   ','iginue.icees.kr'
 console.log(JSON.stringify(inputs.map(v => [v, normalizeHomepageUrl(v)])))
 " 2>/dev/null > /tmp/front_norm.json
 
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import json, sys
 sys.stdout.reconfigure(encoding='utf-8')
 from app.crawler.neis_client import normalize_homepage_url
@@ -718,7 +718,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_schedule_client -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_schedule_client -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'SchoolScheduleEntry'`
@@ -757,7 +757,7 @@ def _schedule_entry_from_row(row: dict[str, Any]) -> SchoolScheduleEntry | None:
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_schedule_client -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_schedule_client -v
 ```
 
 Expected: PASS (3 tests)
@@ -817,7 +817,7 @@ Expected: PASS (3 tests)
 - [ ] **Step 6: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -911,7 +911,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_schedule_sync -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_schedule_sync -v
 ```
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.school_schedule_sync_service'`
@@ -973,7 +973,7 @@ def build_neis_event_rows(school_id: str, entries: list[SchoolScheduleEntry]) ->
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_schedule_sync -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_schedule_sync -v
 ```
 
 Expected: PASS (5 tests)
@@ -1131,11 +1131,11 @@ def _iso(ymd: str) -> str:
 - [ ] **Step 6: import 가능 여부와 전체 테스트를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import app.services.school_schedule_sync_service as m
 print('로드 OK:', [n for n in ('academic_year_range','build_neis_event_rows','replace_neis_events','select_schedule_sync_targets') if hasattr(m, n)])
 "
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 네 심볼 전부 존재, 전체 테스트 통과
@@ -1293,7 +1293,7 @@ if __name__ == "__main__":
 
 ```bash
 python -m compileall -q backend/app/jobs/sync_school_schedules.py && echo "컴파일 OK"
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 from app.jobs.sync_school_schedules import build_parser
 args = build_parser().parse_args(['--school-id','abc','--limit','2','--dry-run'])
 print(args.school_id, args.limit, args.dry_run)
@@ -1307,7 +1307,7 @@ Expected: `컴파일 OK`, `abc 2 True`
 ```bash
 export SUPABASE_URL="https://aoihmzewthgyoxtejfwo.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="$(gcloud secrets versions access latest --secret=supabase-service-role-key)"
-PYTHONPATH=backend python -m app.jobs.sync_school_schedules --dry-run
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m app.jobs.sync_school_schedules --dry-run
 ```
 
 Expected: `{"dry_run": true, "target_count": 8, "targets": [...]}` 근처. **target_count가 0이면 중단하고 보고할 것** — `children.school_id`가 비었다는 뜻이다.
@@ -1319,7 +1319,7 @@ Step 3에서 나온 id 중 하나를 골라:
 ```bash
 export NEIS_API_KEY="$(gcloud secrets versions access latest --secret=neis-api-key)"
 SCHOOL_ID=<위에서 고른 id>
-PYTHONPATH=backend python -m app.jobs.sync_school_schedules --school-id "$SCHOOL_ID"
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m app.jobs.sync_school_schedules --school-id "$SCHOOL_ID"
 ```
 
 Expected: `"status": "synced"`, `fetched_count > 0`, `deleted_count: 0`(첫 실행), `inserted_count == fetched_count`
@@ -1345,7 +1345,7 @@ Expected: `notice_ai`가 **Task 4 Step 5와 같은 수**(변화 0), `neis`가 St
 - [ ] **Step 6: 재실행이 행을 늘리지 않는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m app.jobs.sync_school_schedules --school-id "$SCHOOL_ID"
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m app.jobs.sync_school_schedules --school-id "$SCHOOL_ID"
 ```
 
 Expected: `deleted_count == inserted_count`, 그리고 Step 5의 카운트를 다시 재면 `neis` 수 **증가 0**
@@ -1632,7 +1632,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_rss_feed_probe -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_rss_feed_probe -v
 ```
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.crawler.rss_feed'`
@@ -1774,7 +1774,7 @@ def _parse_iso(value: Any) -> datetime | None:
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_rss_feed_probe -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_rss_feed_probe -v
 ```
 
 Expected: PASS (9 tests)
@@ -1827,7 +1827,7 @@ async def fetch_feed(url: str, *, timeout: float) -> tuple[int, bytes]:
 - [ ] **Step 6: 실제 두 엔드포인트가 이 코드로 붙는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import asyncio, sys
 sys.stdout.reconfigure(encoding='utf-8')
 from app.crawler.rss_feed import fetch_feed
@@ -2095,7 +2095,7 @@ from app.crawler.rss_feed import RssFeedState, probe_rss_feed, should_probe
 - [ ] **Step 6: 기존 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과 (`test_school_crawler_watermark.py`, `test_scheduled_crawler_service.py` 포함)
@@ -2106,7 +2106,7 @@ Expected: 전부 통과 (`test_school_crawler_watermark.py`, `test_scheduled_cra
 export SUPABASE_URL="https://aoihmzewthgyoxtejfwo.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="$(gcloud secrets versions access latest --secret=supabase-service-role-key)"
 export NEIS_API_KEY="$(gcloud secrets versions access latest --secret=neis-api-key)"
-PYTHONPATH=backend python -m app.jobs.scheduled_school_crawler --force 2>&1 | tail -5
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m app.jobs.scheduled_school_crawler --force 2>&1 | tail -5
 
 python -c "
 import json, os, sys, urllib.request
@@ -2277,7 +2277,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_rss_feed_parse -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_rss_feed_parse -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'normalize_rss_link'` (또는 `parse_feed`의 `NotImplementedError`)
@@ -2416,7 +2416,7 @@ def _node_text(node: Any, tag: str) -> str:
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_rss_feed_parse backend.tests.test_rss_feed_probe -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_rss_feed_parse backend.tests.test_rss_feed_probe -v
 ```
 
 Expected: PASS (전부)
@@ -2424,7 +2424,7 @@ Expected: PASS (전부)
 - [ ] **Step 6: 실물 피드 두 개로 끝까지 돌려 본다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import asyncio, sys
 sys.stdout.reconfigure(encoding='utf-8')
 from app.crawler.rss_feed import FLAVOR_GYO6_RSS2, FLAVOR_JBEDU_JSON, fetch_feed, parse_feed
@@ -2550,7 +2550,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_rss_post_candidates -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_rss_post_candidates -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name '_rss_post_id'`
@@ -2632,7 +2632,7 @@ async def _raw_candidates_from_rss(
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_rss_post_candidates -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_rss_post_candidates -v
 ```
 
 Expected: PASS (5 tests)
@@ -2798,7 +2798,7 @@ async def _extract_cached_board_posts(
 - [ ] **Step 7: 전체 백엔드 테스트가 통과하는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. `DiscoveredPostPreview`는 필드를 바꾸지 않았으므로 `test_school_crawler_watermark.py`가 그대로 통과해야 한다.

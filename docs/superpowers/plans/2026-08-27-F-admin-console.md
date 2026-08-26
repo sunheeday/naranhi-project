@@ -46,7 +46,7 @@
 - **실패 알림(§9.4)은 이 계획에 Step 이 없다.** 스펙 §15 Q7(«알림을 어디로 보내는가»)이 미결이라 Cloud Monitoring notification channel 을 만들 수 없다. Task 8 이 `crawl_run_history.outcome` 을, Task 10 이 잡 큐 적체를 **화면에 드러내는** 데까지 하고, 채널이 정해지면 별건으로 붙인다.
 - **스크립트를 지우지 않는다.** `scripts/recrawl_trigger.py`, `scripts/probe_school_state.py`, `scripts/_hambak_jobstatus.py` 는 화면이 고장 났을 때 돌아갈 곳이다. 최소 한 분기 병행 유지한다.
 - **테스트 실행**:
-  - 백엔드: `PYTHONPATH=backend python -m unittest discover backend/tests`
+  - 백엔드: `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests`
   - 프론트: `npm run typecheck` + `npm run build` (**프론트 테스트 러너가 없다** — `package.json:5-11` 에 test 스크립트 없음. 검증은 타입체크·빌드·실제 HTTP 확인으로 한다)
 - **커밋 메시지**: 한국어, `type(scope): 요약` 형식.
 
@@ -1765,7 +1765,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_logging_setup -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_logging_setup -v
 ```
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.core.logging_setup'`
@@ -1864,7 +1864,7 @@ def setup_logging(*, job_type: str | None = None, level: str | None = None) -> N
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_logging_setup -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_logging_setup -v
 ```
 
 Expected: PASS (3 tests)
@@ -1930,7 +1930,7 @@ Expected: 첫 grep 출력 없음(종료코드 1). `setup_logging` 참조가 **12
 - [ ] **Step 7: 실제로 JSON 이 나오는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import logging
 from app.core.logging_setup import setup_logging
 setup_logging(job_type='probe')
@@ -1958,7 +1958,7 @@ ERROR | naranhi.probe | 죽었다 | ['exception', 'job_type']
 - [ ] **Step 8: 기존 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -2308,7 +2308,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_crawl_run_history -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_crawl_run_history -v
 ```
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.services.crawl_run_history_service'`
@@ -2389,7 +2389,7 @@ def record_crawl_run(
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_crawl_run_history -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_crawl_run_history -v
 ```
 
 Expected: PASS (5 tests)
@@ -2463,7 +2463,7 @@ def main(argv: list[str] | None = None) -> int:
 - [ ] **Step 6: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -2471,8 +2471,8 @@ Expected: 전부 통과
 - [ ] **Step 7: dry-run 이 이력을 남기지 않는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_scheduled_crawler_service -v
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_scheduled_crawler_service -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import sys
 from unittest.mock import patch
 import app.jobs.scheduled_school_crawler as job
@@ -2624,7 +2624,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_translation_review_signal -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_translation_review_signal -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name '_needs_review_from_pipeline'`
@@ -2701,7 +2701,7 @@ def _needs_review_from_pipeline(
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_translation_review_signal -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_translation_review_signal -v
 ```
 
 Expected: PASS (6 tests)
@@ -2709,7 +2709,7 @@ Expected: PASS (6 tests)
 - [ ] **Step 6: 회귀를 확인한다 — 사용자 노출이 바뀌지 않았다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. 특히 `test_notice_api`, `test_notice_service_school_only`, `test_translation_validators`, `test_best_effort_fallback_metadata` 가 통과해야 한다 — `validation_status='passed'` 와 번역문 저장 동작을 건드리지 않았다는 뜻이다.
@@ -3535,7 +3535,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_admin_api -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_admin_api -v
 ```
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.api.admin'`
@@ -3843,8 +3843,8 @@ from app.api.admin import router as admin_router
 - [ ] **Step 7: 테스트 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_admin_api -v
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_admin_api -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: `test_admin_api` 9 tests PASS, 전체도 통과

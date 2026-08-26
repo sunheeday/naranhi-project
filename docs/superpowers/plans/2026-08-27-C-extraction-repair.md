@@ -20,7 +20,7 @@
 - **임포트 방향**: `backend/extractor/` 는 `backend/app/` 을 임포트하지 않는다(단방향). 공용 코드는 **`extractor/` 쪽에 두고 `app/` 이 임포트**한다. 반대 방향을 만들지 말 것.
 - **`hwplib` / LibreOffice 폴백 부활 금지**: `hwp_extractor.py:56,69` 에서 의도적으로 꺼둔 경로다.
 - **테스트 실행**:
-  - 백엔드: `PYTHONPATH=backend python -m unittest discover backend/tests`
+  - 백엔드: `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests`
   - 프론트: 이 계획은 프론트를 건드리지 않는다(프론트 테스트 러너 없음).
 - **운영 DB 읽기**: `SUPABASE_URL=https://aoihmzewthgyoxtejfwo.supabase.co`, 키는 `gcloud secrets versions access latest --secret=supabase-service-role-key` 로 환경변수에 담는다. **키를 명령줄 인자·URL 쿼리에 넣지 않고, 값을 출력하지 않는다.**
 - **gcloud 경로**: PATH에 없으면 `C:/Users/david/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud.cmd`
@@ -211,7 +211,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_extractor_run_budget -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_extractor_run_budget -v
 ```
 
 Expected: `RunGeminiCallCapTest` 3개 PASS (지금 코드가 이미 그렇게 동작한다 — 그 성질을 못 박는 것이 목적이다), `DeployedExtractorJobEnvTest` **4개 전부 FAIL**:
@@ -261,7 +261,7 @@ AssertionError: '--memory=2Gi' not found in ...
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_extractor_run_budget -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_extractor_run_budget -v
 ```
 
 Expected: 7 tests, 전부 PASS
@@ -269,7 +269,7 @@ Expected: 7 tests, 전부 PASS
 - [ ] **Step 6: 기존 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -385,7 +385,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_body_image_logging -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_body_image_logging -v
 ```
 
 Expected: `test_logs_counts_when_stitch_fails`·`test_logs_upload_result_when_stitch_succeeds` FAIL — `AssertionError: no logs of level INFO or higher triggered`
@@ -428,7 +428,7 @@ Expected: `test_logs_counts_when_stitch_fails`·`test_logs_upload_result_when_st
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_body_image_logging -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_body_image_logging -v
 ```
 
 Expected: 3 tests PASS
@@ -466,7 +466,7 @@ Expected: 3 tests PASS
 - [ ] **Step 6: `LOGGER` 와 `sanitize_error` 가 그 파일에 이미 있는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import extractor.extract_pipeline as m
 print('LOGGER:', hasattr(m, 'LOGGER'))
 print('sanitize_error:', hasattr(m, 'sanitize_error'))
@@ -478,7 +478,7 @@ Expected: 둘 다 `True`. `LOGGER` 가 없으면 파일 상단에 `LOGGER = logg
 - [ ] **Step 7: 인라인 이미지 회귀 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_extract_pipeline_inline backend.tests.test_content_extraction_service -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_extract_pipeline_inline backend.tests.test_content_extraction_service -v
 ```
 
 Expected: 전부 통과
@@ -486,7 +486,7 @@ Expected: 전부 통과
 - [ ] **Step 8: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -577,7 +577,7 @@ class HwpFirstTierSilentExitTest(unittest.IsolatedAsyncioTestCase):
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_hwp_markdown -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_hwp_markdown -v
 ```
 
 Expected: 두 새 테스트 FAIL — `이유가 기록되지 않았다: []` 와 `'hwp5html_skip_no_command' not found in []`
@@ -614,7 +614,7 @@ Expected: 두 새 테스트 FAIL — `이유가 기록되지 않았다: []` 와 
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_hwp_markdown backend.tests.test_hwp_extractor -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_hwp_markdown backend.tests.test_hwp_extractor -v
 ```
 
 Expected: 전부 PASS
@@ -622,7 +622,7 @@ Expected: 전부 PASS
 - [ ] **Step 6: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -745,7 +745,7 @@ extracted_content.sources[].errors 경로가 이미 있다."
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_image_tiling -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_image_tiling -v
 ```
 
 Expected: `test_tiled_image_consumes_exactly_one_budget_call` FAIL (`8 != 1`), `test_exhausted_budget_skips_ocr_entirely` FAIL (조각별로 호출됨), `test_tile_count_is_capped_by_env` FAIL (`gemini_vision_tiled[10] != gemini_vision_tiled[3]`)
@@ -905,7 +905,7 @@ def _max_tiles_per_image() -> int:
 - [ ] **Step 7: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_image_tiling -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_image_tiling -v
 ```
 
 Expected: 6 tests PASS
@@ -913,7 +913,7 @@ Expected: 6 tests PASS
 - [ ] **Step 8: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1023,7 +1023,7 @@ class HwpShortTableTest(unittest.IsolatedAsyncioTestCase):
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_hwp_markdown -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_hwp_markdown -v
 ```
 
 Expected: `test_short_markdown_with_table_is_accepted` FAIL (`'hwp_fallbacks' != 'hwp5html_markdown'` 또는 2순위), `test_single_pipe_line_is_not_a_table` FAIL (`ImportError: cannot import name '_has_markdown_table'`)
@@ -1059,7 +1059,7 @@ def _has_markdown_table(markdown: str) -> bool:
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_hwp_markdown backend.tests.test_hwp_extractor backend.tests.test_hwpx_tables -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_hwp_markdown backend.tests.test_hwp_extractor backend.tests.test_hwpx_tables -v
 ```
 
 Expected: 전부 PASS
@@ -1067,7 +1067,7 @@ Expected: 전부 PASS
 - [ ] **Step 6: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1156,7 +1156,7 @@ class BodyImageOnFailedExtractionTest(unittest.IsolatedAsyncioTestCase):
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_content_extraction_service -v -k BodyImageOnFailedExtraction
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_content_extraction_service -v -k BodyImageOnFailedExtraction
 ```
 
 Expected: FAIL — `AttributeError: module has no attribute '_combine_body_images_best_effort'`
@@ -1211,7 +1211,7 @@ async def _combine_body_images_best_effort(
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_content_extraction_service -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_content_extraction_service -v
 ```
 
 Expected: 전부 PASS
@@ -1219,7 +1219,7 @@ Expected: 전부 PASS
 - [ ] **Step 6: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1336,7 +1336,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_extractor_quota_backoff -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_extractor_quota_backoff -v
 ```
 
 Expected: 4 tests 전부 FAIL — `ModuleNotFoundError: No module named 'extractor.gemini_backoff'`
@@ -1431,7 +1431,7 @@ __all__ = [
 - [ ] **Step 5: 번역 경로 회귀를 먼저 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_gemini_quota_backoff backend.tests.test_gemini_client_parse_json backend.tests.test_translation_orchestrator -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_gemini_quota_backoff backend.tests.test_gemini_client_parse_json backend.tests.test_translation_orchestrator -v
 ```
 
 Expected: 전부 PASS. **`test_gemini_quota_backoff.py` 는 한 글자도 고치지 않는다** — 그 파일이 통과한다는 것이 «임포트 경로가 살아 있다»의 증명이다.
@@ -1518,7 +1518,7 @@ from extractor.gemini_backoff import call_with_quota_backoff, is_quota_exhausted
 - [ ] **Step 7: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_extractor_quota_backoff -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_extractor_quota_backoff -v
 ```
 
 Expected: 4 tests PASS
@@ -1526,7 +1526,7 @@ Expected: 4 tests PASS
 - [ ] **Step 8: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. 실패하면 Step 4 에서 지운 import 의 잔재다.
@@ -1643,7 +1643,7 @@ class BoardFallbackCountTest(unittest.TestCase):
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_scheduled_crawler_service -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_scheduled_crawler_service -v
 ```
 
 Expected: FAIL — `TypeError: ScheduledSchoolResult.__init__() got an unexpected keyword argument 'board_kind'`
@@ -1743,7 +1743,7 @@ def _result_item(
 - [ ] **Step 7: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_scheduled_crawler_service -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_scheduled_crawler_service -v
 ```
 
 Expected: 전부 PASS
@@ -1751,7 +1751,7 @@ Expected: 전부 PASS
 - [ ] **Step 8: 전체 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. `ScheduledCrawlerSummary` 를 다른 곳에서 구성하면 여기서 잡힌다.
@@ -2073,7 +2073,7 @@ class ComputeBoardWatermarksTest(unittest.TestCase):
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_crawler_watermark -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_crawler_watermark -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'compute_board_watermarks'`
@@ -2101,7 +2101,7 @@ def compute_board_watermarks(posts: list[DiscoveredPostPreview]) -> dict[str, in
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_school_crawler_watermark -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_school_crawler_watermark -v
 ```
 
 Expected: 전부 PASS
@@ -2122,8 +2122,8 @@ Expected: 전부 PASS
 notices 는 절대 건드리지 않는다 — discover_school_board() 는 저장 경로가 아니다
 (discover_and_save_school_board 와 달리 _save_discovered_notice_candidates 를 안 부른다).
 
-실행:  PYTHONPATH=backend python scripts/seed_watermarks.py
-적용:  PYTHONPATH=backend python scripts/seed_watermarks.py --apply
+실행:  PYTHONPATH=backend backend/venv/Scripts/python.exe scripts/seed_watermarks.py
+적용:  PYTHONPATH=backend backend/venv/Scripts/python.exe scripts/seed_watermarks.py --apply
 """
 import argparse
 import asyncio
@@ -2207,7 +2207,7 @@ if __name__ == "__main__":
 ```bash
 export SUPABASE_URL="https://aoihmzewthgyoxtejfwo.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="$(gcloud secrets versions access latest --secret=supabase-service-role-key)"
-PYTHONPATH=backend python scripts/seed_watermarks.py 2>&1 | tee scripts/_seed_watermarks_dryrun.txt
+PYTHONPATH=backend backend/venv/Scripts/python.exe scripts/seed_watermarks.py 2>&1 | tee scripts/_seed_watermarks_dryrun.txt
 ```
 
 Expected: 학교 8곳. 각 board_key 마다 **`계산` 값이 `기존` 값보다 크거나 같다.**
@@ -2219,7 +2219,7 @@ Expected: 학교 8곳. 각 board_key 마다 **`계산` 값이 `기존` 값보다
 - [ ] **Step 7: 적용한다**
 
 ```bash
-PYTHONPATH=backend python scripts/seed_watermarks.py --apply 2>&1 | tee scripts/_seed_watermarks_apply.txt
+PYTHONPATH=backend backend/venv/Scripts/python.exe scripts/seed_watermarks.py --apply 2>&1 | tee scripts/_seed_watermarks_apply.txt
 ```
 
 Expected: 갱신된 학교마다 `→ 기록함`

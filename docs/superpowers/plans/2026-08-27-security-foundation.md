@@ -21,7 +21,7 @@
 - **재추출 금지**: 이행 실패 첨부는 포기한다. 재추출 작업을 만들지 말 것.
 - **데모 예외 금지**: 데모 학교를 스코프 검사의 예외로 두지 않는다.
 - **테스트 실행**:
-  - 백엔드: `PYTHONPATH=backend python -m unittest discover backend/tests`
+  - 백엔드: `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests`
   - 프론트: `npm run typecheck` + `npm run build` (**프론트 테스트 러너가 없다** — `package.json`에 test 스크립트 없음. 프론트 검증은 타입체크·빌드·실제 HTTP 확인으로 한다)
 - **커밋 메시지**: 한국어, `type(scope): 요약` 형식. 저장소 관례를 따른다.
 
@@ -827,7 +827,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_attachment_storage_paths -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_attachment_storage_paths -v
 ```
 
 Expected: FAIL — `AttributeError: module has no attribute 'UPLOAD_RESULT_KEYS'`
@@ -863,7 +863,7 @@ UPLOAD_RESULT_KEYS = ("storage_path",)
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_attachment_storage_paths -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_attachment_storage_paths -v
 ```
 
 Expected: PASS (2 tests)
@@ -871,7 +871,7 @@ Expected: PASS (2 tests)
 - [ ] **Step 5: 기존 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. `public_url`을 기대하는 테스트가 있으면 그 테스트도 `storage_path` 기준으로 고친다.

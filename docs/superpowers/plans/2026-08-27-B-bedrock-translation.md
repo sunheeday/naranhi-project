@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **테스트 실행**:
-  - 백엔드: `PYTHONPATH=backend python -m unittest discover backend/tests` (단일 모듈은 `PYTHONPATH=backend python -m unittest backend.tests.<모듈> -v`, 실행 확인됨)
+  - 백엔드: `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests` (단일 모듈은 `PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.<모듈> -v`, 실행 확인됨)
   - 프론트: `npm run typecheck` + `npm run build` (**프론트 테스트 러너가 없다** — `package.json`에 test 스크립트 없음). 이 사업은 프론트를 건드리지 않으므로 프론트 검증이 필요한 Task는 없다.
 - **이름 고정 3개**: `call_with_quota_backoff`, `_repair_invalid_json_escapes`(둘 다 `backend/app/translation/gemini_client.py`)는 크롤러(`crawler/gemini_finder.py:44, :249`, `crawler/unknown_post_resolver.py:289`)가 빌려 쓴다. **옮기거나 이름을 바꾸면 이 사업 밖이 깨진다.** `GeminiJsonClient`도 문서판독·크롤러 경로와 무관하게 그대로 남긴다.
 - **프롬프트는 고정 변수**: `backend/app/translation/prompts.py`를 이 사업에서 **수정하지 않는다** (Task 14의 M1·M2는 프롬프트 병합이 아니라 실행 구조 변경으로 처리한다). 백엔드 A/B의 통제 조건이기 때문이다.
@@ -683,7 +683,7 @@ Expected: 첫 번째 `블라인드 위반 ... gemini` + 종료코드 1, 두 번�
 - [ ] **Step 7: 기존 백엔드 테스트가 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과 (러너 스크립트 변경은 백엔드 코드와 무관하지만, 이 Task 이후 모든 Task가 이 명령을 기준으로 한다)
@@ -812,7 +812,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_worker_slot_topup -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_worker_slot_topup -v
 ```
 
 Expected: FAIL — `느린 잡이 끝나기 전에 두 번째 claim 이 와야 한다` (현재는 gather가 느린 잡을 기다린다)
@@ -924,7 +924,7 @@ async def process_jobs(
 - [ ] **Step 4: 새 테스트가 통과하는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_worker_slot_topup -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_worker_slot_topup -v
 ```
 
 Expected: PASS (1 test)
@@ -932,7 +932,7 @@ Expected: PASS (1 test)
 - [ ] **Step 5: 취소 전파와 동시성 계약이 안 깨졌는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest \
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest \
   backend.tests.test_worker_job_cancellation \
   backend.tests.test_worker_drain \
   backend.tests.test_worker_main -v
@@ -943,7 +943,7 @@ Expected: 전부 통과. 특히 `test_translation_worker_marks_job_failed_on_can
 - [ ] **Step 6: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1049,7 +1049,7 @@ Expected: `async_client_args`와 `retry_options`가 `True`.
 - [ ] **Step 3: 클라이언트가 실제로 만들어지는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 from app.translation.gemini_client import GeminiJsonClient
 client = GeminiJsonClient(model='gemini-2.5-flash', use_vertex=True, project='probe-only')
 print('client 생성 OK:', type(client._get_vertex_client()).__name__)
@@ -1061,7 +1061,7 @@ Expected: `client 생성 OK: Client` (호출은 하지 않는다 — 생성만�
 - [ ] **Step 4: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1176,7 +1176,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_best_effort_card_metadata_flag -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_best_effort_card_metadata_flag -v
 ```
 
 Expected: `test_flag_off_skips_the_metadata_call` FAIL — `TypeError: ... unexpected keyword argument 'with_card_metadata'`
@@ -1255,7 +1255,7 @@ Task 1 Step 3이 `low = 0건`으로 나왔을 때만 진행한다. 아니면 이
 - [ ] **Step 6: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_best_effort_card_metadata_flag -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_best_effort_card_metadata_flag -v
 ```
 
 Expected: PASS (2 tests)
@@ -1294,7 +1294,7 @@ Expected: PASS (2 tests)
 - [ ] **Step 8: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1401,7 +1401,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_orchestrator_thinking_budget_setting -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_orchestrator_thinking_budget_setting -v
 ```
 
 Expected: `test_setting_zero_turns_thinking_off_everywhere` FAIL. (`app.translation.orchestrator.get_settings`가 아직 없어 `AttributeError`가 먼저 날 수도 있다 — 둘 다 «아직 구현 안 됨»의 신호다.)
@@ -1493,8 +1493,8 @@ Expected: `MECHANICAL_THINKING_BUDGET: 5`, `thinking_budget 없음: 0`, `OK`. `s
 - [ ] **Step 7: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_orchestrator_thinking_budget_setting -v
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_orchestrator_thinking_budget_setting -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 새 테스트 2건 PASS, 전체 통과
@@ -1748,7 +1748,7 @@ Bedrock의 스로틀 예외는 botocore `ClientError`이고 메시지는 통상 
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_gemini_quota_backoff -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_gemini_quota_backoff -v
 ```
 
 Expected: 새 테스트 3건 FAIL (`assertTrue` 실패), 기존 5건은 PASS
@@ -1784,7 +1784,7 @@ def is_quota_exhausted_error(error: Exception) -> bool:
 - [ ] **Step 4: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_gemini_quota_backoff -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_gemini_quota_backoff -v
 ```
 
 Expected: 11 tests PASS
@@ -1792,7 +1792,7 @@ Expected: 11 tests PASS
 - [ ] **Step 5: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -1883,7 +1883,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_json_client_factory -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_json_client_factory -v
 ```
 
 Expected: `ModuleNotFoundError: No module named 'app.translation.json_client'`
@@ -1989,7 +1989,7 @@ def build_json_client(settings: "Settings") -> JsonModelClient:
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_json_client_factory -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_json_client_factory -v
 ```
 
 Expected: 4 tests PASS. (`test_bedrock_settings_defaults_stay_in_apac`는 Bedrock 클라이언트를 만들지 않으므로 Task 10 없이도 통과한다.)
@@ -1997,7 +1997,7 @@ Expected: 4 tests PASS. (`test_bedrock_settings_defaults_stay_in_apac`는 Bedroc
 - [ ] **Step 6: 전체 백엔드 테스트 — 런타임 동작이 0인지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. 이 Task는 새 모듈 추가와 설정 추가뿐이라 기존 동작을 건드리지 않는다.
@@ -2206,7 +2206,7 @@ if __name__ == "__main__":
 - [ ] **Step 3: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_bedrock_json_client -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_bedrock_json_client -v
 ```
 
 Expected: `ModuleNotFoundError: No module named 'app.translation.bedrock_client'`
@@ -2388,7 +2388,7 @@ class BedrockJsonClient:
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_bedrock_json_client -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_bedrock_json_client -v
 ```
 
 Expected: 10 tests PASS. 특히 `test_calls_run_on_the_clients_own_threads`가 통과해야 한다 — 이게 «5개에서 조용히 직렬화» 함정을 잡는 유일한 장치다.
@@ -2399,7 +2399,7 @@ Expected: 10 tests PASS. 특히 `test_calls_run_on_the_clients_own_threads`가 �
 export AWS_ACCESS_KEY_ID="$(gcloud secrets versions access latest --secret=aws-bedrock-access-key-id)"
 export AWS_SECRET_ACCESS_KEY="$(gcloud secrets versions access latest --secret=aws-bedrock-secret-access-key)"
 echo "키 길이: ${#AWS_ACCESS_KEY_ID} / ${#AWS_SECRET_ACCESS_KEY}"
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 import asyncio, time
 from app.translation.bedrock_client import BedrockJsonClient
 
@@ -2425,7 +2425,7 @@ Expected: 두 모델 모두 `{'ok': True, 'lang': 'ko'}` 형태의 dict. 지연�
 - [ ] **Step 7: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과
@@ -2565,7 +2565,7 @@ Expected: 출력 없음, 종료코드 1. `gemini_client.py`(정의)와 `json_cli
 - [ ] **Step 6: 전체 백엔드 테스트**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. `test_meal_label_translation`·`test_subject_label_translation`·`test_notice_api`가 `GeminiJsonClient`를 patch하고 있다면 patch 대상 경로를 `app.services.notice_service.build_json_client`로 바꾼다.
@@ -2573,7 +2573,7 @@ Expected: 전부 통과. `test_meal_label_translation`·`test_subject_label_tran
 - [ ] **Step 7: 다크 상태를 확인한다 — 팩토리가 정말 Gemini를 준다**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 from app.core.config import get_settings
 from app.translation.json_client import build_json_client
 s = get_settings()
@@ -3253,7 +3253,7 @@ def _classify(prompt: str) -> str:
 **이 분기 마커는 추측하지 말고 `prompts.py`에서 확인한다:**
 
 ```bash
-PYTHONPATH=backend python -c "
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
 from app.translation import prompts
 for name, fn, args in (
     ('ingredient', prompts.map_ingredient_identity_prompt, dict(meal_text='m', ingredients_raw=[], approved_dictionary=[])),
@@ -3273,7 +3273,7 @@ Expected: 세 프롬프트의 마커 조합이 서로 겹치지 않는다. **겹
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_orchestrator_stage_merge -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_orchestrator_stage_merge -v
 ```
 
 Expected: `test_m1_...`과 `test_m2_...` FAIL (현재는 순차 실행)
@@ -3437,7 +3437,7 @@ def _empty_ingredient_map() -> dict[str, Any]:
 - [ ] **Step 5: 통과를 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest backend.tests.test_orchestrator_stage_merge -v
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_orchestrator_stage_merge -v
 ```
 
 Expected: 4 tests PASS
@@ -3445,7 +3445,7 @@ Expected: 4 tests PASS
 - [ ] **Step 6: 기존 회귀가 없는지 확인한다**
 
 ```bash
-PYTHONPATH=backend python -m unittest discover backend/tests
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest discover backend/tests
 ```
 
 Expected: 전부 통과. `test_orchestrator_parallel_thinking`의 `_classify` 변경이 기존 단언을 깨면, 깨진 단언이 **어떤 kind를 기대했는지** 확인해 마커를 맞춘다. `test_validation_failed_early_return_discards_pending_back_translation`이 카드 메타데이터 콜 수를 세고 있다면 투기 실행 폐기가 제대로 도는지 여기서 잡힌다.
