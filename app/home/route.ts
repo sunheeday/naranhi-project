@@ -1,28 +1,41 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { publicOrigin } from '@/lib/request-origin'
 
 /** 개발·시연용 진입로. DEV_LOGIN_ENABLED 가 켜져 있을 때만 개발 계정으로 즉시 로그인한다.
- *  꺼져 있으면 평범한 로그인 화면으로 보낸다. 우회 스위치는 이 값 하나뿐이다. */
+ *  꺼져 있으면 평범한 로그인 화면으로 보낸다. 우회 스위치는 이 값 하나뿐이다.
+ *
+ *  origin 은 반드시 publicOrigin() 으로 얻는다. Cloud Run 에서는 request.url 의 origin 이
+ *  컨테이너 내부 주소(0.0.0.0:8080)로 나와서, 그걸 Location 에 넣으면 브라우저가
+ *  따라갈 수 없다. app/auth/callback/route.ts 가 같은 이유로 같은 함수를 쓴다. */
 export async function GET(request: NextRequest) {
+  const origin = publicOrigin(request)
+
   if (process.env.DEV_LOGIN_ENABLED !== 'true') {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL('/login', origin))
   }
 
-  const devLoginUrl = new URL('/api/auth/dev-login', request.url)
-  const upstream = await fetch(devLoginUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ next: '/' }),
-  })
+  const failure = (reason: string) =>
+    NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(reason)}`, origin))
+
+  let upstream: Response
+  try {
+    upstream = await fetch(new URL('/api/auth/dev-login', origin), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ next: '/' }),
+    })
+  } catch {
+    // 내부 요청이 네트워크 레벨에서 실패해도 500 을 띄우지 않고 로그인 화면으로 보낸다.
+    return failure('dev_login_unreachable')
+  }
 
   const payload = await upstream.json().catch(() => null)
   if (!upstream.ok || !payload?.ok) {
-    const reason = payload?.error ?? 'dev_login_failed'
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(reason)}`, request.url))
+    return failure(payload?.error ?? 'dev_login_failed')
   }
 
-  const response = NextResponse.redirect(new URL(payload.next ?? '/', request.url))
-  const setCookie = upstream.headers.getSetCookie?.() ?? []
-  for (const cookie of setCookie) {
+  const response = NextResponse.redirect(new URL(payload.next ?? '/', origin))
+  for (const cookie of upstream.headers.getSetCookie?.() ?? []) {
     response.headers.append('set-cookie', cookie)
   }
   return response
