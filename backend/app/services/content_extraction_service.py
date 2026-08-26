@@ -721,7 +721,7 @@ _MAX_BODY_IMAGES = 12
 
 
 async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tuple[str, bytes]]) -> str:
-    """본문 사진들(여러 장)을 세로 PNG 1장으로 합쳐 Storage 에 올리고 public_url 반환(없으면 '')."""
+    """본문 사진들(여러 장)을 세로 PNG 1장으로 합쳐 Storage 에 올리고 storage_path 반환(없으면 '')."""
     if not inline_images:
         return ""
 
@@ -745,7 +745,7 @@ async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tu
     info = await upload_bytes(
         notice_id=notice_id, name="body-images", data=combined, content_type="image/png", ext=".png"
     )
-    return info["public_url"] if info else ""
+    return info["storage_path"] if info else ""
 
 
 def _save_success(
@@ -754,7 +754,7 @@ def _save_success(
     refinements: dict[str, dict[str, Any]],
     uploads: dict[str, dict[str, Any]] | None = None,
     summary: dict[str, Any] | None = None,
-    body_image_url: str = "",
+    body_image_storage_path: str = "",
 ) -> None:
     from app.services.summary_service import render_summary_markdown
 
@@ -762,13 +762,13 @@ def _save_success(
     extracted_content = build_extracted_content(result, refinements, uploads)
 
     # 본문 사진들을 합친 1장(PNG)을 합성 소스로 추가 → 프론트 '원본 파일' 카드에서 미리보기/다운로드.
-    if body_image_url:
+    if body_image_storage_path:
         extracted_content.setdefault("sources", []).append({
             "source_id": "body_images_combined",
             "source_type": "attachment_image",
             "source_role": "body_images",
             "filename": "본문 사진.png",
-            "public_url": body_image_url,
+            "storage_path": body_image_storage_path,
             "metadata": {"file_type": "image"},
         })
 

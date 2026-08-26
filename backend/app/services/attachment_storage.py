@@ -1,4 +1,4 @@
-"""공지 첨부파일을 Supabase Storage(공개 버킷)에 업로드한다.
+"""공지 첨부파일을 Supabase Storage(비공개 버킷)에 업로드한다.
 
 추출 파이프라인이 첨부를 다운로드한 '그 바이트 그대로'를 우리 버킷에 올려, 프론트가 학교 서버가
 아니라 우리 사본을 미리보기/다운로드하게 한다. 업로드 실패는 공지 처리를 막지 않는다(None 반환).
@@ -18,6 +18,8 @@ from extractor.quality import file_sha256
 LOGGER = logging.getLogger(__name__)
 
 BUCKET = "notice-attachments"
+BUCKET_PUBLIC = False
+UPLOAD_RESULT_KEYS = ("storage_path",)
 _EXT_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
 
 
@@ -34,7 +36,7 @@ def _object_key(notice_id: str, path_on_disk: Any, filename: str) -> str:
 
 
 def ensure_bucket() -> None:
-    """공개 버킷이 없으면 만든다(로컬/마이그레이션 미적용 환경 대비, 멱등)."""
+    """버킷이 없으면 비공개로 만든다(로컬/마이그레이션 미적용 환경 대비, 멱등)."""
     client = get_supabase_client()
     try:
         existing = {b.name if hasattr(b, "name") else b.get("name") for b in client.storage.list_buckets()}
@@ -43,7 +45,7 @@ def ensure_bucket() -> None:
     if BUCKET in existing:
         return
     try:
-        client.storage.create_bucket(BUCKET, options={"public": True})
+        client.storage.create_bucket(BUCKET, options={"public": BUCKET_PUBLIC})
     except Exception as exc:  # noqa: BLE001 - 이미 있으면(409) 무시.
         LOGGER.info("create_bucket skipped: %s", sanitize_error(exc))
 
@@ -58,9 +60,8 @@ def _upload_sync(*, notice_id: str, path_on_disk: Any, filename: str, content_ty
         data,
         {"content-type": content_type or "application/octet-stream", "upsert": "true"},
     )
-    # get_public_url 이 끝에 '?' 를 붙여서 정리(프론트가 ?download= 를 깔끔히 덧붙이도록).
-    public_url = storage.get_public_url(object_path).rstrip("?")
-    return {"storage_path": object_path, "public_url": public_url}
+    # public_url 은 저장하지 않는다. 읽는 시점에 서명 URL 로 발급한다(Task 7).
+    return {"storage_path": object_path}
 
 
 def _upload_bytes_sync(*, notice_id: str, name: str, data: bytes, content_type: str, ext: str) -> dict[str, str]:
@@ -73,14 +74,13 @@ def _upload_bytes_sync(*, notice_id: str, name: str, data: bytes, content_type: 
         data,
         {"content-type": content_type or "application/octet-stream", "upsert": "true"},
     )
-    public_url = storage.get_public_url(object_path).rstrip("?")
-    return {"storage_path": object_path, "public_url": public_url}
+    return {"storage_path": object_path}
 
 
 async def upload_bytes(
     *, notice_id: str, name: str, data: bytes, content_type: str = "image/png", ext: str = ".png"
 ) -> dict[str, str] | None:
-    """생성한 바이트(예: 본문 사진들을 합친 PNG)를 공개 버킷에 업로드. 실패 시 None."""
+    """생성한 바이트(예: 본문 사진들을 합친 PNG)를 비공개 버킷에 업로드. 실패 시 None."""
     global _bucket_ready
     try:
         if not _bucket_ready:
@@ -100,7 +100,7 @@ _bucket_ready = False
 async def upload_attachment(
     *, notice_id: str, source_id: str, path_on_disk: Any, filename: str, content_type: str
 ) -> dict[str, str] | None:
-    """첨부 파일을 공개 버킷에 업로드하고 {storage_path, public_url} 반환(실패 시 None).
+    """첨부 파일을 비공개 버킷에 업로드하고 {storage_path} 반환(실패 시 None).
 
     Supabase 클라이언트는 동기라 to_thread 로 이벤트루프를 막지 않는다.
     """
