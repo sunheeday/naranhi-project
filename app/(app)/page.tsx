@@ -4,11 +4,9 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getHiddenNoticeIds, getLatestChildForUser, getSchoolSummary } from '@/lib/server-cache'
-import { isUiPreviewEnabled, previewChildInfo } from '@/lib/ui-preview'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
 import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
-import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterEmptyState from '@/components/brand/CharacterEmptyState'
@@ -156,44 +154,6 @@ function computeDue(eventDate: string | null | undefined, todayIso: string): { l
   return { label: `${dtag} · ${md}`, urgent: days <= 3 }
 }
 
-function previewNotices(): DisplayNotice[] {
-  return [
-    {
-      id: 'preview-action',
-      cardType: 'action',
-      title: '현장체험학습 참가 동의서 제출',
-      status: 'done',
-      arrivedAt: '12분 전',
-      needsTranslation: false,
-      actionRequired: true,
-      dueLabel: 'D-3 · 4/18',
-      dueUrgent: true,
-    },
-    {
-      id: 'preview-schedule',
-      cardType: null,
-      title: '학부모 상담주간 일정 안내',
-      status: 'done',
-      arrivedAt: '어제',
-      needsTranslation: false,
-      actionRequired: false,
-      dueLabel: 'D-12 · 4/27',
-      dueUrgent: false,
-    },
-    {
-      id: 'preview-info',
-      cardType: null,
-      title: '4월 학사일정 및 휴업일 안내',
-      status: 'done',
-      arrivedAt: '2일 전',
-      needsTranslation: false,
-      actionRequired: false,
-      dueLabel: null,
-      dueUrgent: false,
-    },
-  ]
-}
-
 export default async function HomePage() {
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get('locale')?.value
@@ -219,205 +179,192 @@ export default async function HomePage() {
   let schoolCrawlerState: SchoolCrawlerState | null = null
   let hasProcessingNotices = false
 
-  if (await isUiPreviewEnabled()) {
-    childInfo = previewChildInfo()
-    notices = previewNotices()
-  } else {
-    const testEntryBypass = isTestEntryBypassEnabled()
-    const supabase = testEntryBypass
-      ? await createSupabaseServiceClient()
-      : await createSupabaseServerClient()
-    const { data: { user } } = testEntryBypass
-      ? { data: { user: null } }
-      : await supabase.auth.getUser()
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect('/login')
+  }
 
-    if (!user && !testEntryBypass) {
-      redirect('/login')
+  const child = await getLatestChildForUser(user.id)
+
+  if (!child) {
+    redirect('/onboarding')
+  }
+
+  if (
+    child.school_id
+    && isDemoSchoolSelection({
+      schoolName: child.school_name,
+      neisOfficeCode: child.neis_office_code,
+      neisSchoolCode: child.neis_school_code,
+    })
+  ) {
+    const serviceClient = await createSupabaseServiceClient()
+    await ensureDemoSchoolSeed(serviceClient, child.school_id)
+  }
+
+  childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`
+
+  const schoolPromise = child.school_id
+    ? getSchoolSummary(child.school_id)
+    : Promise.resolve(null)
+
+  const hiddenRowsPromise = getHiddenNoticeIds(user.id)
+
+  const schoolRowsQuery = child.school_id
+    ? supabase
+        .from('notices')
+        .select('id, status, title, due_date, extracted_content, crawl_result, created_at')
+        .eq('school_id', child.school_id)
+        .eq('status', 'done')
+    : null
+  const schoolRowsPromise = schoolRowsQuery
+    ? schoolRowsQuery.order('created_at', { ascending: false }).limit(50)
+    : Promise.resolve({ data: [] })
+
+  const schoolProcessingCountQuery = child.school_id
+    ? supabase
+        .from('notices')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', child.school_id)
+        .in('status', ['pending', 'processing'])
+    : null
+  const schoolProcessingCountPromise = schoolProcessingCountQuery
+    ? schoolProcessingCountQuery
+    : Promise.resolve({ count: 0 })
+
+  const [
+    school,
+    hiddenNoticeIds,
+    { data: schoolRows },
+    { count: schoolProcessingCount },
+  ] = await Promise.all([
+    schoolPromise,
+    hiddenRowsPromise,
+    schoolRowsPromise,
+    schoolProcessingCountPromise,
+  ])
+
+  schoolCrawlerState = school
+  const hiddenIds = new Set(hiddenNoticeIds)
+
+  hasProcessingNotices = Boolean(schoolProcessingCount ?? 0)
+
+  const rowMap = new Map<string, NoticeRow>()
+  for (const row of schoolRows ?? []) {
+    if (!hiddenIds.has(row.id)) {
+      rowMap.set(row.id, row as NoticeRow)
     }
+  }
+  const rows = Array.from(rowMap.values()).sort(compareNoticeRows)
 
-    const child = testEntryBypass
-      ? await ensureTestBypassChild()
-      : await getLatestChildForUser(user!.id)
+  if (rows && rows.length > 0) {
+    const noticeIds = rows.map(r => r.id)
+    const translationsPromise = supabase
+      .from('notice_ai_translations')
+      .select('notice_id, target_language, translated_title, translated_text')
+      .in('notice_id', noticeIds)
+      .in('target_language', [locale, 'ko'])
 
-    if (!child) {
-      redirect('/onboarding')
+    const cardsPromise = supabase
+      .from('notice_cards')
+      .select('notice_id, type, id')
+      .in('notice_id', noticeIds)
+
+    // 공지별 D-day용 날짜: 연결된 학교 일정(school_events) 중 오늘 이후 가장 가까운 event_date.
+    // event_date가 없으면 칩은 표시하지 않는다(안전).
+    const todayIso = todayKstIso()
+    const dueByNotice: Record<string, string> = {}
+    for (const row of rows) {
+      if (row.due_date && /^\d{4}-\d{2}-\d{2}$/.test(row.due_date)) {
+        dueByNotice[row.id] = row.due_date
+      }
     }
-
-    if (
-      child.school_id
-      && isDemoSchoolSelection({
-        schoolName: child.school_name,
-        neisOfficeCode: child.neis_office_code,
-        neisSchoolCode: child.neis_school_code,
-      })
-    ) {
-      const serviceClient = await createSupabaseServiceClient()
-      await ensureDemoSchoolSeed(serviceClient, child.school_id)
-    }
-
-    childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`
-
-    const schoolPromise = child.school_id
-      ? getSchoolSummary(child.school_id)
-      : Promise.resolve(null)
-
-    const hiddenRowsPromise = user ? getHiddenNoticeIds(user.id) : Promise.resolve([])
-
-    const schoolRowsQuery = child.school_id
+    const schoolEventsPromise = child.school_id
       ? supabase
-          .from('notices')
-          .select('id, status, title, due_date, extracted_content, crawl_result, created_at')
+          .from('school_events')
+          .select('notice_id, event_date')
           .eq('school_id', child.school_id)
-          .eq('status', 'done')
-      : null
-    const schoolRowsPromise = schoolRowsQuery
-      ? schoolRowsQuery.order('created_at', { ascending: false }).limit(50)
+          .in('notice_id', noticeIds)
+          .gte('event_date', todayIso)
+          .order('event_date', { ascending: true })
       : Promise.resolve({ data: [] })
 
-    const schoolProcessingCountQuery = child.school_id
-      ? supabase
-          .from('notices')
-          .select('id', { count: 'exact', head: true })
-          .eq('school_id', child.school_id)
-          .in('status', ['pending', 'processing'])
-      : null
-    const schoolProcessingCountPromise = schoolProcessingCountQuery
-      ? schoolProcessingCountQuery
-      : Promise.resolve({ count: 0 })
-
     const [
-      school,
-      hiddenNoticeIds,
-      { data: schoolRows },
-      { count: schoolProcessingCount },
+      { data: translations },
+      { data: cards },
+      { data: schoolEventRows },
     ] = await Promise.all([
-      schoolPromise,
-      hiddenRowsPromise,
-      schoolRowsPromise,
-      schoolProcessingCountPromise,
-    ]) 
+      translationsPromise,
+      cardsPromise,
+      schoolEventsPromise,
+    ])
 
-    schoolCrawlerState = school
-    const hiddenIds = new Set(hiddenNoticeIds)
-
-    hasProcessingNotices = Boolean(schoolProcessingCount ?? 0)
-
-    const rowMap = new Map<string, NoticeRow>()
-    for (const row of schoolRows ?? []) {
-      if (!hiddenIds.has(row.id)) {
-        rowMap.set(row.id, row as NoticeRow)
+    const translationsByNotice: Record<string, { [locale: string]: string }> = {}
+    const translatedTitlesByNotice: Record<string, { [locale: string]: string }> = {}
+    for (const t of translations ?? []) {
+      if (t.notice_id && t.target_language && t.translated_text) {
+        ;(translationsByNotice[t.notice_id] ??= {})[t.target_language] = t.translated_text
+      }
+      if (t.notice_id && t.target_language && t.translated_title) {
+        ;(translatedTitlesByNotice[t.notice_id] ??= {})[t.target_language] = t.translated_title
       }
     }
-    const rows = Array.from(rowMap.values()).sort(compareNoticeRows)
 
-    if (rows && rows.length > 0) {
-      const noticeIds = rows.map(r => r.id)
-      const translationsPromise = supabase
-        .from('notice_ai_translations')
-        .select('notice_id, target_language, translated_title, translated_text')
-        .in('notice_id', noticeIds)
-        .in('target_language', [locale, 'ko'])
+    const cardsByNotice: Record<string, { type: string }[]> = {}
+    const cardIdToNotice: Record<string, string> = {}
+    for (const c of cards ?? []) {
+      ;(cardsByNotice[c.notice_id] ??= []).push({ type: c.type })
+      if (c.id) cardIdToNotice[c.id] = c.notice_id
+    }
 
-      const cardsPromise = supabase
-        .from('notice_cards')
-        .select('notice_id, type, id')
-        .in('notice_id', noticeIds)
-
-      // 공지별 D-day용 날짜: 연결된 학교 일정(school_events) 중 오늘 이후 가장 가까운 event_date.
-      // event_date가 없으면 칩은 표시하지 않는다(안전).
-      const todayIso = todayKstIso()
-      const dueByNotice: Record<string, string> = {}
-      for (const row of rows) {
-        if (row.due_date && /^\d{4}-\d{2}-\d{2}$/.test(row.due_date)) {
-          dueByNotice[row.id] = row.due_date
+    // 홈 '번역 완료' 기준을 상세(lib/notices.ts hasLocaleTranslation)와 통일:
+    // 본문뿐 아니라 카드까지 번역돼야 완료로 본다. 공지별 번역된 카드 수를 집계한다.
+    const translatedCardCountByNotice: Record<string, number> = {}
+    if (locale !== 'ko') {
+      const allCardIds = Object.keys(cardIdToNotice)
+      if (allCardIds.length > 0) {
+        const { data: cardTranslationRows } = await supabase
+          .from('notice_card_translations')
+          .select('notice_card_id')
+          .eq('target_language', locale)
+          .in('notice_card_id', allCardIds)
+        for (const ct of cardTranslationRows ?? []) {
+          const nId = cardIdToNotice[ct.notice_card_id]
+          if (nId) translatedCardCountByNotice[nId] = (translatedCardCountByNotice[nId] ?? 0) + 1
         }
       }
-      const schoolEventsPromise = child.school_id
-        ? supabase
-            .from('school_events')
-            .select('notice_id, event_date')
-            .eq('school_id', child.school_id)
-            .in('notice_id', noticeIds)
-            .gte('event_date', todayIso)
-            .order('event_date', { ascending: true })
-        : Promise.resolve({ data: [] })
+    }
 
-      const [
-        { data: translations },
-        { data: cards },
-        { data: schoolEventRows },
-      ] = await Promise.all([
-        translationsPromise,
-        cardsPromise,
-        schoolEventsPromise,
-      ])
-
-      const translationsByNotice: Record<string, { [locale: string]: string }> = {}
-      const translatedTitlesByNotice: Record<string, { [locale: string]: string }> = {}
-      for (const t of translations ?? []) {
-        if (t.notice_id && t.target_language && t.translated_text) {
-          ;(translationsByNotice[t.notice_id] ??= {})[t.target_language] = t.translated_text
-        }
-        if (t.notice_id && t.target_language && t.translated_title) {
-          ;(translatedTitlesByNotice[t.notice_id] ??= {})[t.target_language] = t.translated_title
-        }
+    for (const s of schoolEventRows ?? []) {
+      if (s.notice_id && s.event_date && !dueByNotice[s.notice_id]) {
+        dueByNotice[s.notice_id] = s.event_date
       }
+    }
 
-      const cardsByNotice: Record<string, { type: string }[]> = {}
-      const cardIdToNotice: Record<string, string> = {}
-      for (const c of cards ?? []) {
-        ;(cardsByNotice[c.notice_id] ??= []).push({ type: c.type })
-        if (c.id) cardIdToNotice[c.id] = c.notice_id
-      }
-
-      // 홈 '번역 완료' 기준을 상세(lib/notices.ts hasLocaleTranslation)와 통일:
-      // 본문뿐 아니라 카드까지 번역돼야 완료로 본다. 공지별 번역된 카드 수를 집계한다.
-      const translatedCardCountByNotice: Record<string, number> = {}
-      if (locale !== 'ko') {
-        const allCardIds = Object.keys(cardIdToNotice)
-        if (allCardIds.length > 0) {
-          const { data: cardTranslationRows } = await supabase
-            .from('notice_card_translations')
-            .select('notice_card_id')
-            .eq('target_language', locale)
-            .in('notice_card_id', allCardIds)
-          for (const ct of cardTranslationRows ?? []) {
-            const nId = cardIdToNotice[ct.notice_card_id]
-            if (nId) translatedCardCountByNotice[nId] = (translatedCardCountByNotice[nId] ?? 0) + 1
-          }
-        }
-      }
-
-      for (const s of schoolEventRows ?? []) {
-        if (s.notice_id && s.event_date && !dueByNotice[s.notice_id]) {
-          dueByNotice[s.notice_id] = s.event_date
-        }
-      }
-
-      notices = rows.map(row => {
-        const noticeCards = cardsByNotice[row.id] ?? []
-        const due = computeDue(dueByNotice[row.id], todayIso)
-        return {
-          id: row.id,
-          cardType: dominantCardType(noticeCards),
-          title: pickNoticeDisplayTitle(
-            { ...(row as NoticeRow), translated_titles: translatedTitlesByNotice[row.id] ?? {} },
-            locale,
-            homeMsg.fallback_title,
+    notices = rows.map(row => {
+      const noticeCards = cardsByNotice[row.id] ?? []
+      const due = computeDue(dueByNotice[row.id], todayIso)
+      return {
+        id: row.id,
+        cardType: dominantCardType(noticeCards),
+        title: pickNoticeDisplayTitle(
+          { ...(row as NoticeRow), translated_titles: translatedTitlesByNotice[row.id] ?? {} },
+          locale,
+          homeMsg.fallback_title,
+        ),
+        status: row.status,
+        arrivedAt: relativeTime(row.created_at, homeMsg),
+        needsTranslation: locale !== 'ko'
+          && (
+            !translationsByNotice[row.id]?.[locale]
+            || (noticeCards.length > 0 && (translatedCardCountByNotice[row.id] ?? 0) < noticeCards.length)
           ),
-          status: row.status,
-          arrivedAt: relativeTime(row.created_at, homeMsg),
-          needsTranslation: locale !== 'ko'
-            && (
-              !translationsByNotice[row.id]?.[locale]
-              || (noticeCards.length > 0 && (translatedCardCountByNotice[row.id] ?? 0) < noticeCards.length)
-            ),
-          actionRequired: isActionRequired(noticeCards),
-          dueLabel: due?.label ?? null,
-          dueUrgent: due?.urgent ?? false,
-        }
-      })
-    }
+        actionRequired: isActionRequired(noticeCards),
+        dueLabel: due?.label ?? null,
+        dueUrgent: due?.urgent ?? false,
+      }
+    })
   }
 
   const shouldCollectSchoolNotices = schoolCrawlerState ? schoolNeedsInitialCrawl(schoolCrawlerState) : false

@@ -3,36 +3,17 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
-import {
-  ensureTestBypassChild,
-  isTestEntryBypassEnabled,
-  getSelectedBypassSchool,
-  BYPASS_SCHOOLS,
-  DEFAULT_BYPASS_SCHOOL_KEY,
-} from '@/lib/test-entry-bypass'
-import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
 import LogoutButton from './LogoutButton'
 import SchoolReselect from './SchoolReselect'
-import DemoSchoolPicker from './DemoSchoolPicker'
 import DietaryRestrictionsForm from './DietaryRestrictionsForm'
-import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
-
-function parseJsonCookie(value: string | undefined): unknown {
-  if (!value) return []
-  try {
-    return JSON.parse(value) as unknown
-  } catch {
-    return []
-  }
-}
+import type { DietaryRestrictionId } from '@/lib/dietary-restrictions'
 
 export default async function SettingsPage() {
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get('locale')?.value
-  const testDietaryRestrictions = parseDietaryRestrictions(parseJsonCookie(cookieStore.get('test_dietary_restrictions')?.value))
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
@@ -45,49 +26,25 @@ export default async function SettingsPage() {
     dietary_restrictions: DietaryRestrictionId[]
   } | null = null
 
-  const isPreview = await isUiPreviewEnabled()
-  const testEntryBypass = isTestEntryBypassEnabled()
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  if (isPreview) {
-    child = {
-      id: 'preview-child',
-      school_name: '나란히초등학교',
-      neis_school_code: 'PREVIEW',
-      grade: 1,
-      class_no: 1,
-      dietary_restrictions: [],
-    }
-  } else {
-    const supabase = await createSupabaseServerClient()
-    const { data: { user } } = testEntryBypass
-      ? { data: { user: null } }
-      : await supabase.auth.getUser()
-    if (!user && !testEntryBypass) redirect('/login')
-
-    const latestChild = testEntryBypass
-      ? await ensureTestBypassChild()
-      : await getLatestChildForUser(user!.id)
-    child = latestChild
-      ? {
-          id: latestChild.id,
-          school_name: latestChild.school_name,
-          neis_school_code: latestChild.neis_school_code,
-          grade: latestChild.grade,
-          class_no: latestChild.class_no,
-          dietary_restrictions: testEntryBypass
-            ? testDietaryRestrictions
-            : latestChild.dietary_restrictions,
-        }
-      : null
-  }
+  const latestChild = await getLatestChildForUser(user.id)
+  child = latestChild
+    ? {
+        id: latestChild.id,
+        school_name: latestChild.school_name,
+        neis_school_code: latestChild.neis_school_code,
+        grade: latestChild.grade,
+        class_no: latestChild.class_no,
+        dietary_restrictions: latestChild.dietary_restrictions,
+      }
+    : null
 
   const childGradeLabel = child
     ? `${child.grade}-${child.class_no ?? ''}`
     : ''
-
-  const selectedBypassKey = testEntryBypass
-    ? (await getSelectedBypassSchool()).key
-    : DEFAULT_BYPASS_SCHOOL_KEY
 
   return (
     <main className="flex flex-col min-h-screen pb-20">
@@ -116,7 +73,7 @@ export default async function SettingsPage() {
 
         <hr className="border-border" />
 
-        {child && !isPreview && (
+        {child && (
           <>
             <DietaryRestrictionsForm
               childId={child.id}
@@ -127,7 +84,7 @@ export default async function SettingsPage() {
           </>
         )}
 
-        {child && !isPreview && !testEntryBypass && (
+        {child && (
           <>
             <SchoolReselect
               childId={child.id}
@@ -159,31 +116,9 @@ export default async function SettingsPage() {
           </>
         )}
 
-        {testEntryBypass && (
-          <>
-            <DemoSchoolPicker
-              schools={BYPASS_SCHOOLS.map(s => ({ key: s.key, name: s.name }))}
-              currentKey={selectedBypassKey}
-              title={messages.settings.demo_school_select ?? '학교 선택'}
-            />
-            <hr className="border-border" />
-          </>
-        )}
-
-        {!testEntryBypass && (
         <section>
-          {isPreview ? (
-            <a
-              href="/demo/exit"
-              className="flex items-center justify-center w-full h-12 rounded-btn border border-border bg-surface text-text-primary text-base font-semibold"
-            >
-              데모 종료
-            </a>
-          ) : (
-            <LogoutButton label={messages.settings.logout} />
-          )}
+          <LogoutButton label={messages.settings.logout} />
         </section>
-        )}
 
         <p className="text-xs text-text-disabled text-center mt-4">
           {messages.settings.version.replace('{version}', '0.1.0')}

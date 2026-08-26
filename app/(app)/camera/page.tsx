@@ -4,8 +4,6 @@ import BrandHeader from '@/components/brand/BrandHeader'
 import { defaultLocale, isValidLocale, type Locale } from '@/lib/i18n'
 import { getLatestChildForUser } from '@/lib/server-cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
-import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import CameraUploadForm, { type CameraUploadLabels } from './CameraUploadForm'
 
 const cameraFallback: CameraUploadLabels = {
@@ -87,28 +85,16 @@ export default async function CameraPage() {
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
-  let childId = 'preview-child'
-  let childLabel = ''
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  if (await isUiPreviewEnabled()) {
-    childLabel = '나란히초등학교 3-2'
-  } else {
-    const testEntryBypass = isTestEntryBypassEnabled()
-    const supabase = await createSupabaseServerClient()
-    const { data: { user } } = testEntryBypass
-      ? { data: { user: null } }
-      : await supabase.auth.getUser()
-    if (!user && !testEntryBypass) redirect('/login')
+  const child = await getLatestChildForUser(user.id)
 
-    const child = testEntryBypass
-      ? await ensureTestBypassChild()
-      : await getLatestChildForUser(user!.id)
+  if (!child) redirect('/onboarding')
 
-    if (!child) redirect('/onboarding')
-
-    childId = child.id
-    childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
-  }
+  const childId = child.id
+  const childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
 
   return (
     <main className="flex min-h-screen flex-col pb-24">

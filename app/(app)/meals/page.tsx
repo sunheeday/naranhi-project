@@ -8,24 +8,13 @@ import {
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
-import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
-import { annotateMealsWithDietaryWarnings, parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
-import { isUiPreviewEnabled } from '@/lib/ui-preview'
+import { annotateMealsWithDietaryWarnings, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { getCachedOrFetchMealsForRange, type Meal } from '@/lib/neis'
 import BrandHeader from '@/components/brand/BrandHeader'
 import MealWeekView, { type DayEntry } from './MealWeekView'
 
 interface Props {
   searchParams: Promise<{ week?: string }>
-}
-
-function parseJsonCookie(value: string | undefined): unknown {
-  if (!value) return []
-  try {
-    return JSON.parse(value) as unknown
-  } catch {
-    return []
-  }
 }
 
 /**
@@ -72,7 +61,6 @@ function todayKstIso(): string {
 export default async function MealsPage({ searchParams }: Props) {
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get('locale')?.value
-  const testDietaryRestrictions = parseDietaryRestrictions(parseJsonCookie(cookieStore.get('test_dietary_restrictions')?.value))
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
@@ -89,105 +77,91 @@ export default async function MealsPage({ searchParams }: Props) {
   let childLabel = ''
   let dietaryRestrictions: DietaryRestrictionId[] = []
 
-  if (await isUiPreviewEnabled()) {
-    dayEntries = await previewMealEntries(monday, locale)
-    childLabel = '나란히초등학교 3-2'
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const child = await getLatestChildForUser(user.id)
+
+  if (!child) redirect('/onboarding')
+  childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
+  dietaryRestrictions = child.dietary_restrictions
+
+  const isDemoSchool = isDemoSchoolSelection({
+    schoolName: child.school_name,
+    neisOfficeCode: child.neis_office_code,
+    neisSchoolCode: child.neis_school_code,
+  })
+  if (isDemoSchool) {
+    const serviceClient = await createSupabaseServiceClient()
+    try {
+      if (child.school_id) {
+        await ensureDemoSchoolSeed(serviceClient, child.school_id)
+      }
+      const map = await getSeededDemoMealsForRange(serviceClient, monday, friday)
+      const days: DayEntry[] = []
+      let hasAnyMeals = false
+      for (let i = 0; i < 5; i++) {
+        const iso = addDaysIso(monday, i)
+        const rows = map.get(iso) ?? []
+        const meals = rows.map(row => ({
+          mealType: row.meal_type,
+          mealTypeName: row.meal_type_name,
+          dishes: Array.isArray(row.dishes) ? (row.dishes as unknown as Meal['dishes']) : [],
+          calories: row.calories,
+          nutrients: Array.isArray(row.nutrients) ? (row.nutrients as Meal['nutrients']) : null,
+          origins: Array.isArray(row.origins) ? (row.origins as Meal['origins']) : null,
+        }))
+        if (meals.length > 0) hasAnyMeals = true
+        days.push({ isoDate: iso, meals })
+      }
+      dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
+    } catch (e) {
+      console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
+      dayEntries = await previewMealEntries(monday, locale)
+    }
+  } else if (!child.neis_office_code || !child.neis_school_code) {
+    unsupported = true
   } else {
-    const testEntryBypass = isTestEntryBypassEnabled()
-    const supabase = testEntryBypass
-      ? createSupabaseServiceClient()
-      : await createSupabaseServerClient()
-    const { data: { user } } = testEntryBypass
-      ? { data: { user: null } }
-      : await supabase.auth.getUser()
-    if (!user && !testEntryBypass) redirect('/login')
-
-    const child = testEntryBypass
-      ? await ensureTestBypassChild()
-      : await getLatestChildForUser(user!.id)
-
-    if (!child) redirect('/onboarding')
-    childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
-    dietaryRestrictions = testEntryBypass
-      ? testDietaryRestrictions
-      : child.dietary_restrictions
-
-    const isDemoSchool = isDemoSchoolSelection({
-      schoolName: child.school_name,
-      neisOfficeCode: child.neis_office_code,
-      neisSchoolCode: child.neis_school_code,
-    })
-    if (isDemoSchool) {
+    try {
       const serviceClient = await createSupabaseServiceClient()
-      try {
-        if (child.school_id && !testEntryBypass) {
-          await ensureDemoSchoolSeed(serviceClient, child.school_id)
-        }
-        const map = await getSeededDemoMealsForRange(serviceClient, monday, friday)
-        const days: DayEntry[] = []
-        let hasAnyMeals = false
-        for (let i = 0; i < 5; i++) {
-          const iso = addDaysIso(monday, i)
-          const rows = map.get(iso) ?? []
-          const meals = rows.map(row => ({
-            mealType: row.meal_type,
-            mealTypeName: row.meal_type_name,
-            dishes: Array.isArray(row.dishes) ? (row.dishes as unknown as Meal['dishes']) : [],
-            calories: row.calories,
-            nutrients: Array.isArray(row.nutrients) ? (row.nutrients as Meal['nutrients']) : null,
-            origins: Array.isArray(row.origins) ? (row.origins as Meal['origins']) : null,
-          }))
-          if (meals.length > 0) hasAnyMeals = true
-          days.push({ isoDate: iso, meals })
-        }
-        dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
-      } catch (e) {
-        console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
-        dayEntries = await previewMealEntries(monday, locale)
+      const map = await getCachedOrFetchMealsForRange(
+        serviceClient,
+        child.neis_office_code,
+        child.neis_school_code,
+        monday,
+        friday,
+      )
+      const rawMealsByDay: Meal[][] = []
+      for (let i = 0; i < 5; i++) {
+        const iso = addDaysIso(monday, i)
+        rawMealsByDay.push(map.get(iso) ?? [])
       }
-    } else if (!child.neis_office_code || !child.neis_school_code) {
-      unsupported = true
-    } else {
-      try {
-        const serviceClient = await createSupabaseServiceClient()
-        const map = await getCachedOrFetchMealsForRange(
-          serviceClient,
-          child.neis_office_code,
-          child.neis_school_code,
-          monday,
-          friday,
-        )
-        const rawMealsByDay: Meal[][] = []
-        for (let i = 0; i < 5; i++) {
-          const iso = addDaysIso(monday, i)
-          rawMealsByDay.push(map.get(iso) ?? [])
-        }
-        const days: DayEntry[] = []
-        for (let i = 0; i < 5; i++) {
-          const iso = addDaysIso(monday, i)
-          days.push({
-            isoDate: iso,
-            meals: rawMealsByDay[i] ?? [],
-          })
-        }
-        dayEntries = days
-      } catch (e) {
-        console.error('[meals] fetch failed:', e instanceof Error ? e.message : e)
-        errorMessage = messages.meals?.error ?? '급식 정보를 불러오지 못했어요.'
-        const days: DayEntry[] = []
-        for (let i = 0; i < 5; i++) {
-          days.push({ isoDate: addDaysIso(monday, i), meals: [] as Meal[] })
-        }
-        dayEntries = days
+      const days: DayEntry[] = []
+      for (let i = 0; i < 5; i++) {
+        const iso = addDaysIso(monday, i)
+        days.push({
+          isoDate: iso,
+          meals: rawMealsByDay[i] ?? [],
+        })
       }
+      dayEntries = days
+    } catch (e) {
+      console.error('[meals] fetch failed:', e instanceof Error ? e.message : e)
+      errorMessage = messages.meals?.error ?? '급식 정보를 불러오지 못했어요.'
+      const days: DayEntry[] = []
+      for (let i = 0; i < 5; i++) {
+        days.push({ isoDate: addDaysIso(monday, i), meals: [] as Meal[] })
+      }
+      dayEntries = days
     }
+  }
 
-    if (dietaryRestrictions.length > 0) {
-      dayEntries = dayEntries.map(day => ({
-        ...day,
-        meals: annotateMealsWithDietaryWarnings(day.meals, dietaryRestrictions, locale),
-      }))
-    }
+  if (dietaryRestrictions.length > 0) {
+    dayEntries = dayEntries.map(day => ({
+      ...day,
+      meals: annotateMealsWithDietaryWarnings(day.meals, dietaryRestrictions, locale),
+    }))
   }
 
   const m = messages.meals ?? {}

@@ -3,9 +3,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getChildrenForUser } from '@/lib/server-cache'
-import { ensureTestBypassChildren, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import { backfillSchoolEventsForSchools } from '@/lib/schedule-backfill'
-import { isUiPreviewEnabled } from '@/lib/ui-preview'
 import {
   fetchTimetableRangeFromNeis,
   UnsupportedTimetableError,
@@ -89,33 +87,39 @@ export default async function CalendarPage({ searchParams }: Props) {
   let childLabel = ''
   let pendingTranslationNoticeIds: string[] = []
 
-  if (await isUiPreviewEnabled()) {
-    events = previewEvents(year, month)
-    timetableDays = await translateTimetableDays(previewTimetableEntries(monday), locale)
-    childLabel = '나란히초등학교 3-2'
-  } else {
-    const testEntryBypass = isTestEntryBypassEnabled()
-    const supabase = testEntryBypass
-      ? createSupabaseServiceClient()
-      : await createSupabaseServerClient()
-    const { data: { user } } = testEntryBypass
-      ? { data: { user: null } }
-      : await supabase.auth.getUser()
-    if (!user && !testEntryBypass) redirect('/login')
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-    try {
-      const children = testEntryBypass
-        ? await ensureTestBypassChildren()
-        : await getChildrenForUser(user!.id)
+  try {
+    const children = await getChildrenForUser(user.id)
 
-      const schoolIds = Array.from(new Set((children ?? []).map(child => child.school_id).filter(Boolean))) as string[]
-      const child = children?.[0] ?? null
-      if (child) {
-        childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
-      }
+    const schoolIds = Array.from(new Set((children ?? []).map(child => child.school_id).filter(Boolean))) as string[]
+    const child = children?.[0] ?? null
+    if (child) {
+      childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
+    }
 
-      if (schoolIds.length > 0) {
-        let { data: rows, error } = await supabase
+    if (schoolIds.length > 0) {
+      let { data: rows, error } = await supabase
+        .from('school_events')
+        .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
+        .in('school_id', schoolIds)
+        .gte('event_date', from)
+        .lt('event_date', to)
+        .order('event_date', { ascending: true })
+
+      if (error) throw error
+
+      if ((rows ?? []).length === 0) {
+        const serviceClient = createSupabaseServiceClient()
+        await backfillSchoolEventsForSchools({
+          serviceClient,
+          schoolIds,
+          preferredLocale: locale,
+        })
+
+        const retry = await supabase
           .from('school_events')
           .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
           .in('school_id', schoolIds)
@@ -123,128 +127,109 @@ export default async function CalendarPage({ searchParams }: Props) {
           .lt('event_date', to)
           .order('event_date', { ascending: true })
 
-        if (error) throw error
-
-        if ((rows ?? []).length === 0) {
-          const serviceClient = createSupabaseServiceClient()
-          await backfillSchoolEventsForSchools({
-            serviceClient,
-            schoolIds,
-            preferredLocale: locale,
-          })
-
-          const retry = await supabase
-            .from('school_events')
-            .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
-            .in('school_id', schoolIds)
-            .gte('event_date', from)
-            .lt('event_date', to)
-            .order('event_date', { ascending: true })
-
-          if (retry.error) throw retry.error
-          rows = retry.data
-        }
-
-        const noticeIds = Array.from(new Set(
-          (rows ?? [])
-            .map(row => row.notice_id)
-            .filter((value): value is string => typeof value === 'string' && value.length > 0),
-        ))
-        const fallbackTitle = messages.home?.fallback_title ?? messages.notice_detail?.intro_title ?? '공지'
-        const noticeRows = noticeIds.length > 0
-          ? await supabase
-              .from('notices')
-              .select('id, title, extracted_content')
-              .in('id', noticeIds)
-          : { data: [], error: null }
-        if (noticeRows.error) throw noticeRows.error
-
-        const translationRows = noticeIds.length > 0
-          ? await supabase
-              .from('notice_ai_translations')
-              .select('notice_id, target_language, translated_title, translated_location, translated_text')
-              .in('notice_id', noticeIds)
-              .in('target_language', locale === 'ko' ? ['ko'] : [locale, 'ko'])
-          : { data: [], error: null }
-        if (translationRows.error) throw translationRows.error
-
-        const noticesById = new Map(
-          (noticeRows.data ?? []).map(row => [row.id, row] as const),
-        )
-        const translationsByNotice: Record<string, Record<string, string>> = {}
-        const translatedTitlesByNotice: Record<string, Record<string, string>> = {}
-        const translatedLocationsByNotice: Record<string, Record<string, string>> = {}
-        for (const row of translationRows.data ?? []) {
-          if (row.notice_id && row.target_language && row.translated_text) {
-            ;(translationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_text
-          }
-          if (row.notice_id && row.target_language && row.translated_title) {
-            ;(translatedTitlesByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_title
-          }
-          if (row.notice_id && row.target_language && row.translated_location) {
-            ;(translatedLocationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_location
-          }
-        }
-
-        pendingTranslationNoticeIds = locale === 'ko'
-          ? []
-          : noticeIds.filter(noticeId => !translationsByNotice[noticeId]?.[locale])
-
-        events = (rows ?? []).map(row => {
-          const sourceTitle = noticesById.get(row.notice_id)?.title ?? row.title
-          return {
-            id: row.id,
-            noticeId: row.notice_id,
-            title: pickNoticeDisplayTitle(
-              {
-                title: sourceTitle,
-                extracted_content: noticesById.get(row.notice_id)?.extracted_content ?? null,
-                translated_titles: translatedTitlesByNotice[row.notice_id] ?? {},
-              },
-              locale,
-              fallbackTitle,
-            ),
-            sourceTitle,
-            eventDate: row.event_date,
-            endDate: row.end_date,
-            eventKinds: parseEventKinds(row.event_kinds),
-            location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
-            description: row.description,
-          }
-        })
+        if (retry.error) throw retry.error
+        rows = retry.data
       }
 
-      if (!child?.neis_office_code || !child.neis_school_code || !child.class_no) {
-        timetableUnsupported = true
-      } else {
-        try {
-          const periods = await fetchTimetableRangeFromNeis(
-            child.neis_office_code,
-            child.neis_school_code,
-            child.school_name,
-            child.grade,
-            child.class_no,
-            monday.replace(/-/g, ''),
-            friday.replace(/-/g, ''),
-          )
-          timetableDays = await translateTimetableDays(
-            buildTimetableDays(monday, periods),
+      const noticeIds = Array.from(new Set(
+        (rows ?? [])
+          .map(row => row.notice_id)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ))
+      const fallbackTitle = messages.home?.fallback_title ?? messages.notice_detail?.intro_title ?? '공지'
+      const noticeRows = noticeIds.length > 0
+        ? await supabase
+            .from('notices')
+            .select('id, title, extracted_content')
+            .in('id', noticeIds)
+        : { data: [], error: null }
+      if (noticeRows.error) throw noticeRows.error
+
+      const translationRows = noticeIds.length > 0
+        ? await supabase
+            .from('notice_ai_translations')
+            .select('notice_id, target_language, translated_title, translated_location, translated_text')
+            .in('notice_id', noticeIds)
+            .in('target_language', locale === 'ko' ? ['ko'] : [locale, 'ko'])
+        : { data: [], error: null }
+      if (translationRows.error) throw translationRows.error
+
+      const noticesById = new Map(
+        (noticeRows.data ?? []).map(row => [row.id, row] as const),
+      )
+      const translationsByNotice: Record<string, Record<string, string>> = {}
+      const translatedTitlesByNotice: Record<string, Record<string, string>> = {}
+      const translatedLocationsByNotice: Record<string, Record<string, string>> = {}
+      for (const row of translationRows.data ?? []) {
+        if (row.notice_id && row.target_language && row.translated_text) {
+          ;(translationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_text
+        }
+        if (row.notice_id && row.target_language && row.translated_title) {
+          ;(translatedTitlesByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_title
+        }
+        if (row.notice_id && row.target_language && row.translated_location) {
+          ;(translatedLocationsByNotice[row.notice_id] ??= {})[row.target_language] = row.translated_location
+        }
+      }
+
+      pendingTranslationNoticeIds = locale === 'ko'
+        ? []
+        : noticeIds.filter(noticeId => !translationsByNotice[noticeId]?.[locale])
+
+      events = (rows ?? []).map(row => {
+        const sourceTitle = noticesById.get(row.notice_id)?.title ?? row.title
+        return {
+          id: row.id,
+          noticeId: row.notice_id,
+          title: pickNoticeDisplayTitle(
+            {
+              title: sourceTitle,
+              extracted_content: noticesById.get(row.notice_id)?.extracted_content ?? null,
+              translated_titles: translatedTitlesByNotice[row.notice_id] ?? {},
+            },
             locale,
-            createSupabaseServiceClient(),
-          )
-        } catch (e) {
-          if (e instanceof UnsupportedTimetableError) {
-            timetableUnsupported = true
-          } else {
-            console.error('[calendar] timetable fetch failed:', e instanceof Error ? e.message : e)
-            timetableErrorMessage = messages.calendar.timetable_error ?? messages.meals?.timetable_error ?? '수업 정보를 불러오지 못했어요.'
-          }
+            fallbackTitle,
+          ),
+          sourceTitle,
+          eventDate: row.event_date,
+          endDate: row.end_date,
+          eventKinds: parseEventKinds(row.event_kinds),
+          location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
+          description: row.description,
+        }
+      })
+    }
+
+    if (!child?.neis_office_code || !child.neis_school_code || !child.class_no) {
+      timetableUnsupported = true
+    } else {
+      try {
+        const periods = await fetchTimetableRangeFromNeis(
+          child.neis_office_code,
+          child.neis_school_code,
+          child.school_name,
+          child.grade,
+          child.class_no,
+          monday.replace(/-/g, ''),
+          friday.replace(/-/g, ''),
+        )
+        timetableDays = await translateTimetableDays(
+          buildTimetableDays(monday, periods),
+          locale,
+          createSupabaseServiceClient(),
+        )
+      } catch (e) {
+        if (e instanceof UnsupportedTimetableError) {
+          timetableUnsupported = true
+        } else {
+          console.error('[calendar] timetable fetch failed:', e instanceof Error ? e.message : e)
+          timetableErrorMessage = messages.calendar.timetable_error ?? messages.meals?.timetable_error ?? '수업 정보를 불러오지 못했어요.'
         }
       }
-    } catch (e) {
-      console.error('[calendar] schedule fetch failed:', e instanceof Error ? e.message : e)
-      errorMessage = messages.calendar.gcal_error ?? '일정을 불러오지 못했어요.'
     }
+  } catch (e) {
+    console.error('[calendar] schedule fetch failed:', e instanceof Error ? e.message : e)
+    errorMessage = messages.calendar.gcal_error ?? '일정을 불러오지 못했어요.'
   }
 
   return (
@@ -322,64 +307,8 @@ function buildTimetableDays(monday: string, periods: TimetablePeriod[]): Timetab
   return days
 }
 
-function previewEvents(year: number, month: number): ScheduleEvent[] {
-  const base = `${year}-${String(month).padStart(2, '0')}`
-
-  return [
-    {
-      id: 'preview-calendar-1',
-      noticeId: 'preview-action',
-      title: '체험학습 동의서 제출',
-      eventDate: `${base}-08`,
-      eventKinds: ['deadline'],
-      location: '각 반 교실',
-      description: '체험학습 동의서 제출 마감일',
-    },
-    {
-      id: 'preview-calendar-2',
-      noticeId: 'preview-schedule',
-      title: '학부모 상담주간',
-      eventDate: `${base}-14`,
-      eventKinds: ['event'],
-      location: '상담실',
-      description: '학부모 상담 일정',
-    },
-    {
-      id: 'preview-calendar-3',
-      noticeId: 'preview-supplies',
-      title: '봄 소풍',
-      eventDate: `${base}-21`,
-      eventKinds: ['event'],
-      location: '서울숲',
-      description: '봄 소풍 행사일',
-    },
-  ]
-}
-
 function parseEventKinds(value: unknown): ('event' | 'deadline')[] {
   if (!Array.isArray(value)) return ['event']
   const kinds = value.filter((item): item is 'event' | 'deadline' => item === 'event' || item === 'deadline')
   return kinds.length > 0 ? kinds : ['event']
-}
-
-function previewTimetableEntries(monday: string): TimetableDayEntry[] {
-  const subjects = [
-    ['국어', '수학', '과학', '체육', '음악'],
-    ['영어', '국어', '미술', '수학', '창체'],
-    ['사회', '과학', '영어', '도덕'],
-    ['수학', '국어', '체육', '사회', '미술'],
-    ['과학', '음악', '영어', '국어'],
-  ]
-
-  return subjects.map((daySubjects, dayIndex) => ({
-    isoDate: addDaysIso(monday, dayIndex),
-    periods: daySubjects.map((subject, index) => ({
-      date: addDaysIso(monday, dayIndex),
-      period: index + 1,
-      subject,
-      grade: 3,
-      className: '2',
-      classroom: null,
-    })),
-  }))
 }

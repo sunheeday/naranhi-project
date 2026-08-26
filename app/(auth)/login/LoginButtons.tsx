@@ -49,13 +49,8 @@ export default function LoginButtons({
   })
   const [copied, setCopied] = useState(false)
 
-  function clearPreviewCookie() {
-    document.cookie = 'ui_preview=; Path=/; Max-Age=0; SameSite=Lax'
-  }
-
   async function handleGoogle() {
     if (!googleLoginEnabled) return
-    clearPreviewCookie()
     // 인앱 브라우저에서 Google OAuth는 403 disallowed_useragent로 막히므로,
     // 외부 브라우저 전환이 가능하면 그쪽으로 리다이렉트한 뒤 사용자에게 재시도를 맡긴다.
     if (inApp?.canOpenExternal) {
