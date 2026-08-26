@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 import { safeNextPath } from '@/lib/auth/redirect'
 import { publicOrigin } from '@/lib/request-origin'
+import { AUTH_COOKIE_MAX_AGE_SECONDS } from '@/lib/supabase/config'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -38,7 +39,12 @@ export async function GET(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
+            // @supabase/ssr 는 DEFAULT_COOKIE_OPTIONS.maxAge(400일)를 항상 채워서 넘기므로
+            // 여기서 무조건 우리 상수로 덮어써야 한다 (lib/supabase/server.ts·middleware.ts 와 동일 패턴).
+            response.cookies.set(name, value, {
+              ...options,
+              maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
+            })
           })
         },
       },
