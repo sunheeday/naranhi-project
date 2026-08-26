@@ -81,7 +81,6 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL }}
-            TEST_ENTRY_BYPASS=true
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
             NEIS_API_KEY=neis-api-key:latest
