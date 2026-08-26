@@ -4,7 +4,7 @@
 
 **Goal:** 익명 키로 뚫려 있는 작업 큐를 막고, 구글 로그인 경로를 되살리고, 공지 첨부를 해당 학교 학부모만 받을 수 있게 하고, DB 마이그레이션을 머지 시 자동 적용한다.
 
-**Architecture:** 네 갈래를 순차 배포한다. ① 마이그레이션 이력을 정합시키고 RLS 한 줄을 적용 ② 그 적용 수단을 GitHub Actions로 영구화 ③ 우회 스위치를 둘에서 하나로 줄이고 구글 로그인·14일 세션을 복구 ④ 첨부를 저장된 공개 URL 방식에서 요청 시 서명 URL 발급 방식으로 바꾸고 마지막에 버킷을 잠근다. 각 단계는 단독 롤백이 가능하다.
+**Architecture:** 네 갈래를 순차 배포한다. ① 마이그레이션 이력을 정합시키고 RLS 한 줄을 적용 ② 그 적용 수단을 GitHub Actions로 영구화 ③ 우회 스위치를 셋에서 하나로 줄이고 구글 로그인·14일 세션을 복구 ④ 첨부를 저장된 공개 URL 방식에서 요청 시 서명 URL 발급 방식으로 바꾸고 마지막에 버킷을 잠근다. 각 단계는 단독 롤백이 가능하다.
 
 **Tech Stack:** Next.js 15 App Router, `@supabase/ssr`, Supabase(Postgres + Storage + Auth, 도쿄 리전), Python 3.12 FastAPI, `supabase-py`, GitHub Actions, Supabase CLI
 
@@ -16,7 +16,7 @@
 - **프로젝트 ref**: `aoihmzewthgyoxtejfwo` (공개값). Supabase 리전 = Northeast Asia (Tokyo).
 - **DB 비밀번호 불필요**: Supabase CLI가 액세스 토큰으로 임시 로그인 역할을 만들어 접속한다 (`supabase db push --dry-run`으로 검증 완료). `SUPABASE_DB_PASSWORD`를 요구하는 단계를 만들지 말 것.
 - **열쇠 취급**: 토큰·키를 명령줄 인자나 URL 쿼리에 넣지 않는다. 값 출력 금지(길이만). 저장은 환경변수 또는 시크릿 저장소로만.
-- **우회 스위치는 하나**: 이 작업이 끝나면 인증 우회 경로는 `DEV_LOGIN_ENABLED` 하나로만 제어되어야 한다. `TEST_ENTRY_BYPASS`는 완전히 사라진다.
+- **우회 스위치는 하나**: 이 작업이 끝나면 인증 우회 경로는 `DEV_LOGIN_ENABLED` 하나로만 제어되어야 한다. **셋을 없앤다** — `TEST_ENTRY_BYPASS`(배포 env), `ui_preview` 쿠키 분기(middleware), `/demo` 라우트(쿠키 발급처). 셋 중 하나라도 남으면 «env 한 줄로 닫힌다»가 거짓이 된다.
 - **개발 진입로는 켜둔다**: 사용자 결정에 따라 프로덕션에서도 `DEV_LOGIN_ENABLED=true`. 나중에 명시적 지시가 있을 때 끈다.
 - **재추출 금지**: 이행 실패 첨부는 포기한다. 재추출 작업을 만들지 말 것.
 - **데모 예외 금지**: 데모 학교를 스코프 검사의 예외로 두지 않는다.
@@ -37,6 +37,7 @@
 | `scripts/check_migration_numbers.py` | 번호 중복 검사 | 신규 (Task 2) |
 | `middleware.ts` | 인증 게이트 | 수정 (Task 3) |
 | `lib/test-entry-bypass.ts` | 데모 우회 | **삭제** (Task 3) |
+| `app/demo/route.ts` | `ui_preview` 쿠키 발급 — 세 번째 우회 스위치 | **삭제** (Task 3) |
 | `app/api/auth/dev-login/route.ts` | 개발 계정 로그인 | 수정 (Task 4) |
 | `app/home/route.ts` | 개발 진입로 | 신규 (Task 4) |
 | `lib/supabase/server.ts` | Supabase 클라이언트 팩토리 | 수정 (Task 5) |
@@ -383,11 +384,25 @@ DB 비밀번호는 쓰지 않는다 — CLI 가 액세스 토큰으로 임시 �
 
 ## Task 3: 우회 스위치 통합
 
-지금 우회가 둘이다 — `TEST_ENTRY_BYPASS`(전 경로 무인증 통과)와 `DEV_LOGIN_ENABLED`(개발 계정 로그인). 개발 진입로를 켜둘 것이므로, **스위치가 둘로 남으면 하나를 꺼도 열려 있게 된다.** 하나로 줄인다.
+우회가 **셋**이다 (2026-08-27 실측으로 세 번째 확인):
+
+| # | 스위치 | 효과 | 발동 |
+|---|---|---|---|
+| 1 | `TEST_ENTRY_BYPASS=true` | 전 경로 무인증 통과 | 배포 env |
+| 2 | `DEV_LOGIN_ENABLED=true` | 개발 계정 즉시 로그인 | 배포 env |
+| 3 | **`ui_preview` 쿠키** | **전 경로 무인증 통과** | **`/demo` 방문 — 누구나** |
+
+**세 번째가 가장 위험하다.** `app/demo/route.ts:8-12` 가 인증 없이 `ui_preview=true` 를
+**7일짜리**로 심고, `middleware.ts:29-34` 가 그 쿠키를 보면 인증을 통째로 건너뛴다.
+`/demo` 는 `PUBLIC_PATHS` 에 있어 누구나 접근한다.
+
+→ **1번만 지우면 «`/demo` 한 번 방문 = 7일 무인증»이 그대로 남는다.**
+개발 진입로(2번)를 켜둘 것이므로, 나머지 둘을 **모두** 없애야 «env 한 줄로 완전히 닫힌다」가 성립한다.
 
 **Files:**
-- Modify: `middleware.ts` (18~28행 부근의 `isTestEntryBypass` 분기)
+- Modify: `middleware.ts` (`isTestEntryBypass` 분기 **및** `isPreview` 분기)
 - Delete: `lib/test-entry-bypass.ts`
+- Delete: `app/demo/route.ts`
 - Modify: `.github/workflows/deploy-cloud-run.yml:84` (`TEST_ENTRY_BYPASS=true` 제거)
 - Modify: `lib/test-entry-bypass.ts` 를 import 하는 모든 파일
 
@@ -398,11 +413,16 @@ DB 비밀번호는 쓰지 않는다 — CLI 가 액세스 토큰으로 임시 �
 - [ ] **Step 1: 참조 지점을 전부 찾는다**
 
 ```bash
-grep -rn "TEST_ENTRY_BYPASS\|test-entry-bypass\|ensureBypassChildForSchool" \
+grep -rn "TEST_ENTRY_BYPASS\|test-entry-bypass\|ensureBypassChildForSchool\|ui_preview\|NEXT_PUBLIC_UI_PREVIEW\|'/demo'\|\"/demo\"" \
   --include=*.ts --include=*.tsx --include=*.yml . | grep -v node_modules
 ```
 
-Expected: `middleware.ts`, `lib/test-entry-bypass.ts`, `.github/workflows/deploy-cloud-run.yml`, 그리고 이를 import 하는 페이지/액션들. **목록을 기록해 둘 것** — 다음 단계에서 하나씩 지운다.
+Expected: `middleware.ts`(두 분기), `lib/test-entry-bypass.ts`, `app/demo/route.ts`,
+`.github/workflows/deploy-cloud-run.yml`, 그리고 이를 import·링크하는 페이지/액션들.
+**목록을 기록해 둘 것** — 다음 단계에서 하나씩 지운다.
+
+`ui_preview` 를 UI 분기(로그인과 무관한 프리뷰 렌더)에 쓰는 곳이 있으면 **그건 남긴다.**
+지우는 것은 **middleware 의 인증 우회 분기**와 **쿠키를 심는 `/demo` 라우트**뿐이다.
 
 - [ ] **Step 2: middleware 의 우회 분기를 제거한다**
 
@@ -426,7 +446,31 @@ const TEST_BYPASS_ENTRY_PATHS = ['/login', '/onboarding']
   }
 ```
 
-이 블록도 삭제한다. 아래의 `isPreview` 분기부터가 새 시작점이 된다.
+이 블록도 삭제한다.
+
+- [ ] **Step 2b: `ui_preview` 인증 우회 분기를 제거한다**
+
+`middleware.ts:29-34` 의 아래 블록을 **통째로 삭제**한다:
+
+```typescript
+  const isPreview = process.env.NEXT_PUBLIC_UI_PREVIEW === 'true'
+    || request.cookies.get('ui_preview')?.value === 'true'
+
+  if (isPreview) {
+    return NextResponse.next({ request })
+  }
+```
+
+그리고 쿠키를 심는 라우트를 삭제한다:
+
+```bash
+git rm app/demo/route.ts
+```
+
+`PUBLIC_PATHS` 에서도 `'/demo'` 를 뺀다.
+
+> 이 라우트는 아랍어 데모용이었다(`locale=ar` 쿠키도 함께 심는다).
+> 데모 종료 결정에 따라 제거한다. 사용자 언어는 온보딩에서 정해진다.
 
 - [ ] **Step 3: `/home` 을 공개 경로에 추가한다**
 
@@ -434,7 +478,6 @@ const TEST_BYPASS_ENTRY_PATHS = ['/login', '/onboarding']
 
 ```typescript
 const PUBLIC_PATHS = [
-  '/demo',
   '/home',
   '/login',
   '/auth/callback',
@@ -469,9 +512,16 @@ git rm lib/test-entry-bypass.ts
 grep -rn "TEST_ENTRY_BYPASS\|test-entry-bypass\|ensureBypassChildForSchool" \
   --include=*.ts --include=*.tsx --include=*.yml . | grep -v node_modules
 echo "종료코드: $?  (1 이면 없음 = 정상)"
+
+# 세 번째 스위치가 middleware 에서 사라졌는지
+grep -n "isPreview\|ui_preview\|NEXT_PUBLIC_UI_PREVIEW" middleware.ts
+echo "종료코드: $?  (1 이면 없음 = 정상)"
+
+# 쿠키 발급처가 사라졌는지
+test ! -f app/demo/route.ts && echo "app/demo/route.ts 삭제됨 ✅" || echo "❌ 아직 있음"
 ```
 
-Expected: 출력 없음, 종료코드 1
+Expected: 앞의 두 grep 모두 출력 없음(종료코드 1), `app/demo/route.ts 삭제됨 ✅`
 
 - [ ] **Step 7: 타입체크와 빌드가 통과하는지 확인한다**
 

@@ -109,16 +109,33 @@ anon 키로 돌리면 에러가 아니라 **빈 배열**이 와서 조용히 오
 
 **(a) 우회 경로를 하나로 통합한다**
 
-지금 우회 스위치가 사실상 둘이다 — `TEST_ENTRY_BYPASS`(전 경로 무인증 통과)와
-`DEV_LOGIN_ENABLED`(개발 계정 즉시 로그인). 사용자 결정에 따라 개발 진입로는
-당분간 켜두므로, **스위치가 둘로 남으면 나중에 하나를 꺼도 열려 있게 된다.**
+우회 스위치가 **셋**이다 (2026-08-27 실측으로 세 번째 확인):
+
+| # | 스위치 | 효과 | 발동 조건 |
+|---|---|---|---|
+| 1 | `TEST_ENTRY_BYPASS=true` | 전 경로 무인증 통과 | 배포 env (`deploy-cloud-run.yml:84`) |
+| 2 | `DEV_LOGIN_ENABLED=true` | 개발 계정 즉시 로그인 | 배포 env |
+| 3 | **`ui_preview` 쿠키** | **전 경로 무인증 통과** | **`/demo` 방문 — 누구나** |
+
+**세 번째가 가장 조용하고 위험하다.** `app/demo/route.ts:8-12`가 인증 없이
+`ui_preview=true`를 **7일짜리**로 심고, `middleware.ts:29-34`가 그 쿠키를 보면
+인증을 통째로 건너뛴다. `/demo`는 `PUBLIC_PATHS`에 있어 누구나 접근한다.
+즉 **1번만 지워도 «`/demo` 한 번 방문 = 7일 무인증»이 그대로 남는다.**
+
+사용자 결정에 따라 개발 진입로(2번)는 당분간 켜두므로,
+**나머지 둘을 모두 없애야** «env 한 줄로 완전히 닫힌다»가 성립한다.
 
 따라서 이 사업에서:
 
 - `.github/workflows/deploy-cloud-run.yml:84`의 `TEST_ENTRY_BYPASS=true` **제거**
 - `middleware.ts:19-27`의 `TEST_ENTRY_BYPASS` 분기 **제거**
+- `middleware.ts:29-34`의 `isPreview` 분기 **제거**
+- `app/demo/route.ts` **제거** (쿠키 발급처). `PUBLIC_PATHS`에서도 `/demo` 제외
 - `lib/test-entry-bypass.ts` **제거** (§6.3(e) 데모 종료 결정과 같은 작업)
 - 우회는 **`DEV_LOGIN_ENABLED` 하나로만** 제어한다
+
+> `ui_preview`를 **로그인과 무관한 UI 분기**(프리뷰 렌더)에 쓰는 곳이 있으면 그건 남긴다.
+> 지우는 것은 **인증 우회 분기**와 **쿠키 발급처**뿐이다.
 
 결과: 로그인 없이 들어오는 길은 `/home` 하나만 남고, env 한 줄로 닫을 수 있다.
 
