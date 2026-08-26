@@ -21,6 +21,7 @@ from app.services.content_extraction_service import (
     _primary_source_id,
     _refine_sources,
     _save_success,
+    _source_summary,
     _stitch_images_vertically,
     translate_sources_for_locale,
     _school_translation_locales,
@@ -689,6 +690,16 @@ class BodyImagesTests(unittest.TestCase):
         self.assertEqual(len(body), 1)
         self.assertEqual(body[0]["storage_path"], "n1/body-images-abc123.png")
         self.assertEqual(body[0]["metadata"]["file_type"], "image")
+
+
+class SourceSummaryUploadTests(unittest.TestCase):
+    """_source_summary 가 만든 dict 에 public_url 이 새어나가면 안 된다."""
+
+    def test_upload_public_url_does_not_leak_into_summary(self) -> None:
+        upload = {"storage_path": "abc/def.png", "public_url": "https://store/abc/def.png"}
+        summary = _source_summary(FakeSource(), None, upload)
+        self.assertEqual(summary["storage_path"], "abc/def.png")
+        self.assertNotIn("public_url", summary)
 
 
 class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):

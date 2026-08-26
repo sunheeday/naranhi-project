@@ -1372,7 +1372,6 @@ def _source_summary(
     # Storage 업로드 결과(있으면) — 프론트 파일카드의 미리보기/다운로드 URL.
     if upload:
         summary["storage_path"] = upload.get("storage_path", "")
-        summary["public_url"] = upload.get("public_url", "")
     return summary
 
 
