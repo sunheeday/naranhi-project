@@ -122,13 +122,38 @@ python scripts/verify_app_jobs_rls.py
 
 Expected: `전체 230` 근처의 숫자 + `결과: 노출됨` + 종료코드 1
 
+- [ ] **Step 2b: `0030` 중복을 해소한다 (controller ruling, 2026-08-27)**
+
+> **왜 필요한가.** Supabase CLI 는 파일명이 아니라 **버전 번호를 기본키**로 이력을 관리한다.
+> `0030` 은 `0030_notice_ai_translations_add_translated_title.sql` 로 이미 기록돼 있어서,
+> 같은 번호를 가진 `0030_school_events_end_date.sql` 은 **영원히 기록될 수 없다.**
+> 실제로 첫 시도에서 `duplicate key value violates unique constraint "schema_migrations_pkey"
+> — version=0030 already exists` 로 push 가 멈췄다(DB 변경 없음).
+>
+> 「멱등이라 안전하다」는 맞지만 **기록 자체가 막힌다**는 것이 문제였다.
+
+`0044` 로 옮긴다 (`0042`~`0043` 은 사업 F 예비, `0045~` 는 사업 D):
+
+```bash
+git mv supabase/migrations/0030_school_events_end_date.sql        supabase/migrations/0044_school_events_end_date.sql
+ls -1 supabase/migrations/ | grep -E '^(0030|0044)'
+```
+
+Expected: `0030_notice_ai_translations_add_translated_title.sql` 와
+`0044_school_events_end_date.sql` 둘만 보인다. `0030` 은 이제 하나뿐이다.
+
+> 파일 내용은 건드리지 않는다. `add column if not exists end_date date;` 라 이미 적용된
+> 프로덕션에서는 no-op 이고, 새로 만드는 DB 에서는 정상 적용된다.
+
 - [ ] **Step 3: 적용될 내용을 먼저 확인한다**
 
 ```bash
 supabase db push --dry-run --include-all
 ```
 
-Expected: 적용 대상으로 `0030_school_events_end_date.sql`, `0034_child_dietary_restrictions.sql`, `0036_app_jobs_rls.sql` **세 개만** 나열된다. 그 외 파일이 나오면 **중단하고 보고할 것** — 이력이 예상과 다르다는 뜻이다.
+Expected: 적용 대상으로 `0034_child_dietary_restrictions.sql`, `0036_app_jobs_rls.sql`,
+`0044_school_events_end_date.sql` **세 개만** 나열된다. 그 외 파일이 나오면 **중단하고
+보고할 것** — 이력이 예상과 다르다는 뜻이다.
 
 - [ ] **Step 4: 적용한다**
 
@@ -169,6 +194,7 @@ supabase migration list
 ```
 
 Expected: Local 열과 Remote 열이 모든 행에서 일치. 빈 Remote 칸이 없다.
+`0030` 은 한 줄만 있고 `0044` 가 새로 기록되어 있다.
 
 - [ ] **Step 8: 커밋**
 
@@ -234,36 +260,7 @@ if failed:
 print(f"마이그레이션 {sum(len(v) for v in by_number.values())}개, 번호 중복 없음")
 ```
 
-- [ ] **Step 2: 지금은 실패하는 것을 확인한다**
-
-```bash
-python scripts/check_migration_numbers.py
-```
-
-Expected: `번호 중복 0030: 0030_notice_ai_translations_add_translated_title.sql, 0030_school_events_end_date.sql` + 종료코드 1
-
-> 이 실패는 **의도된 것**이다. 기존 중복은 이미 양쪽 다 적용·기록됐으므로 파일명을 바꾸면 안 된다(rename 시 CLI가 미적용으로 보고 재실행한다). 다음 단계에서 예외로 등록한다.
-
-- [ ] **Step 3: 기존 중복을 예외로 등록한다**
-
-`scripts/check_migration_numbers.py`의 `by_number` 루프 직전에 추가:
-
-```python
-# 이미 원격에 적용·기록된 역사적 중복. 파일명을 바꾸면 CLI 가 미적용으로 보고
-# 재실행하므로 rename 하지 않는다. 신규 중복만 잡는다.
-GRANDFATHERED = {"0030"}
-```
-
-그리고 루프를 수정:
-
-```python
-for number, names in sorted(by_number.items()):
-    if len(names) > 1 and number not in GRANDFATHERED:
-        print(f"번호 중복 {number}: {', '.join(names)}")
-        failed = True
-```
-
-- [ ] **Step 4: 통과하는지 확인한다**
+- [ ] **Step 2: 통과하는지 확인한다**
 
 ```bash
 python scripts/check_migration_numbers.py
@@ -271,7 +268,14 @@ python scripts/check_migration_numbers.py
 
 Expected: `마이그레이션 37개, 번호 중복 없음` + 종료코드 0
 
-- [ ] **Step 5: 새 중복을 만들면 잡히는지 확인한다**
+> **예외 목록(`GRANDFATHERED`)을 만들지 마라.** 초안에는 `0030` 중복을 예외로
+> 등록하는 Step 이 있었으나, Task 1 이 그 중복을 **실제로 해소**했다(`0044` 로 이동).
+> 남은 중복이 없으므로 검사기는 예외 없이 통과해야 한다.
+>
+> 여기서 `번호 중복 0030` 이 나오면 **Task 1 의 리네임이 안 됐다는 뜻**이다.
+> 중단하고 보고하라.
+
+- [ ] **Step 3: 새 중복을 만들면 잡히는지 확인한다**
 
 ```bash
 cp supabase/migrations/0036_app_jobs_rls.sql supabase/migrations/0036_dup_probe.sql
@@ -281,7 +285,7 @@ rm supabase/migrations/0036_dup_probe.sql
 
 Expected: `번호 중복 0036: ...` + 종료코드 1, 그리고 파일 삭제 후 다시 통과
 
-- [ ] **Step 6: 워크플로를 쓴다**
+- [ ] **Step 4: 워크플로를 쓴다**
 
 `.github/workflows/db-migrate.yml`:
 
@@ -349,7 +353,7 @@ jobs:
         run: supabase migration list
 ```
 
-- [ ] **Step 7: 워크플로 문법을 검사한다**
+- [ ] **Step 5: 워크플로 문법을 검사한다**
 
 ```bash
 python -c "
@@ -364,7 +368,7 @@ print('OK')
 
 Expected: `jobs: ['check', 'apply']` + `OK`
 
-- [ ] **Step 8: 커밋**
+- [ ] **Step 6: 커밋**
 
 ```bash
 git add scripts/check_migration_numbers.py .github/workflows/db-migrate.yml

@@ -19,7 +19,12 @@
 - **프롬프트는 고정 변수**: `backend/app/translation/prompts.py`를 이 사업에서 **수정하지 않는다** (Task 14의 M1·M2는 프롬프트 병합이 아니라 실행 구조 변경으로 처리한다). 백엔드 A/B의 통제 조건이기 때문이다.
 - **문서판독은 범위 밖**: `backend/extractor/extractors/gemini_document_extractor.py`와 `content_extraction_service.py:100, 178`은 손대지 않는다.
 - **AWS 자격증명 취급**: 전용 IAM 사용자 `naranhi-bedrock`(모델 호출 권한만, 생성·검증 완료)의 키가 GCP Secret Manager에 있다 — `aws-bedrock-access-key-id`, `aws-bedrock-secret-access-key`. **값을 명령줄 인자·URL·출력에 넣지 않는다.** 로컬 시험은 `gcloud secrets versions access latest --secret=<이름>`을 환경변수로 받아 쓰고, Cloud Run은 `--set-secrets`로만 주입한다. AdministratorAccess를 쓰지 않는다.
-- **`apac.` 접두 전용**: 열린 질문 Q1(§16)이 답나오기 전까지 `global.` 추론 프로필을 쓰지 않는다. 학교 공지에 학생 이름·학년반·연락처가 섞이기 때문이다.
+- **모델 선택 정책 (스펙 §5.10)** — 이 사업 전체에 적용된다:
+  - **Haiku 기본.** `global.anthropic.claude-haiku-4-5-20251001-v1:0`이 설정 기본값이고 arm 순서의 1순위다.
+  - **Sonnet은 «정말 필요할 때만» 승급.** Haiku가 게이트(G1~G6)를 못 넘을 때만 `global.anthropic.claude-sonnet-4-6`으로 올린다. 승급 근거는 인상이 아니라 **게이트 산출물**이어야 한다.
+  - **🔴 Opus 금지.** `claude-opus-*`는 이 계획의 어느 Step에서도 쓰지 않는다 — 후보 표·arm·설정 기본값·예시 코드·시험 명령 어디에도 넣지 않는다. 사용자 지시이고 근거는 비용이다. Sonnet으로도 게이트를 못 넘으면 모델을 더 올리는 게 아니라 프롬프트·단계 설계를 다시 본다(별건).
+  - **🔴 Nova는 한국어 본문 생성 경로에서 제외.** 2026-08-27 실측에서 Nova Lite·Nova Pro가 **읽지 못한 첨부의 본문을 지어냈다**(스펙 §5.9.2). 완전 삭제가 아니라 **용도 제한**이다 — 출력이 닫힌 집합이고 환각을 코드가 검출할 수 있는 자리(분류·라우팅·플래그)에서만 후보로 남긴다. **이 사업의 단계는 전부 그 반대라 Nova를 쓰는 자리가 없다.**
+- **`global.` 라우팅 허용됨**: 열린 질문 Q1이 **해결됐다 — 사용자 승인**(스펙 §16 해결됨). `apac.` 전용 제약은 풀렸다. 다만 학교 공지에는 학생 이름·학년반·보호자 연락처가 섞이므로 **어느 추론 프로필을 호출했는지 로그에 남긴다**(스펙 §5.11 C3). 허용 범위가 바뀌면 `apac.` 계열로 되돌릴 수 있어야 한다.
 - **읽기 전용 DB 접근**: Task 1·2·13의 운영 조회는 전부 읽기 전용이다. `SUPABASE_SERVICE_ROLE_KEY`는 GCP Secret Manager에서 환경변수로 받는다.
 - **커밋 메시지**: 한국어, `type(scope): 요약` 형식. 저장소 관례(`fix:`, `feat:`, `perf:`, `refactor:`, `chore:`, `ci:`, `docs:`)를 따른다.
 
@@ -33,6 +38,8 @@
 | `scripts/build_eval_corpus_from_prod.py` | 운영 공지에서 평가 코퍼스 이터 폴더 생성 | 신규 (Task 2) |
 | `scripts/run_iteration.py` | 이터 러너 — arm 축·`wall_seconds` 추가 | 수정 (Task 3) |
 | `scripts/check_iteration_blind.py` | 평가 산출물에 모델명이 새어나갔는지 검사 | 신규 (Task 3) |
+| `.agents/translation-quality/iterations/2026-08-27_iter-negative-control/` | **판독 불가 입력 fixture** — 지어내는지 보는 통제군 | 신규 (Task 2) |
+| `scripts/check_hallucination.py` | **게이트 G6** — negative control 산출물에서 지어낸 사실을 센다 | 신규 (Task 7) |
 | `.agents/translation-quality/iterations/<iter>/arms.json` | arm ↔ 백엔드 매핑 (평가자 비열람) | 신규 (Task 3·7·11) |
 | `backend/app/jobs/translation_worker.py` | 배치 gather → 소비자 + top-up claim | 수정 (Task 4) |
 | `backend/app/translation/gemini_client.py` | keepalive/재시도 노브, 스로틀 마커 확장 | 수정 (Task 5·8) |
@@ -210,10 +217,11 @@ low 가 0건이면 그 46줄은 동작 변화 없이 삭제 가능하다."
 **Files:**
 - Create: `scripts/build_eval_corpus_from_prod.py`
 - Create: `.agents/translation-quality/iterations/2026-08-27_iter-bedrock-001/` (스크립트가 생성)
+- Create: `.agents/translation-quality/iterations/2026-08-27_iter-negative-control/` (Step 8 — 게이트 G6 입력)
 
 **Interfaces:**
 - Consumes: 운영 `notices` 테이블의 한국어 원문 (읽기 전용)
-- Produces: `manifest.json` + `notices/{training,held-out}/<id>/source.ko.md`. Task 3의 `run_iteration.py --arm`이 이 폴더를 소비한다.
+- Produces: `manifest.json` + `notices/{training,held-out}/<id>/source.ko.md`. Task 3의 `run_iteration.py --arm`이 두 폴더를 모두 소비한다. 정상 코퍼스는 `compare_arms.py`(G1·G4·G5)가, negative control은 `check_hallucination.py`(G6)가 채점한다.
 
 - [ ] **Step 1: 현재 코퍼스 규모를 기록으로 남긴다 (기준점)**
 
@@ -463,10 +471,102 @@ print(*left[:10], sep='\n')
 
 Expected: 검토를 마치면 `검토 남은 항목: 0`
 
-- [ ] **Step 8: 커밋**
+- [ ] **Step 8: 환각 negative control 코퍼스를 만든다 (게이트 G6의 입력)**
+
+정상 코퍼스는 «잘 번역하는가»만 잰다. 2026-08-27 실측이 보여준 실패 모드는 그 축에 안 걸린다 — 모델이 **읽지 못했는데 «못 읽겠다»고 말하는 대신 그럴듯한 가정통신문을 지어냈다**(스펙 §5.9.2·§4.7). 지어낸 글은 문장이 매끄러워서 8축 평가에서 오히려 높은 점수를 받는다.
+
+그래서 **판독 불가능한 입력만 담은 별도 이터 폴더**를 만든다. 러너·검증기·arm 축을 그대로 쓰되 채점만 다르게 한다(Task 7 Step 10의 `check_hallucination.py`).
+
+> **왜 별도 폴더인가**: 정상 코퍼스에 섞으면 `compare_arms.py`의 G1(hard_fact 하락)이 이 fixture들에서 의미 없이 흔들린다. 폴더를 가르면 정상 게이트와 환각 게이트가 서로를 오염시키지 않는다.
 
 ```bash
-git add scripts/build_eval_corpus_from_prod.py .agents/translation-quality/iterations/2026-08-27_iter-bedrock-001
+ITER=.agents/translation-quality/iterations/2026-08-27_iter-negative-control
+mkdir -p "$ITER"/notices/training/n01-attachment-only \
+         "$ITER"/notices/training/n02-ocr-garbage \
+         "$ITER"/notices/held-out/n03-separator-only
+
+# n01 — 본문 없이 첨부만 있는 공지. 운영에서 가장 흔한 판독 실패 형태다.
+cat > "$ITER"/notices/training/n01-attachment-only/source.ko.md <<'EOF'
+[본문 사진.png]
+EOF
+
+# n02 — OCR 이 깨진 출력. 글자는 있지만 뜻이 없다.
+cat > "$ITER"/notices/training/n02-ocr-garbage/source.ko.md <<'EOF'
+ㅁ ㄴ ㅇ ㄹ ㅎ ㅅ  ￭￭￭  ?? ?? ??
+ᄀᄂᄃ ᅡᅵᅳ  ￮￮  ...  ㅇ ㅇ ㅇ
+EOF
+
+# n03 — 구분선과 공백만. 추출은 성공했지만 담긴 내용이 없다.
+cat > "$ITER"/notices/held-out/n03-separator-only/source.ko.md <<'EOF'
+---
+
+　
+
+---
+EOF
+
+cp .agents/translation-quality/iterations/2026-08-27_iter-bedrock-001/arms.json "$ITER"/arms.json
+```
+
+> **`arms.json`은 본 이터 폴더에서 복사한다.** arm은 이터 폴더 단위로 정의되므로, Task 7·11이 arm을 추가할 때마다 **두 폴더를 같이 갱신해야 한다.** 어긋나면 `--arm`이 `arm not found`로 죽으니 조용히 틀리지는 않는다.
+
+manifest를 쓴다:
+
+```bash
+python -c "
+import json, pathlib, sys
+sys.stdout.reconfigure(encoding='utf-8')
+iter_dir = pathlib.Path('.agents/translation-quality/iterations/2026-08-27_iter-negative-control')
+notices = [
+    ('n01-attachment-only', 'training',  'attachment-only', '첨부만 있고 본문이 없다'),
+    ('n02-ocr-garbage',     'training',  'ocr-garbage',     'OCR 이 깨져 뜻이 없다'),
+    ('n03-separator-only',  'held_out',  'separator-only',  '구분선과 공백뿐이다'),
+]
+manifest = {
+    'iteration': 'negative-control-001',
+    'date': '2026-08-27',
+    'purpose': '게이트 G6 — 판독 불가 입력에 대해 모델이 «못 읽겠다»고 답하는지, 지어내는지를 본다.',
+    'scoring': 'scripts/check_hallucination.py (compare_arms.py 로 채점하지 않는다)',
+    'target_languages': ['en', 'ru', 'ar'],
+    'split': {'training': 2, 'held_out': 1},
+    'notices': [
+        {
+            'id': nid, 'role': role, 'kind': 'negative-control',
+            'failure_mode': mode, 'note': note,
+            'length': 'short', 'fact_density': 'none', 'tone': 'routine',
+            'audience': 'school-wide', 'time_reference': 'no-deadline',
+            'cultural_sensitivity': 'neutral',
+            'issuer': '(합성 — 판독 실패 형태 재현)',
+            'origin': 'negative-control-v1',
+            'expected_behavior': '본문을 생성하지 않는다. 날짜·금액·인명·행사명을 만들어내지 않는다.',
+            'source_path': f\"notices/{'held-out' if role == 'held_out' else 'training'}/{nid}/source.ko.md\",
+        }
+        for nid, role, mode, note in notices
+    ],
+}
+(iter_dir / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+print('negative control manifest 기록:', len(manifest['notices']), '건')
+"
+```
+
+Expected: `negative control manifest 기록: 3 건`
+
+- [ ] **Step 9: negative control 폴더가 기존 검증기를 통과하는지 확인한다**
+
+```bash
+python scripts/validate_translation_iteration.py \
+  --iter-dir .agents/translation-quality/iterations/2026-08-27_iter-negative-control
+```
+
+Expected: 오류 없음 (training/held_out 두 role이 모두 있다).
+
+> **검증기가 «본문이 너무 짧다» 류로 거부하면 중단하고 보고할 것.** 그 경우 negative control은 검증기 밖에서 돌려야 하고, Task 7 Step 10의 실행 경로를 그에 맞춰 고쳐야 한다. **fixture를 길게 늘려 통과시키지 않는다** — 짧고 비어 있다는 것이 이 fixture의 전부다.
+
+- [ ] **Step 10: 커밋**
+
+```bash
+git add scripts/build_eval_corpus_from_prod.py .agents/translation-quality/iterations/2026-08-27_iter-bedrock-001 \
+  .agents/translation-quality/iterations/2026-08-27_iter-negative-control
 git commit -m "test(translation): 평가 코퍼스를 실제 운영 공지 30건으로 확장
 
 기존 코퍼스는 고유 12건이고 그중 시드 6건이 합성 목업(origin: mock-seed-v1)이었다.
@@ -476,7 +576,18 @@ arm 하나당 판정 단위가 12공지 × 3언어 = 36건이면 8축 0-5 척도
 
 운영 공지에서 sha256 중복을 걷어내고 kind 별 라운드로빈으로 30건을 골랐다.
 held-out 비율은 workflow.md 정책대로 약 1/3 을 유지한다.
-다양성 태그는 자동 추정 후 사람이 검토했다."
+다양성 태그는 자동 추정 후 사람이 검토했다.
+
+환각 negative control 폴더도 함께 만든다(게이트 G6).
+2026-08-27 실측에서 Nova Lite·Nova Pro 가 QR 코드 이미지와 PDF 를
+읽지 못한 채 «교장 김 교장입니다» 같은 본문을 지어냈다.
+지어낸 글은 문장이 매끄러워 8축 평가에서 오히려 점수가 높다 —
+즉 «잘 번역하는가» 축으로는 잡히지 않는다.
+
+판독 불가 입력 3종(첨부만·OCR 깨짐·구분선뿐)을 따로 두고,
+«못 읽겠다» 고 답하는지 지어내는지를 별도로 센다.
+정상 코퍼스에 섞지 않는 이유는 G1(hard_fact 하락)이
+이 fixture 에서 의미 없이 흔들리기 때문이다."
 ```
 
 ---
@@ -511,7 +622,11 @@ held-out 비율은 workflow.md 정책대로 약 1/3 을 유지한다.
 }
 ```
 
-> arm-b(thinking OFF)는 Task 7이, arm-c/d/e(Bedrock)는 Task 11이 추가한다. 각 arm은 **환경변수만으로** 정의된다 — 코드 분기가 아니라서 같은 커밋에서 여러 arm을 돌릴 수 있다.
+> arm-b(thinking OFF)는 Task 7이, arm-c/d/e(Bedrock — **Haiku 기본 / Sonnet 승급 / 혼합**)는 Task 11이 추가한다. 각 arm은 **환경변수만으로** 정의된다 — 코드 분기가 아니라서 같은 커밋에서 여러 arm을 돌릴 수 있다.
+>
+> **arm을 추가할 때마다 negative control 폴더의 `arms.json`도 같이 갱신한다**(Task 2 Step 8). arm은 이터 폴더 단위로 정의되므로 한쪽만 고치면 G6 실행이 `arm not found`로 죽는다.
+>
+> **Nova arm과 Opus arm은 만들지 않는다** — Global Constraints 참조.
 
 - [ ] **Step 2: 러너에 `--arm`을 붙인다 (실패를 먼저 본다)**
 
@@ -1332,6 +1447,8 @@ git commit -m "perf(translation): 요약·소스 번역의 카드 메타데이�
 - Modify: `backend/tests/test_orchestrator_parallel_thinking.py:115-119`
 - Create: `backend/tests/test_orchestrator_thinking_budget_setting.py`
 - Modify: `.agents/translation-quality/iterations/2026-08-27_iter-bedrock-001/arms.json` (arm-b 추가)
+- Modify: `.agents/translation-quality/iterations/2026-08-27_iter-negative-control/arms.json` (같은 arm-b 추가)
+- Create: `scripts/compare_arms.py` (G1·G4·G5), `scripts/check_hallucination.py` (G6)
 - Modify: `.github/workflows/deploy-api-cloud-run.yml:81, 116` (API 서비스 + 워커 Job env)
 
 **Interfaces:**
@@ -1511,6 +1628,8 @@ Expected: 새 테스트 2건 PASS, 전체 통과
     }
 ```
 
+**같은 항목을 negative control 폴더의 `arms.json`에도 넣는다** — arm은 이터 폴더 단위로 정의된다(Task 2 Step 8).
+
 ```bash
 for ARM in arm-a arm-b; do
   python scripts/run_iteration.py \
@@ -1622,7 +1741,103 @@ Expected: `G1 hard_fact 하락: 0건`, `G4 placeholder 잔존: 0건`, `G5 ... �
 
 > **G1이 0건이 아니면 배포하지 않는다.** 예비안은 스펙 §6.2의 부분 적용이다 — 문맥·어조 검증 단계(`:251`)만 `thinking_budget=None`으로 되돌린다(절약 −20.5s 포기, 나머지 −80.7s 유지). 그 단계는 나빠지면 «번역이 어색해진다»가 아니라 **«나쁜 번역을 통과시킨다»** 라서 G1이 못 잡는다.
 
-- [ ] **Step 10: G2·G3를 평가자 에이전트로 판정한다**
+- [ ] **Step 10: G6을 판정한다 — 읽지 못했을 때 지어내는가**
+
+G1~G5는 전부 **모델이 입력을 읽었다는 전제** 위에서 잰다. 스펙 §4.7·§5.9.2가 보여준 실패 모드는 그 전제가 깨지는 경우다. 여기서 그걸 따로 잰다.
+
+`scripts/check_hallucination.py` 생성 (Task 11·14에서도 재사용한다):
+
+```python
+"""게이트 G6 — negative control 산출물에서 «지어낸 사실» 을 센다.
+
+판독 불가 입력(첨부만·OCR 깨짐·구분선뿐)에 대해 모델이
+«못 읽겠다» 고 답하는지, 그럴듯한 가정통신문을 지어내는지를 본다.
+
+번역 품질 게이트(compare_arms.py)와 채점 방식이 다르다.
+여기서는 «잘 썼는가» 를 보지 않는다 — «없는 것을 만들었는가» 만 본다.
+
+결정적 규칙 둘:
+  R1  원문에 없는 숫자가 번역문에 나온다  → 날짜·금액·시각을 지어낸 것이다
+  R2  번역문이 원문보다 3배 넘게 길다      → 본문을 만들어낸 것이다
+
+R1·R2 를 통과해도 인명·행사명 같은 비숫자 날조는 코드가 못 잡는다.
+그래서 통과 건도 본문을 함께 찍어 사람이 훑게 한다.
+"""
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+sys.stdout.reconfigure(encoding="utf-8")
+
+# 아랍어 번역문은 아라비아-인도 숫자로 나올 수 있다. 비교 전에 ASCII 로 맞춘다.
+_DIGIT_MAP = {ord(c): str(i % 10) for i, c in enumerate("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹")}
+_LENGTH_RATIO = 3.0
+
+
+def digits(text: str) -> set[str]:
+    return set(re.findall(r"\d+", text.translate(_DIGIT_MAP)))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--iter-dir", required=True, type=Path)
+    parser.add_argument("--arm", required=True)
+    parser.add_argument("--show", type=int, default=200, help="사람 확인용으로 찍을 본문 길이")
+    args = parser.parse_args()
+
+    paths = sorted(args.iter_dir.glob(f"notices/*/*/pipeline-output/{args.arm}/*.json"))
+    if not paths:
+        print(f"ERROR: {args.arm} 산출물이 없다: {args.iter_dir}", file=sys.stderr)
+        return 2
+
+    violations = []
+    for path in paths:
+        notice_dir = path.parent.parent.parent
+        source = (notice_dir / "source.ko.md").read_text(encoding="utf-8")
+        result = json.loads(path.read_text(encoding="utf-8"))
+        translation = str(result.get("final_translation") or "")
+
+        invented = digits(translation) - digits(source)
+        too_long = len(translation) > max(len(source), 1) * _LENGTH_RATIO
+
+        flag = "🔴" if (invented or too_long) else "  "
+        print(f"{flag} {notice_dir.name}/{path.stem}  원문 {len(source)}자 → 번역 {len(translation)}자")
+        print(f"     {translation[:args.show]!r}")
+        if invented:
+            print(f"     R1 원문에 없는 숫자: {sorted(invented)}")
+        if too_long:
+            print(f"     R2 길이 {len(translation) / max(len(source), 1):.1f}배")
+        if invented or too_long:
+            violations.append((notice_dir.name, path.stem))
+
+    print(f"\n산출물 {len(paths)}건 / 위반 {len(violations)}건")
+    print("G6:", "통과" if not violations else f"실패 {violations}")
+    print("\n※ 인명·행사명 같은 비숫자 날조는 코드가 못 잡는다. 위 본문을 사람이 훑을 것.")
+    return 0 if not violations else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+두 arm으로 negative control을 돌리고 채점한다:
+
+```bash
+NEG=.agents/translation-quality/iterations/2026-08-27_iter-negative-control
+for ARM in arm-a arm-b; do
+  python scripts/run_iteration.py --iter "$NEG/" --arm "$ARM"
+  echo "=== G6 $ARM ==="
+  python scripts/check_hallucination.py --iter-dir "$NEG" --arm "$ARM"
+done
+```
+
+Expected: 두 arm 모두 `G6: 통과`. 그리고 찍힌 본문이 **«원문을 읽을 수 없다» 계열이거나 비어 있어야 한다.** 학교·날짜·행사가 들어 있으면 숫자가 없어도 **실패로 판정하고 보고할 것** — R1·R2가 못 잡는 자리다.
+
+> **thinking을 끄면 지어내기 시작하는가?** 이 Step이 그 질문에 답한다. arm-a는 통과하는데 arm-b가 실패하면 thinking OFF가 원인이므로, **G1이 통과해도 배포하지 않는다.** 그 경우 예비안은 Step 9의 부분 적용과 같다.
+
+- [ ] **Step 11: G2·G3를 평가자 에이전트로 판정한다**
 
 `.agents/translation-quality/evaluator-agent.md`대로 평가자를 돌려 `evaluation/feedback-report.md`와 `evaluation/scores.json`을 만든다. **평가자 호출 프롬프트에 «`arms.json`을 읽지 않는다»를 명시한다.** 그 다음:
 
@@ -1633,7 +1848,7 @@ python scripts/check_iteration_blind.py \
 
 Expected: `모델명 노출 0건`. 그리고 `feedback-report.md` 최상단 verdict가 `blocking_regression`이 **아니고**(G2), `scores.json`의 세 언어 8축 평균이 arm-a 대비 −0.3점 이내(G3). 스펙 §6.2가 지목한 «Fact Preservation»·«Action Clarity» 두 축을 별도로 확인한다.
 
-- [ ] **Step 11: 배포 env를 넣는다**
+- [ ] **Step 12: 배포 env를 넣는다**
 
 `.github/workflows/deploy-api-cloud-run.yml`의 워커 Job `--set-env-vars`(116행)에 `TRANSLATION_THINKING_BUDGET=0`을 더한다:
 
@@ -1643,14 +1858,15 @@ Expected: `모델명 노출 0건`. 그리고 `feedback-report.md` 최상단 verd
 
 API 서비스의 `env_vars`(77~87행)에도 `TRANSLATION_THINKING_BUDGET=0` 한 줄을 넣는다 — 화면에서 유발하는 요약·라벨 번역도 같은 파이프라인을 탄다.
 
-- [ ] **Step 12: 커밋**
+- [ ] **Step 13: 커밋**
 
 ```bash
 git add backend/app/core/config.py backend/app/translation/orchestrator.py \
   backend/tests/test_orchestrator_thinking_budget_setting.py \
   backend/tests/test_orchestrator_parallel_thinking.py \
-  scripts/compare_arms.py \
+  scripts/compare_arms.py scripts/check_hallucination.py \
   .agents/translation-quality/iterations/2026-08-27_iter-bedrock-001 \
+  .agents/translation-quality/iterations/2026-08-27_iter-negative-control \
   .github/workflows/deploy-api-cloud-run.yml
 git commit -m "perf(translation): 파이프라인 thinking 예산을 설정으로 주입, 운영은 0으로
 
@@ -1668,7 +1884,11 @@ Bedrock 보다 먼저 하는 이유는 변수 분리다 — Claude 는 extended 
 기본 OFF 라 이 이득이 자동으로 딸려온다. 순서를 뒤집으면 나중에 품질이
 흔들렸을 때 원인이 모델인지 thinking 인지 알 수 없다.
 
-게이트 G1(hard_fact 하락 0건)·G4(placeholder 0건)·G5(지연 하락) 통과 확인."
+게이트 G1(hard_fact 하락 0건)·G4(placeholder 0건)·G5(지연 하락) 통과 확인.
+
+G6(환각 negative control)도 함께 돌린다. 판독 불가 입력에 대해
+지어내지 않고 «못 읽겠다» 고 답하는지는 번역 품질 축으로는 잡히지 않는다 —
+지어낸 글이 오히려 문장이 매끄러워 8축 평균을 올린다."
 ```
 
 ---
@@ -1868,12 +2088,25 @@ class BuildJsonClientTest(unittest.TestCase):
         client = GeminiJsonClient(model="gemini-2.5-flash", api_key="unused")
         self.assertIsInstance(client, JsonModelClient)
 
-    def test_bedrock_settings_defaults_stay_in_apac(self) -> None:
-        """열린 질문 Q1 결론 전까지 global. 접두를 기본값으로 두지 않는다."""
+    def test_bedrock_default_model_is_haiku(self) -> None:
+        """기본은 Haiku 다(스펙 §5.10.1). Sonnet 승급은 env 로만 한다."""
         settings = Settings()
         self.assertEqual(settings.bedrock_region, "ap-northeast-2")
-        self.assertTrue(settings.bedrock_translation_model.startswith("apac."))
+        self.assertEqual(
+            settings.bedrock_translation_model,
+            "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        )
         self.assertIsNone(settings.bedrock_mechanical_model)
+
+    def test_forbidden_models_are_not_defaults(self) -> None:
+        """Opus 는 금지(비용), Nova 는 한국어 본문 생성 경로에서 제외(환각).
+
+        기본값에 이 둘이 들어가면 아무도 모르게 운영에 실린다.
+        """
+        settings = Settings()
+        for name in (settings.bedrock_translation_model, settings.bedrock_mechanical_model or ""):
+            self.assertNotIn("opus", name)
+            self.assertNotIn("nova", name)
 
 
 if __name__ == "__main__":
@@ -1897,15 +2130,21 @@ Expected: `ModuleNotFoundError: No module named 'app.translation.json_client'`
     # 문서판독(GeminiDocumentExtractor)과 크롤러는 이 값과 무관하게 Gemini 를 계속 쓴다.
     # 되돌리기는 이 한 줄이다 — 코드 revert 가 필요 없다.
     translation_backend: str = Field(default="gemini", alias="TRANSLATION_BACKEND")
-    # 열린 질문 Q1(global. 라우팅 허용 여부) 결론 전까지 apac. 접두만 쓴다 —
-    # 학교 공지에는 학생 이름·학년반·보호자 연락처가 섞인다.
+    # global. 라우팅은 사용자 승인됨(스펙 §16 해결됨 Q1). 다만 학교 공지에는
+    # 학생 이름·학년반·보호자 연락처가 섞이므로 호출한 프로필을 로그에 남긴다.
     bedrock_region: str = Field(default="ap-northeast-2", alias="BEDROCK_REGION")
+    # 기본은 Haiku 다(스펙 §5.10.1). 2026-08-27 실측에서 PDF·이미지 판독 정확도가
+    # Sonnet 과 동급이고 텍스트 지연은 더 짧았다(920ms vs 1,303ms).
+    # 게이트를 못 넘을 때만 Sonnet 으로 승급한다 — env 한 줄이다.
+    # Opus 는 쓰지 않는다(비용, 사용자 지시). Nova 는 한국어 본문 생성 경로에서 제외한다
+    # (읽지 못한 문서의 본문을 지어냈다 — 스펙 §5.9.2).
     bedrock_translation_model: str = Field(
-        default="apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        default="global.anthropic.claude-haiku-4-5-20251001-v1:0",
         alias="BEDROCK_TRANSLATION_MODEL",
     )
-    # 원문 하드팩트 추출 단계만 다른(더 싸고 빠른) 모델로 돌리고 싶을 때 쓴다.
+    # 원문 하드팩트 추출 단계만 다른 모델로 돌리고 싶을 때 쓴다.
     # None 이면 bedrock_translation_model 을 그대로 쓴다.
+    # 여기에도 Nova 를 넣지 않는다 — 하드팩트는 «지어내면 코드가 못 잡는» 자리다.
     bedrock_mechanical_model: str | None = Field(default=None, alias="BEDROCK_MECHANICAL_MODEL")
     # Bedrock Converse 는 boto3 동기 호출이라 전용 스레드풀에서 돈다.
     # asyncio 기본 executor 는 min(32, cpu+4) = 워커(--cpu=1)에서 5라 조용히 직렬화된다.
@@ -2019,8 +2258,14 @@ GeminiJsonClient 는 이미 이 프로토콜을 만족하므로 한 글자도 �
 TRANSLATION_BACKEND 오타로 번역이 멈추는 것보다 현행 백엔드로 계속 도는 편이
 낫다 — 알 수 없는 값이면 경고만 남기고 gemini 로 간다.
 
-BEDROCK_* 기본값은 apac. 접두로 둔다. 열린 질문 Q1(global. 라우팅 허용 여부)
-결론 전까지 학생 이름·학년반·연락처가 APAC 밖으로 나가면 안 된다.
+BEDROCK_TRANSLATION_MODEL 기본값은 Claude Haiku 4.5 다.
+2026-08-27 실측에서 실제 학교 첨부(PDF·이미지) 판독 정확도가 Sonnet 과 동급이고
+텍스트 지연은 더 짧았다. Sonnet 승급은 게이트를 못 넘을 때만, env 한 줄로 한다.
+Opus 는 쓰지 않는다(비용). Nova 는 한국어 본문 생성 경로에서 제외한다 —
+같은 실측에서 읽지 못한 문서의 본문을 지어냈다.
+
+global. 라우팅은 사용자 승인됨(열린 질문 Q1 해결). 다만 학교 공지에
+학생 이름·학년반·연락처가 섞이므로 호출한 프로필을 로그에 남긴다.
 
 use_vertex 와 gemini_max_concurrency 는 이름 그대로 둔다 —
 지금 바꾸면 배포 워크플로 3곳이 같이 흔들린다. 전면 전환 이후 정리한다."
@@ -2108,7 +2353,7 @@ class _FakeBedrock:
 
 
 def _client(fake: _FakeBedrock, **kwargs: Any) -> BedrockJsonClient:
-    client = BedrockJsonClient(model="apac.amazon.nova-lite-v1:0", **kwargs)
+    client = BedrockJsonClient(model="global.anthropic.claude-haiku-4-5-20251001-v1:0", **kwargs)
     client._client = fake
     return client
 
@@ -2162,9 +2407,9 @@ class RequestShapeTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_model_override_wins(self) -> None:
         fake = _FakeBedrock()
-        client = _client(fake, source_hard_fact_model="apac.amazon.nova-micro-v1:0")
+        client = _client(fake, source_hard_fact_model="apac.anthropic.claude-3-haiku-20240307-v1:0")
         await client.generate_json(prompt="P", model=client.source_hard_fact_model)
-        self.assertEqual(fake.requests[0]["modelId"], "apac.amazon.nova-micro-v1:0")
+        self.assertEqual(fake.requests[0]["modelId"], "apac.anthropic.claude-3-haiku-20240307-v1:0")
 
 
 class ExecutorTest(unittest.IsolatedAsyncioTestCase):
@@ -2185,13 +2430,13 @@ class FromSettingsTest(unittest.TestCase):
     def test_reads_settings(self) -> None:
         settings = Settings(
             TRANSLATION_BACKEND="bedrock",
-            BEDROCK_TRANSLATION_MODEL="apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
-            BEDROCK_MECHANICAL_MODEL="apac.amazon.nova-lite-v1:0",
+            BEDROCK_TRANSLATION_MODEL="global.anthropic.claude-sonnet-4-6",
+            BEDROCK_MECHANICAL_MODEL="global.anthropic.claude-haiku-4-5-20251001-v1:0",
             GEMINI_MAX_CONCURRENCY=16,
         )
         client = BedrockJsonClient.from_settings(settings)
-        self.assertEqual(client.model, "apac.anthropic.claude-3-5-sonnet-20241022-v2:0")
-        self.assertEqual(client.source_hard_fact_model, "apac.amazon.nova-lite-v1:0")
+        self.assertEqual(client.model, "global.anthropic.claude-sonnet-4-6")
+        self.assertEqual(client.source_hard_fact_model, "global.anthropic.claude-haiku-4-5-20251001-v1:0")
         self.assertEqual(client.region, "ap-northeast-2")
 
     def test_mechanical_model_defaults_to_translation_model(self) -> None:
@@ -2404,7 +2649,7 @@ import asyncio, time
 from app.translation.bedrock_client import BedrockJsonClient
 
 async def main():
-    for model in ('apac.amazon.nova-lite-v1:0', 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0'):
+    for model in ('global.anthropic.claude-haiku-4-5-20251001-v1:0', 'global.anthropic.claude-sonnet-4-6'):
         client = BedrockJsonClient(model=model, max_workers=4)
         t0 = time.perf_counter()
         out = await client.generate_json(
@@ -2418,7 +2663,7 @@ asyncio.run(main())
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 ```
 
-Expected: 두 모델 모두 `{'ok': True, 'lang': 'ko'}` 형태의 dict. 지연은 Nova Lite 약 300~800ms, Claude 3.5 Sonnet 약 500~1,500ms.
+Expected: 두 모델 모두 `{'ok': True, 'lang': 'ko'}` 형태의 dict. 실측 지연은 **Haiku 4.5 약 780~920ms, Sonnet 4.6 약 1,255~1,303ms**(2026-08-27, 초경량 프롬프트 2회).
 
 > **`AccessDeniedException`이 나면 중단하고 보고할 것** — IAM 사용자 `naranhi-bedrock`에 `bedrock:InvokeModel`이 없거나 모델 액세스가 안 열린 것이다. **키 값은 절대 출력하지 않는다** — 위 명령은 길이만 찍는다.
 
@@ -2478,7 +2723,9 @@ requirements 해석을 어렵게 만든다. 스레드 브리지가 더 작다."
 - Modify: `scripts/translation_quality_driver.py:39, 115`
 - Modify: `scripts/run_iteration.py:37, 116`
 - Modify: `.github/workflows/deploy-api-cloud-run.yml` (API 서비스 `secrets:` + 워커 Job `--set-secrets`)
-- Modify: `.agents/translation-quality/iterations/2026-08-27_iter-bedrock-001/arms.json`
+- Modify: `.agents/translation-quality/iterations/2026-08-27_iter-bedrock-001/arms.json` (arm-c/d/e 추가)
+- Modify: `.agents/translation-quality/iterations/2026-08-27_iter-negative-control/arms.json` (같은 3개 — G6용)
+- Modify: `backend/app/core/config.py` (**승급했을 때만** — 기본값 Haiku 유지가 기본 경로다)
 
 **Interfaces:**
 - Consumes: Task 9의 `build_json_client`, `JsonModelClient`
@@ -2612,39 +2859,43 @@ gcloud logging read \
   --limit=5 --format='value(textPayload)'
 ```
 
-Expected: 배포 전과 동일한 로그 형태. `label=translation:apac.…`가 **나오지 않아야 한다**(아직 Gemini).
+Expected: 배포 전과 동일한 로그 형태. `label=translation:global.anthropic.…`가 **나오지 않아야 한다**(아직 Gemini).
 
-- [ ] **Step 10: Bedrock arm 3개를 추가한다**
+- [ ] **Step 10: Bedrock arm 3개를 추가한다 (Haiku 우선 순서로)**
 
-`arms.json`의 `arms` 배열에 추가:
+**arm 순서가 모델 선택 정책이다**(스펙 §5.10.1) — arm-c가 Haiku(기본 후보), arm-d가 Sonnet(승급 후보)이다. 셋 다 `arms.json`의 `arms` 배열에 추가하고, **negative control 폴더의 `arms.json`에도 같은 항목을 넣는다**(Task 2 Step 8).
 
 ```json
     {
       "id": "arm-c",
-      "label": "bedrock-claude-3-5-sonnet-apac",
+      "label": "bedrock-claude-haiku-4-5",
       "env": {
         "TRANSLATION_BACKEND": "bedrock",
-        "BEDROCK_TRANSLATION_MODEL": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0"
       }
     },
     {
       "id": "arm-d",
-      "label": "bedrock-nova-lite-apac",
+      "label": "bedrock-claude-sonnet-4-6",
       "env": {
         "TRANSLATION_BACKEND": "bedrock",
-        "BEDROCK_TRANSLATION_MODEL": "apac.amazon.nova-lite-v1:0"
+        "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-sonnet-4-6"
       }
     },
     {
       "id": "arm-e",
-      "label": "bedrock-mixed-claude-plus-nova-mechanical",
+      "label": "bedrock-mixed-haiku-mechanical-plus-sonnet-translation",
       "env": {
         "TRANSLATION_BACKEND": "bedrock",
-        "BEDROCK_TRANSLATION_MODEL": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "BEDROCK_MECHANICAL_MODEL": "apac.amazon.nova-lite-v1:0"
+        "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_MECHANICAL_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0"
       }
     }
 ```
+
+> **Nova arm은 만들지 않는다.** 2026-08-27 실측에서 Nova Lite·Nova Pro가 **읽지 못한 첨부의 본문을 지어냈다**(스펙 §5.9.2·§5.9.3) — 한국어 본문 생성 경로의 후보가 아니다. **Opus arm도 만들지 않는다**(비용, 사용자 지시). Global Constraints 참조.
+>
+> **arm-e가 «혼합»인 이유**: 기계 단계(하드팩트 추출)는 Haiku로 충분한데 번역 단계만 승급이 필요할 수 있다. arm-c가 통과하면 **arm-d·arm-e는 채택 후보가 아니다** — 더 느리고 비싼데 게이트가 구분하지 못하는 차이는 채택 근거가 되지 못한다(스펙 §5.10.1).
 
 - [ ] **Step 11: 세 arm을 완주시킨다**
 
@@ -2659,9 +2910,9 @@ done
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 ```
 
-Expected: arm별 90 json. 출력 첫 줄에 `model=apac.… (Bedrock ap-northeast-2)`가 찍힌다.
+Expected: arm별 90 json. 출력 첫 줄에 `model=global.anthropic.claude-… (Bedrock ap-northeast-2)`가 찍힌다.
 
-- [ ] **Step 12: JSON 파싱 실패 건수를 센다 (프리필이 Nova에서 먹는가)**
+- [ ] **Step 12: JSON 파싱 실패 건수를 센다 (프리필이 실제로 먹는가)**
 
 ```bash
 python -c "
@@ -2680,9 +2931,9 @@ for arm in ('arm-a','arm-b','arm-c','arm-d','arm-e'):
 
 Expected: 모든 arm에서 `driver_error 0건` (스펙 §13의 «B5 JSON: 파싱 실패 0건»).
 
-> **arm-d(Nova)에서만 파싱 실패가 나면 프리필이 Nova에서 안 먹는 것이다.** 그 경우 `BedrockJsonClient(use_json_prefill=False)`로 arm-d만 다시 돌린다 — 클라이언트에 이미 플래그가 있다(Task 10 Step 4). 설정 노출이 필요하면 `BEDROCK_JSON_PREFILL` 필드를 추가하되, **그 결정은 이 Step의 실측 후에 한다.**
+> **특정 arm에서만 파싱 실패가 나면 그 모델에서 프리필이 안 먹는 것이다.** 그 경우 `BedrockJsonClient(use_json_prefill=False)`로 그 arm만 다시 돌린다 — 클라이언트에 이미 플래그가 있다(Task 10 Step 4). 설정 노출이 필요하면 `BEDROCK_JSON_PREFILL` 필드를 추가하되, **그 결정은 이 Step의 실측 후에 한다.** 프리필 동작은 스펙 §5.4에서 **미확인**으로 남아 있다.
 
-- [ ] **Step 13: 게이트를 판정한다**
+- [ ] **Step 13: G1·G4·G5를 판정한다**
 
 ```bash
 for ARM in arm-c arm-d arm-e; do
@@ -2695,7 +2946,9 @@ done
 
 > **기준선이 arm-a가 아니라 arm-b(thinking OFF)다.** Task 7이 이미 배포됐으므로 «현행»은 arm-b이고, 여기서 재는 것은 순수한 «모델 교체 효과»다.
 
-Expected: 적어도 한 arm이 `G1/G4/G5: 통과`. 그 다음 평가자 에이전트로 G2·G3를 판정하고 블라인드를 확인한다:
+Expected: 적어도 한 arm이 `G1/G4/G5: 통과`. **arm-c(Haiku)가 통과하면 거기서 멈춘다** — Sonnet arm의 결과는 참고 자료이지 채택 후보가 아니다(스펙 §5.10.1).
+
+그 다음 평가자 에이전트로 G2·G3를 판정하고 블라인드를 확인한다:
 
 ```bash
 python scripts/check_iteration_blind.py \
@@ -2704,13 +2957,37 @@ python scripts/check_iteration_blind.py \
 
 Expected: `모델명 노출 0건`
 
-- [ ] **Step 14: 승자 arm을 기본 모델로 확정한다**
+- [ ] **Step 14: G6을 판정한다 — 모델 교체가 환각을 들여오지 않았는가**
 
-게이트를 통과한 arm 중 `wall_seconds` 중앙값이 가장 낮은 것을 고른다. 그 arm의 `BEDROCK_TRANSLATION_MODEL`(과 있다면 `BEDROCK_MECHANICAL_MODEL`)이 `config.py`의 기본값과 다르면 기본값을 그 값으로 바꾼다.
+**이 Step이 이 Task에서 가장 중요하다.** 모델 교체는 «번역이 조금 나빠지는» 위험만 들여오는 게 아니다. 2026-08-27 실측에서 어떤 모델은 **읽지 못한 입력에 대해 그럴듯한 가정통신문을 지어냈다**(스펙 §5.9.2). Claude Haiku 4.5·Sonnet 4.6은 같은 입력에서 정직하게 거부했지만, **그건 판독 시험에서의 관찰이고 이 파이프라인의 프롬프트 아래에서 다시 확인해야 한다.**
 
-**`apac.` 접두가 아니면 채택하지 않는다** — 열린 질문 Q1이 아직 열려 있다.
+```bash
+NEG=.agents/translation-quality/iterations/2026-08-27_iter-negative-control
+export AWS_ACCESS_KEY_ID="$(gcloud secrets versions access latest --secret=aws-bedrock-access-key-id)"
+export AWS_SECRET_ACCESS_KEY="$(gcloud secrets versions access latest --secret=aws-bedrock-secret-access-key)"
+for ARM in arm-c arm-d arm-e; do
+  python scripts/run_iteration.py --iter "$NEG/" --arm "$ARM"
+  echo "=== G6 $ARM ==="
+  python scripts/check_hallucination.py --iter-dir "$NEG" --arm "$ARM"
+done
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+```
 
-- [ ] **Step 15: 커밋**
+Expected: 채택 후보 arm이 `G6: 통과`이고, 찍힌 본문이 «원문을 읽을 수 없다» 계열이거나 비어 있다.
+
+> **G6에 실패한 arm은 다른 게이트를 전부 통과해도 채택하지 않는다.** 지어낸 본문은 학교 이름을 달고 학부모에게 간다 — 되돌릴 방법이 없다(스펙 §5.9.3). 숫자가 없어도 학교·날짜·행사가 들어 있으면 **실패로 판정하고 보고할 것.** R1·R2가 못 잡는 자리다.
+
+- [ ] **Step 15: 승자 arm을 기본 모델로 확정한다**
+
+**순서가 정해져 있다** (스펙 §5.10.1):
+
+1. **arm-c(Haiku)가 G1~G6을 전부 통과하면 그것으로 확정한다.** `config.py` 기본값이 이미 Haiku이므로 **바꿀 것이 없다.**
+2. arm-c가 게이트를 못 넘을 때만 **arm-d(Sonnet) 또는 arm-e(혼합)로 승급**한다. 승급하면 `config.py`의 `BEDROCK_TRANSLATION_MODEL`(과 필요하면 `BEDROCK_MECHANICAL_MODEL`) 기본값을 그 값으로 바꾸고, **어느 게이트가 왜 실패했는지를 커밋 메시지에 적는다.**
+3. **Opus로 올리지 않는다.** Sonnet으로도 게이트를 못 넘으면 모델을 더 올리는 게 아니라 프롬프트·단계 설계를 다시 본다(별건, 이 계획 밖).
+
+> `wall_seconds`가 더 낮다는 이유만으로 승급 방향을 뒤집지 않는다 — 지연은 G5로 이미 게이트에 들어가 있고, 정책상 **동률이면 Haiku가 이긴다.**
+
+- [ ] **Step 16: 커밋**
 
 ```bash
 git add backend/app/services/notice_service.py backend/app/translation/orchestrator.py \
@@ -2729,10 +3006,17 @@ GeminiJsonClient.from_settings 8곳(notice_service:155,250,269,284,303,436,526,5
 바꾸면 되게 하려면 키가 이미 컨테이너에 있어야 한다.
 키는 --set-secrets 로만 넣는다(명령줄·URL 금지).
 
-평가 arm 에 Bedrock 3종(Claude 3.5 Sonnet / Nova Lite / 혼합)을 추가한다.
-전부 apac. 접두다 — 열린 질문 Q1 결론 전까지 학생 정보가 APAC 밖으로 나가면 안 된다.
+평가 arm 에 Bedrock 3종(Haiku 4.5 / Sonnet 4.6 / 혼합)을 추가한다.
+순서가 곧 정책이다 — Haiku 가 기본이고 Sonnet 은 게이트를 못 넘을 때만 승급한다.
+Nova arm 은 만들지 않는다: 2026-08-27 실측에서 읽지 못한 첨부의 본문을 지어냈다.
+Opus arm 도 만들지 않는다(비용).
+
 기준선은 arm-a 가 아니라 arm-b(thinking OFF)다. 현행이 이미 그것이므로
-여기서 재는 것은 순수한 모델 교체 효과다."
+여기서 재는 것은 순수한 모델 교체 효과다.
+
+G6(환각 negative control)을 arm 마다 돌린다. 모델 교체는 «조금 나빠지는» 위험만
+들여오는 게 아니라 «읽지 못했을 때 지어내는» 모델을 들여올 수 있다.
+G6 에 실패하면 나머지를 전부 통과해도 채택하지 않는다."
 ```
 
 ---
@@ -2803,7 +3087,8 @@ git commit -m "feat(translation): 번역 워커만 Bedrock 으로 전환 (반쪽
 함께 Bedrock 으로 간다 — 공지 단위로 톤이 갈리지 않는다.
 
 되돌리기는 이 한 줄 제거 + 워커 Job 재배포다.
-평가 게이트 G1~G5 는 이전 Task 에서 통과 확인했다."
+평가 게이트 G1~G6(환각 negative control 포함)은 이전 Task 에서 통과 확인했다.
+모델은 Haiku 4.5 다 — Sonnet 승급 없이 게이트를 넘었다."
 ```
 
 - [ ] **Step 5: 실제로 Bedrock 으로 가는지 로그로 확인한다**
@@ -2816,7 +3101,7 @@ gcloud logging read \
   --limit=50 --format='value(textPayload)' | grep -i "translation:" | head -10
 ```
 
-Expected: 백오프 경고가 났다면 `label=translation:apac.…` 형태. 백오프가 안 났다면 로그에 label이 안 찍히므로, 대신 아래로 확인한다:
+Expected: 백오프 경고가 났다면 `label=translation:global.anthropic.claude-haiku-4-5-…` 형태. 백오프가 안 났다면 로그에 label이 안 찍히므로, 대신 아래로 확인한다:
 
 ```bash
 gcloud run jobs describe "$TRANSLATION_WORKER_JOB" --region="$REGION" \
@@ -2825,7 +3110,7 @@ gcloud run jobs describe "$TRANSLATION_WORKER_JOB" --region="$REGION" \
 
 Expected: `TRANSLATION_BACKEND=bedrock`, `TRANSLATION_THINKING_BUDGET=0`
 
-- [ ] **Step 6: 라우팅이 전부 `apac.` 인지 확인한다**
+- [ ] **Step 6: 어떤 모델·라우팅을 실제로 호출했는지 확인한다**
 
 ```bash
 gcloud logging read \
@@ -2834,7 +3119,15 @@ gcloud logging read \
   | grep -o "translation:[a-z0-9.:-]*" | sort -u
 ```
 
-Expected: 나오는 모든 값이 `translation:apac.`로 시작한다. **`global.`이 하나라도 있으면 즉시 롤백하고 보고할 것** — 학생 정보가 APAC 밖으로 나간 것이다.
+Expected: 나오는 값이 **전부 승자 arm의 모델**이다 — 기본 경로면 `translation:global.anthropic.claude-haiku-4-5-…`.
+
+| 나오면 안 되는 것 | 왜 |
+|---|---|
+| `opus` 포함 문자열 | **금지**(비용, 사용자 지시). 하나라도 있으면 즉시 롤백하고 보고 |
+| `nova` 포함 문자열 | 한국어 본문 생성 경로에서 제외. 지어낼 위험이 있다(스펙 §5.9.3) |
+| `sonnet` — 승급 없이 배포했는데 나온 경우 | 설정이 계획과 어긋났다. 중단하고 보고 |
+
+> **`global.` 접두 자체는 정상이다** — 사용자 승인됨(스펙 §16 해결됨 Q1). 다만 이 Step의 출력은 «학생 정보가 어느 경로로 나갔는가»의 **기록**이므로, 그대로 남겨둔다(스펙 §5.11 C3). 허용 범위가 바뀌면 `apac.` 계열로 되돌린다.
 
 - [ ] **Step 7: 결제가 크레딧으로 나가는지 확인한다**
 
@@ -3471,6 +3764,16 @@ python scripts/compare_arms.py \
 
 Expected: `G1 hard_fact 하락: 0건`, `G5 wall_seconds 중앙값`이 arm-c보다 낮음, `G1/G4/G5: 통과`.
 
+G6도 같이 돌린다. **M1이 식재료 매핑의 입력을 바꾸기 때문이다**(`menu_items_raw` → `source_text` 전체) — 입력이 바뀌면 «읽을 것이 없을 때 무엇을 하는가»도 바뀔 수 있다.
+
+```bash
+NEG=.agents/translation-quality/iterations/2026-08-27_iter-negative-control
+python scripts/run_iteration.py --iter "$NEG/" --arm arm-f
+python scripts/check_hallucination.py --iter-dir "$NEG" --arm arm-f
+```
+
+Expected: `G6: 통과`. 병합 전(arm-c) 결과와 같아야 한다.
+
 > **M2가 게이트를 못 넘으면 M1만 남기고 M2를 revert한다.** M2는 검증 프롬프트에 메타 생성을 섞는 게 아니라 투기 실행이므로 판정이 흐려질 위험은 낮지만, 자동수정 루프에서 콜이 늘 수는 있다(투기 폐기 + 재실행 = 2콜).
 
 - [ ] **Step 8: 라운드 수가 실제로 줄었는지 센다**
@@ -3517,7 +3820,8 @@ M3(피벗 삭제)는 하지 않는다 — 도입 근거를 저장소에서 찾�
 
 M1 은 식재료 프롬프트의 입력이 바뀐다(menu_items_raw → source_text).
 프롬프트 파일은 그대로지만 입력이 달라지므로 게이트 대상이다 —
-G1/G4/G5 통과 확인."
+G1/G4/G5 통과 확인. 입력이 바뀌면 «읽을 것이 없을 때 무엇을 하는가» 도
+바뀔 수 있어 G6(환각 negative control)도 함께 돌렸다."
 ```
 
 ---
@@ -3529,12 +3833,15 @@ G1/G4/G5 통과 확인."
 | 스펙 항목 | 담당 Task |
 |---|---|
 | §4 B1 arm 축 폴더 규약 | Task 3 Step 1·3 |
-| §4.2(b) 블라인드 | Task 3 Step 5·6, Task 7 Step 10 |
+| §4.2(b) 블라인드 | Task 3 Step 5·6, Task 7 Step 11 |
 | §4.2(c) `wall_seconds` 기록 | Task 3 Step 3 |
-| §4.3 arm 구성 5종 | Task 3(arm-a), Task 7(arm-b), Task 11(arm-c/d/e) |
+| §4.3 arm 구성 (Haiku 우선 → Sonnet 승급, Nova·Opus 없음) | Task 3(arm-a), Task 7(arm-b), Task 11(arm-c Haiku / arm-d Sonnet / arm-e 혼합) |
 | §4.4 1차 지표 = 코드 검증 통과율 | Task 7 Step 9 (`compare_arms.py`) |
 | §4.5 코퍼스 확장 12 → 30 | Task 2 |
-| §4.6 게이트 G1~G5 | G1·G4·G5 = `compare_arms.py`(Task 7·11·14), G2·G3 = 평가자(Task 7 Step 10, Task 11 Step 13) |
+| §4.6 게이트 G1~G6 | G1·G4·G5 = `compare_arms.py`(Task 7·11·14), G2·G3 = 평가자(Task 7 Step 11, Task 11 Step 13), **G6 = `check_hallucination.py`**(Task 7 Step 10, Task 11 Step 14, Task 14 Step 7) |
+| §4.7 G6 negative control 코퍼스 | Task 2 Step 8·9 |
+| §5.9.2 Nova 환각 실측 → arm 제외 | Global Constraints, Task 11 Step 10 |
+| §5.10 모델 선택 정책 (Haiku 기본 / Sonnet 승급 / **Opus 금지** / Nova 용도제한) | Global Constraints, Task 9 Step 3(기본값·테스트), Task 11 Step 15, Task 12 Step 6 |
 | §5.1 `JsonModelClient` 프로토콜 + 팩토리 | Task 9 |
 | §5.1 호출부 교체 8+3+1곳 | Task 11 Step 2~4 |
 | §5.2 세마포어·백오프·파서 재사용 | Task 10 Step 4 |
@@ -3545,7 +3852,10 @@ G1/G4/G5 통과 확인."
 | §5.6 전용 `ThreadPoolExecutor` | Task 10 Step 4, 테스트 `ExecutorTest` |
 | §5.7 정적 키 + Secret Manager + 전용 IAM | Task 11 Step 8 |
 | §5.8 설정 4개 | Task 9 Step 3 (+ `bedrock_max_workers` 추가) |
-| §5.9 `apac.` 전용 모델 후보 | Task 9 Step 3(기본값), Task 11 Step 10·14, Task 12 Step 6 |
+| §5.9 모델 후보 실측 | Task 9 Step 3(기본값 = Haiku), Task 11 Step 10·15, Task 12 Step 6 |
+| §5.11 C1(요청 크기 상한)·C2(판독 지연 비교) | **이 계획 밖 — 사업 C.** 번역 입력은 텍스트라 B에서는 걸리지 않는다 |
+| §5.11 C3(`global.` 라우팅 기록) | Task 12 Step 6 |
+| §10.4 판독 이전 가능함 확인 | **기록만.** 실제 이전은 사업 C |
 | §6 B4 thinking 축소 | Task 7 |
 | §6.2 검증 단계 부분 적용 예비안 | Task 7 Step 9 주석 |
 | §7 B8 M1 + M2, M3 미실시 | Task 14 |
@@ -3573,12 +3883,15 @@ G1/G4/G5 통과 확인."
 | f | §1.5(a) `_is_gemini_quota_error`와 `is_quota_exhausted_error`의 관계 미언급 | Task 8이 정렬 | `notice_service.py:1365`는 **이미** `too many requests`를 갖고 있어 Bedrock 스로틀을 잡는다. 두 함수의 마커가 어긋나 있었다 |
 | g | §5.8 설정 4개 | `BEDROCK_MAX_WORKERS` 추가 (5개) | §5.6이 `max_workers = settings.gemini_max_concurrency`를 쓰라고 했는데, 그러면 «세마포어 상한»과 «스레드 수»가 한 노브에 묶여 각각 조절할 수 없다. 세마포어는 `gemini_max_concurrency` 그대로 두고 스레드만 분리한다 |
 | h | §12 배포 0번 «코퍼스 확장» 방법 미기술 | Task 2가 운영 공지 기반 스크립트 제공 | 스펙 §4.5는 «운영 155건의 한국어 원문이 `notices`에 있다»까지만 적었다 |
-| i | 열린 질문 Q4(검증 단계 thinking 유지 여부) | Task 7이 **전면 OFF로 진행**, 게이트 실패 시 부분 적용을 예비안으로 | 게이트를 먼저 돌려보지 않고 −20.5초를 미리 포기할 이유가 없다. G1이 못 잡는 위험(위음성)은 Task 7 Step 10에서 «Fact Preservation»·«Action Clarity» 축을 따로 봐서 보완한다 |
+| i | 열린 질문 Q4(검증 단계 thinking 유지 여부) | Task 7이 **전면 OFF로 진행**, 게이트 실패 시 부분 적용을 예비안으로 | 게이트를 먼저 돌려보지 않고 −20.5초를 미리 포기할 이유가 없다. G1이 못 잡는 위험(위음성)은 Task 7 Step 11에서 «Fact Preservation»·«Action Clarity» 축을 따로 봐서 보완한다 |
+| j | §4.6 게이트 5개(G1~G5)가 전부 «모델이 입력을 읽었다»를 전제한다 | **G6 신설** — negative control 폴더(Task 2 Step 8) + `check_hallucination.py`(Task 7 Step 10) | 2026-08-27 실측에서 Nova가 읽지 못한 첨부의 본문을 지어냈다. 지어낸 글은 문장이 매끄러워 8축 평균을 **올린다** — 기존 게이트 다섯 개 중 어느 것도 이걸 실패로 만들지 않는다 |
+| k | §5.9 초판이 «`apac.` 전용 → 최상급은 claude-3-5-sonnet» | Q1 해결(허용)로 **Haiku 4.5 기본 / Sonnet 4.6 승급**으로 교체 | 라우팅 제약이 풀리면서 모델 후보가 통째로 바뀌었다. 설정 기본값·arm 3종·시험 명령·단위 테스트의 모델 문자열을 전부 갈았다 |
+| l | 금지 모델이 **문서에만** 적혀 있었다 | `test_forbidden_models_are_not_defaults`(Task 9 Step 1)로 **코드가 강제** | 기본값에 Opus·Nova가 들어가면 아무도 모르게 운영에 실린다. 문서 규칙은 리뷰를 통과하면 사라지지만 테스트는 안 사라진다 |
 
 **아직 열려 있는 것 (이 계획이 답하지 않는다)**
 
-- **Q1 `global.` 라우팅 허용 여부** — 이 계획은 `apac.` 전용으로 진행한다. Q1이 «허용»으로 답나면 Claude 4.x 계열이 후보에 들어오고 Task 11의 arm 구성을 다시 돌려야 한다. **모델 선택을 직접 결정하는 질문이므로 Task 11 착수 전에 답이 필요하다.**
-- **Q3 문서판독 이전 시점** — 범위 밖. 이 계획이 끝나도 Gemini 현금 지출이 완전히 0이 되지는 않는다.
+- ~~**Q1 `global.` 라우팅 허용 여부**~~ — **해결됨: 허용**(사용자 승인). 그 결과로 Claude 4.x 계열이 후보가 됐고 기본값이 Haiku 4.5로, arm 구성이 Haiku/Sonnet/혼합으로 바뀌었다. 남은 의무는 «어느 프로필을 호출했는지 로그로 남긴다»뿐(Task 12 Step 6).
+- **Q3 문서판독 이전 시점** — 범위 밖(**사업 C**). «옮길 수 있는가»는 더 이상 열려 있지 않다 — 2026-08-27 실측으로 Bedrock `Converse`가 PDF·이미지를 직접 받아 정확히 읽는 것이 확인됐다(스펙 §10.4). 남은 것은 시점이다. C 착수 시 **요청 크기 상한(§5.11 C1)** 과 **현행 Gemini OCR 대비 판독 지연(§5.11 C2)** 을 실측 Step으로 앞에 둬야 한다 — 둘 다 **미확인**이다. 이 계획이 끝나도 Gemini 현금 지출이 완전히 0이 되지는 않는다.
 - **Q5 정적 키 → OIDC 연합** — Task 11이 정적 키로 간다. OIDC 후속 정리 일정은 이 계획에 없다.
 
 **3. 자리표시자 점검** — "TBD"·"적절히 처리"·"비슷하게" 없음. 모든 코드 Step에 실제 코드가 들어 있다. 추측이 필요한 두 자리(Task 5의 SDK 노브, Task 14의 `_classify` 마커)는 **추측 대신 확인 Step**을 앞에 두고 «안 맞으면 중단·보고»를 명시했다.
@@ -3605,11 +3918,11 @@ Task 착수 전에 사람이 해둬야 하는 것:
 |---|---|---|
 | ✅ | 전용 IAM 사용자 `naranhi-bedrock` (모델 호출 권한만) | Task 10, 11 (생성·검증 완료) |
 | ✅ | GCP Secret `aws-bedrock-access-key-id`, `aws-bedrock-secret-access-key` | Task 10, 11 (완료) |
-| ✅ | Bedrock 모델 액세스 — `apac.` 6종 즉시 호출 가능 | Task 10, 11 (Nova Micro 312~411ms 호출 성공 확인) |
+| ✅ | Bedrock 모델 액세스 — 12종 즉시 호출 가능 (`apac.` 6종 + `global.` 계열) | Task 10, 11 (Claude Haiku 4.5·Sonnet 4.6으로 실제 첨부 PDF·이미지 판독 성공 확인) |
 | ✅ | `boto3` 1.43.78 / AWS CLI 2.36.31 | Task 10 (설치 확인됨) |
 | ⬜ | 운영 Supabase 읽기 권한 (`supabase-service-role-key`) | Task 1, 2, 13 |
-| ⬜ | **열린 질문 Q1 답 — `global.` 라우팅 허용 여부** | **Task 11 착수 전 필수** (모델 선택을 직접 결정한다) |
-| ⬜ | 평가자 에이전트 실행 체계 (G2·G3 판정) | Task 7 Step 10, Task 11 Step 13 |
+| ✅ | **열린 질문 Q1 답 — `global.` 라우팅 허용 여부** | **해결됨 — 허용**(사용자 승인). 그 결과 기본 모델이 Haiku 4.5로 확정됐다 |
+| ⬜ | 평가자 에이전트 실행 체계 (G2·G3 판정) | Task 7 Step 11, Task 11 Step 13 |
 | ⬜ | `google-genai` 로컬 설치 (`pip install -r backend/requirements.txt`) | Task 5 Step 1 (SDK 노브 확인) |
 | ⬜ | Task 2 Step 7의 다양성 태그 사람 검토 | Task 2 완료 조건 |
 

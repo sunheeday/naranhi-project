@@ -6,7 +6,9 @@
 
 **Architecture:** 다섯 갈래를 순서대로 낸다. ① env·args·메모리 한 줄씩으로 런 예산 병목과 강제 직렬화를 동시에 푼다 ② 지금 관측 불가능한 지점에 로그를 심는다 ③ 그 로그와 운영 DB 실측으로 본문 사진 회수율의 분모를 다시 정의한다 ④ 타일 예산·HWP 임계값·429 백오프를 코드로 고친다 ⑤ 워터마크를 현재 최대 글번호로 시딩한 뒤 «추출기 → 백스톱 → 크롤러» 순으로 resume한다. 각 단위는 단독 롤백이 가능하다(env 되돌리기 / 함수 되돌리기 / 워터마크 SQL 복원 / `pause` 재실행).
 
-**Tech Stack:** Python 3.12, FastAPI, `supabase-py`, `google-genai`(Vertex AI Gemini), Pillow, `pyhwp`/`markdownify`, Cloud Run Jobs + Cloud Scheduler, GitHub Actions
+**Tech Stack:** Python 3.12, FastAPI, `supabase-py`, `google-genai`(Vertex AI Gemini), Pillow, `pyhwp`/`markdownify`, Cloud Run Jobs + Cloud Scheduler, GitHub Actions. **선택 Task 13 에 한해** `boto3`(Bedrock `Converse`).
+
+> **2026-08-27 갱신.** GCP 크레딧이 소진되어 Gemini 호출이 현금이 됐고, 같은 날 Bedrock `Converse` 로 PDF·이미지 판독이 가능함이 실측됐다(스펙 §19). 이 계획의 **본체는 바뀌지 않는다** — ①~⑥은 제공자와 무관한 고장이다. 바뀐 것은 둘이다: ⓐ 판독 검증에 **환각 negative control** 이 들어갔다(Task 4 Step 11~13, **본 계획**) ⓑ 판독 백엔드 이전이 **선택 Task 13** 으로 분리됐다(본 배포 순서 밖).
 
 **Spec:** [docs/superpowers/specs/2026-08-27-C-extraction-repair-design.md](../specs/2026-08-27-C-extraction-repair-design.md)
 
@@ -15,6 +17,12 @@
 - **재추출 금지**: 운영 `done` 35건의 기존 첨부를 다시 추출하지 않는다(사용자 결정 2026-08-26). 진단은 **읽기 전용 조회**와 **신규 공지 로그**로만 한다. `notices` 에 쓰기를 하는 진단 단계를 만들지 말 것.
 - **밀린 공지 소급 수집 금지**: 2026-06-15 이후 게시판에 올라온 글(최대 64건 = 스캔깊이 8 × 학교 8)은 받지 않는다. **Task 10(시딩)을 끝내기 전에 Task 11(resume)을 하지 않는다.**
 - **비용은 고려하지 않는다**: 사용자 결정 — "시간이 우선". 콜 수·토큰 비용을 이유로 한 절충안을 넣지 말 것.
+  > ⚠️ 2026-08-27: **GCP 크레딧이 소진되어 Gemini 호출이 현금이 됐다**(사용자 확인). 그래도 이 제약은 유지한다 — 판독 경로의 월 현금이 **$1 미만**이라 절충안의 근거가 못 된다(스펙 §19.6).
+- **🔴 모델 정책 (예외 없음)**:
+  - **Claude Opus 계열은 금지한다.** 사용자 지시(2026-08-27) — *"절대 쓰지마 너무 비싸"*. 기본·승급·폴백·A/B arm 어디에도 넣지 않는다. 이 계획의 어느 Task도 Opus를 부르는 코드·설정·명령을 만들지 않는다.
+  - **판독 기본은 Claude Haiku 4.5**(`global.anthropic.claude-haiku-4-5-20251001-v1:0`), **승급은 Claude Sonnet 4.6**(`global.anthropic.claude-sonnet-4-6`)이며 승급은 «정말 필요할 때만» 한다.
+  - **Amazon Nova(Lite·Pro)는 한국어 판독에 쓰지 않는다.** 완전 삭제가 아니라 용도 제한이다 — 출력이 제약되고(닫힌 값 집합) 환각을 기계적으로 검출할 수 있으며 학부모에게 본문으로 노출되지 않는 용도에만. 판독은 셋 다 만족하지 않는다(스펙 §19.3).
+- **판독 백엔드 이전은 «선택 Task 13»이다**: 본 배포 순서(Task 1~12)에 넣지 않는다. 착수 조건은 Task 4 Step 11~13(환각 negative control)의 결과다(스펙 §19.7).
 - **데모 예외 금지**: 데모는 끝났다. 데모 학교를 위한 새 분기를 만들지 않는다.
 - **하드코딩 폴백 유지**: `scripts/recrawl_monitor.py:78-81` 의 수동 킥은 **지우지 않는다.** 측정(Task 12)이 먼저다.
 - **임포트 방향**: `backend/extractor/` 는 `backend/app/` 을 임포트하지 않는다(단방향). 공용 코드는 **`extractor/` 쪽에 두고 `app/` 이 임포트**한다. 반대 방향을 만들지 말 것.
@@ -71,6 +79,10 @@ HWP `warnings` 는 저장된다 — `ExtractedText.warnings` → `_source_from_e
 | `scripts/diagnose_body_images.py` | 본문 사진 회수율 실측 (읽기 전용) | 신규 (Task 9) |
 | `backend/extractor/extractors/image_gemini_extractor.py` | 타일 예산 분리 + 타일 계측 | 수정 (Task 4) |
 | `backend/tests/test_image_tiling.py` | 타일 예산 회귀 | 수정 (Task 4) |
+| `scripts/probe_extraction_hallucination.py` | 판독 환각 negative control (읽기 전용 프로브) | 신규 (Task 4 Step 11) |
+| `backend/extractor/extractors/bedrock_document_extractor.py` | Bedrock `Converse` 판독 클라이언트 | 신규 (**선택** Task 13) |
+| `backend/tests/test_bedrock_document_extractor.py` | 요청 조립·포맷 매핑·HWP 거부 | 신규 (**선택** Task 13) |
+| `scripts/ab_extraction_backends.py` | Gemini vs Bedrock A/B 실측 (지연·정확도·환각) | 신규 (**선택** Task 13) |
 | `backend/extractor/gemini_backoff.py` | 429 백오프 (이동 대상) | 신규 (Task 7) |
 | `backend/app/translation/gemini_client.py` | 백오프 재임포트 | 수정 (Task 7) |
 | `backend/extractor/extractors/gemini_document_extractor.py` | Vertex 429 백오프 적용 | 수정 (Task 7) |
@@ -84,7 +96,7 @@ HWP `warnings` 는 저장된다 — `ExtractedText.warnings` → `_source_from_e
 
 ---
 
-## 배포 순서 (스펙 §14 대비 두 곳 정정)
+## 배포 순서 (스펙 §14 대비 세 곳 정정)
 
 ```
 Task 1   Job 설정 정합 (env·args·메모리)      ← env 한 줄로 C2가 끝난다
@@ -99,7 +111,21 @@ Task 9   본문 사진 회수율 진단 (조사, 배포 아님)
 Task 10  워터마크 컷오프 시딩
 Task 11  스케줄러 resume + 런북 정정
 Task 12  크롤→추출 지연 측정 + 두 경로 계약 문서화
+
+── 여기까지가 본 배포 순서다 ──────────────────────────────
+선택 Task 13  판독 백엔드 Bedrock 이전   ← 착수 조건: Task 4 Step 13 판정
 ```
+
+**정정 3 — 환각 negative control을 Task 4 에 붙였다(Step 11~13).** 지금 계획의 판독 검증은
+전부 «무언가가 나왔는가»만 본다. 판독의 진짜 실패는 **«아무것도 못 읽고 그럴듯한 것을
+지어냈다»**이고, 그건 나오는 쪽이라 기존 기준을 전부 통과한다. 2026-08-27 Bedrock 시험에서
+Nova Lite·Pro가 QR 코드 이미지에 대해 **없는 가정통신문을 통째로 지어냈다**(스펙 §19.2).
+**현행 Gemini도 같은 위험을 갖는다 — 확인한 적이 없을 뿐이다.** 그래서 이건 선택이 아니라
+**본 계획**이고, 이미지 판독 경로를 손대는 Task 4 의 배포 후 검증에 붙인다.
+
+**선택 Task 13 이 본 순서 밖인 이유:** 아끼는 현금이 월 $1 미만이고, 옮겨지는 것은
+첨부의 70.1% 뿐이며(HWP 28.6%는 `document` 블록이 hwp 를 지원하지 않아 못 옮긴다),
+이전이 고치는 고장은 ①~⑥ 중 **0개**다. 스펙 §19.5~19.7 의 판단이다.
 
 **정정 1 — 타일 계측을 C6(배포 2)에서 Task 4 로 옮겼다.** 스펙 §10 #2 는 타일 폐기 로그를
 계측 배포에 넣었지만, 지금 구조에서 «폐기»는 `budget_exhausted` 상태로 나타나고 Task 4 가
@@ -665,10 +691,12 @@ extracted_content.sources[].errors 경로가 이미 있다."
 **Files:**
 - Modify: `backend/extractor/extractors/image_gemini_extractor.py:25-62`, `:65-84`, `:101-126`
 - Modify: `backend/tests/test_image_tiling.py`
+- Create: `scripts/probe_extraction_hallucination.py` (Step 11 — 읽기 전용 프로브)
 
 **Interfaces:**
 - Consumes: `ExtractionBudget.reserve_gemini_call(source_id: str, byte_count: int) -> BudgetDecision` (변경 없음)
 - Produces: 이미지 소스 1개당 예산 1콜. `MAX_TILES_PER_IMAGE`(기본 24) env. 로그 `image tiles: source=... tiles=N ok=N empty=N failed=N`.
+- Produces: **환각 판정 H-PASS / H-FAIL** (Step 13). H-FAIL 이면 선택 Task 13(Bedrock 이전)의 착수 조건이 성립한다.
 
 - [ ] **Step 1: 예산 1콜을 요구하는 실패 테스트를 쓴다**
 
@@ -950,6 +978,176 @@ gcloud logging read \
 ```
 
 Expected: `image tiles: source=... tiles=N ok=N empty=0 failed=0` — **`ok` 가 `tiles` 와 같다.** `ok < tiles` 이고 `failed > 0` 이면 조각 OCR 자체가 실패하는 별개 문제다.
+
+- [ ] **Step 11: 환각 negative control 프로브를 쓴다**
+
+지금까지의 모든 검증은 «무언가가 나왔는가»를 본다. 판독의 진짜 실패는
+**«아무것도 못 읽고 그럴듯한 가정통신문을 지어냈다»**이고, 그건 **나오는 쪽이라 기존
+기준을 전부 통과한다.** 2026-08-27 Bedrock 시험에서 Nova Lite·Pro 가 QR 코드 PNG 에
+대해 없는 가정통신문을 통째로 지어냈다(스펙 §19.2). **현행 Gemini 도 같은 위험을 갖고,
+우리는 한 번도 확인한 적이 없다.**
+
+`scripts/probe_extraction_hallucination.py` 생성:
+
+```python
+"""판독 환각 negative control. 운영 DB 를 건드리지 않는다 — 로컬 파일만 읽는다.
+
+negative control 은 '읽을 수 없는 입력' 이다. 올바른 동작은 '못 읽겠다' 또는 빈 결과이고,
+가정통신문 형태의 문장이 나오면 그건 환각이다. positive control 을 함께 돌리는 이유는
+'항상 빈 결과를 내서 통과' 하는 가짜 합격을 배제하기 위해서다.
+"""
+import argparse
+import asyncio
+import json
+import pathlib
+import re
+import sys
+
+from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
+from extractor.extractors.image_gemini_extractor import extract_image_text
+
+# 지어냈을 때만 나오는 것들. 판독 불가 입력에서 이게 나오면 환각이다.
+FABRICATION_MARKERS = (
+    "학교", "교장", "학부모", "가정통신문", "안내", "학년", "반",
+    "일시", "장소", "신청", "제출", "담임", "교육청",
+)
+REFUSAL_MARKERS = ("읽을 수 없", "판독", "인식할 수 없", "QR", "알 수 없", "unreadable")
+
+
+def verdict(text: str) -> tuple[str, list[str]]:
+    stripped = text.strip()
+    if not stripped:
+        return "PASS(empty)", []
+    if any(m in stripped for m in REFUSAL_MARKERS) and len(stripped) < 200:
+        return "PASS(refused)", []
+    hits = [m for m in FABRICATION_MARKERS if m in stripped]
+    if hits:
+        return "FAIL(fabricated)", hits
+    return "PASS(no-markers)", []
+
+
+async def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--negative", nargs="+", required=True, help="판독 불가 입력 (QR/백지/노이즈)")
+    ap.add_argument("--positive", nargs="+", default=[], help="내용이 확실한 입력")
+    args = ap.parse_args()
+
+    gem = GeminiDocumentExtractor()
+    report: list[dict] = []
+
+    for kind, paths in (("negative", args.negative), ("positive", args.positive)):
+        for raw in paths:
+            path = pathlib.Path(raw)
+            result = await extract_image_text(
+                path, source_name=path.name, gemini=gem, source_id=f"probe:{path.name}"
+            )
+            text = result.text or ""
+            if kind == "negative":
+                mark, hits = verdict(text)
+            else:
+                mark = "PASS(read)" if len(text.strip()) >= 40 else "FAIL(empty-positive)"
+                hits = []
+            report.append(
+                {
+                    "kind": kind,
+                    "file": path.name,
+                    "method": result.method,
+                    "chars": len(text.strip()),
+                    "verdict": mark,
+                    "markers": hits,
+                    "head": re.sub(r"\s+", " ", text.strip())[:200],
+                }
+            )
+
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    failed = [r for r in report if r["verdict"].startswith("FAIL")]
+    print(f"\n판정: {'H-FAIL' if failed else 'H-PASS'} (negative {len(args.negative)}건 / positive {len(args.positive)}건)")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
+```
+
+> **왜 «지어냄 마커»를 쓰는가.** 판독 불가 입력에는 «학교»·«교장»·«가정통신문» 같은
+> 구체 명사가 **나올 수 없다.** 나왔다면 모델이 문맥에서 지어낸 것이다. 이건 정확도
+> 채점이 아니라 **있을 수 없는 것이 나왔는가**라는 이진 판정이라 사람 없이 돌릴 수 있다.
+
+- [ ] **Step 12: negative 3종 + positive 1종으로 돌린다**
+
+입력을 만든다 — **운영 첨부를 내려받지 않는다.** negative 는 로컬에서 생성하고,
+positive 는 내용을 아는 파일 1개를 쓴다.
+
+```bash
+PYTHONPATH=backend backend/venv/Scripts/python.exe -c "
+import pathlib, qrcode
+from PIL import Image, ImageDraw
+out = pathlib.Path('.tmp-probe'); out.mkdir(exist_ok=True)
+qrcode.make('https://example.invalid/naranhi-probe').save(out / 'neg-qr.png')
+Image.new('RGB', (900, 1200), 'white').save(out / 'neg-blank.png')
+im = Image.new('RGB', (900, 1200), 'white'); d = ImageDraw.Draw(im)
+for x in range(0, 900, 7): d.line([(x, 0), (x - 400, 1200)], fill=(190, 190, 190))
+im.save(out / 'neg-noise.png')
+print(sorted(p.name for p in out.iterdir()))
+"
+```
+
+> `qrcode` 가 없으면 `backend/venv/Scripts/python.exe -m pip install qrcode` 로 넣거나,
+> QR 이미지를 손으로 하나 준비해 `.tmp-probe/neg-qr.png` 로 둔다. **QR 은 negative
+> control 의 핵심 표본이다** — Nova 가 정확히 이 입력에서 무너졌다.
+
+```bash
+PYTHONPATH=backend backend/venv/Scripts/python.exe scripts/probe_extraction_hallucination.py \
+  --negative .tmp-probe/neg-qr.png .tmp-probe/neg-blank.png .tmp-probe/neg-noise.png \
+  --positive .tmp-probe/pos-known.png
+```
+
+Expected:
+
+| 입력 | 통과 기준 |
+|---|---|
+| `neg-qr.png` | `PASS(empty)` 또는 `PASS(refused)`. **`FAIL(fabricated)` 이면 현행 판독이 지어낸다는 확증** |
+| `neg-blank.png` | 위와 같다 |
+| `neg-noise.png` | 위와 같다 |
+| `pos-known.png` | `PASS(read)` — 원본에 있는 문자열이 `head` 에 보인다. 이게 없으면 negative 통과가 «항상 빈 결과» 때문이라 무의미하다 |
+
+- [ ] **Step 13: 판정을 기록하고 커밋한다**
+
+아래 표를 이 문서의 «판독 환각 판정» 절(Task 12 뒤)에 채운다.
+
+```
+판정: H-PASS | H-FAIL
+negative 결과:  qr=___  blank=___  noise=___
+positive 결과:  ___
+선택 Task 13 착수 조건 충족 여부: ___
+```
+
+**판정이 뜻하는 것:**
+
+| 판정 | 다음 |
+|---|---|
+| **H-PASS** | 현행 Gemini 판독은 판독 불가 입력에 대해 지어내지 않는다. 선택 Task 13 은 **여전히 선택**이고, 착수 근거는 비용뿐인데 그건 월 $1 미만이라 약하다(스펙 §19.6) |
+| **H-FAIL** | **현행 판독이 없는 내용을 만들어낸다.** 이건 비용 문제가 아니라 **안전 문제**다 — 재추출하지 않는 방침(§2 비목표)과 겹치면 영구 오염이다. 선택 Task 13 의 착수 조건이 성립하고 우선순위가 올라간다. 동시에 «지어낸 결과를 성공으로 저장하지 않는» 게이트가 별건으로 필요하다 |
+
+```bash
+git add scripts/probe_extraction_hallucination.py docs/superpowers/plans/2026-08-27-C-extraction-repair.md
+git commit -m "test(extractor): 판독 환각 negative control 프로브
+
+지금까지의 판독 검증은 전부 '무언가가 나왔는가' 만 봤다. 판독의 진짜 실패는
+'아무것도 못 읽고 그럴듯한 가정통신문을 지어냈다' 이고, 그건 나오는 쪽이라
+기존 기준을 전부 통과한다.
+
+2026-08-27 Bedrock 시험에서 Nova Lite·Pro 가 QR 코드 PNG 에 대해 없는
+가정통신문을 통째로 지어냈다(교장 이름까지). 같은 입력에 Claude Haiku 4.5·
+Sonnet 4.6 은 'QR 코드라 읽을 수 없다' 고 답했다. 현행 Gemini 가 어느 쪽인지는
+한 번도 확인한 적이 없다.
+
+QR·백지·노이즈를 negative control 로, 내용을 아는 파일 하나를 positive control 로
+돌린다. 판독 불가 입력에서 '학교'·'교장'·'가정통신문' 같은 구체 명사가 나오면
+지어낸 것이다 — 정확도 채점이 아니라 이진 판정이라 사람 없이 돌아간다.
+
+운영 DB 를 건드리지 않는다. 로컬 파일만 읽는다."
+```
 
 ---
 
@@ -2520,6 +2718,135 @@ recrawl_monitor.py 에 '경과 120초 & pending>0 & processing==0 & done==0' 이
 
 ---
 
+## 선택 Task 13: 판독 백엔드 Bedrock 이전 (본 배포 순서 밖)
+
+> **⛔ 본 배포 순서(Task 1~12)에 포함되지 않는다.** 설계는 여기 완비하되, 착수는
+> 별도 결정이다. 스펙 §19.7 의 권고는 **(가) Gemini 유지 + 고장 수리만** 이고,
+> 이 Task 는 **(나)** 를 나중에 선택할 수 있도록 떼어 놓은 것이다.
+
+**착수 조건 (둘 중 하나라도 참일 때만):**
+
+| # | 조건 | 확인 |
+|---|---|---|
+| A | Task 4 Step 13 판정이 **H-FAIL** — 현행 Gemini 판독이 판독 불가 입력에서 내용을 지어낸다 | 이건 비용이 아니라 안전 문제다. 최우선으로 올린다 |
+| B | 사용자가 명시적으로 «판독도 옮기라»고 지시 | — |
+
+**둘 다 아니면 착수하지 않는다.** 근거: 아끼는 현금이 월 **$1 미만**이고(스펙 §19.6),
+옮겨지는 것은 첨부의 **70.1%** 뿐이며(HWP 28.6% 는 못 옮긴다), 이전이 고치는 고장은
+①~⑥ 중 **0개**다.
+
+**미리 못 박는 사실 (스펙 §19.4 — 확인 완료, 추측 아님):**
+
+Bedrock `Converse` 의 `DocumentBlock.format` 유효값은
+**`pdf | csv | doc | docx | xls | xlsx | html | txt | md`** 뿐이다
+(AWS API 레퍼런스 `API_runtime_DocumentBlock`, 2026-08-27 조회). **`hwp` 가 없다.**
+→ **HWP 판독은 어느 쪽을 고르든 `hwp5html` → markdownify 경로
+(`hwp_extractor.py:21-88`, `:91-130`)를 유지한다.** 이 Task 는 HWP 를 건드리지 않는다.
+
+**Files:**
+- Create: `backend/extractor/extractors/bedrock_document_extractor.py`
+- Create: `backend/tests/test_bedrock_document_extractor.py`
+- Create: `scripts/ab_extraction_backends.py`
+- Modify: `backend/extractor/extract_pipeline.py` (백엔드 선택 분기 — env 한 줄)
+- Modify: `.github/workflows/deploy-api-cloud-run.yml` (추출 Job 에 AWS 자격증명 `--set-secrets`)
+
+**Interfaces:**
+- Consumes: `ExtractedText`(기존 계약 그대로), `ExtractionBudget`(그대로 — 백엔드가 바뀌어도 예산 회계는 안 바뀐다)
+- Produces: `EXTRACTION_BACKEND=gemini|bedrock` env 한 줄. 되돌리기가 그 한 줄이다.
+
+- [ ] **Step 1: 계약을 고정하는 실패 테스트를 쓴다**
+
+`backend/tests/test_bedrock_document_extractor.py` 에서 **셋만** 못 박는다.
+Bedrock 을 실제로 부르지 않는다(`boto3` 클라이언트를 가짜로 주입).
+
+| # | 고정할 것 | 왜 |
+|---|---|---|
+| 1 | PDF 는 `document` 블록 + `format="pdf"`, 이미지는 `image` 블록 + `format="png"\|"jpeg"` | 2026-08-27 실측이 확인한 유일한 경로다 |
+| 2 | **`.hwp` 를 넘기면 `ValueError`** — 조용히 `txt` 로 우회하지 않는다 | `document` 블록이 hwp 를 지원하지 않는다. 우회하면 «읽었는데 쓰레기» 가 된다 |
+| 3 | **모델 ID 에 `opus` 가 들어가면 거부** | Global Constraints 의 Opus 금지를 코드로 못 박는다 |
+
+- [ ] **Step 2: 실패를 확인한다**
+
+```bash
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_bedrock_document_extractor -v
+```
+
+Expected: 모듈이 없어 `ModuleNotFoundError`
+
+- [ ] **Step 3: Bedrock 판독 클라이언트를 만든다**
+
+`backend/extractor/extractors/bedrock_document_extractor.py`:
+
+- `boto3` `bedrock-runtime` `converse` 호출. **`invoke_model` 이 아니다** — PDF 를
+  `document` 블록으로 직접 넘길 수 있는 것은 `Converse` 다(실측 1.2MB 통과).
+- 기본 모델 `global.anthropic.claude-haiku-4-5-20251001-v1:0`,
+  승급 모델 `global.anthropic.claude-sonnet-4-6`. **Opus 는 없다.**
+  모델 문자열에 `opus` 가 있으면 생성 시점에 `ValueError`.
+- 자격증명은 **환경변수로만** 받는다. Cloud Run 은 `--set-secrets` 로
+  `aws-bedrock-access-key-id`·`aws-bedrock-secret-access-key` 를 주입한다.
+  **키를 명령줄 인자·URL·로그에 넣지 않는다.**
+- 리전 `ap-northeast-2`. `global.` 라우팅 사용자 허용됨.
+- `boto3` 는 동기 API 다 — 사업 B 의 `BedrockJsonClient` 와 같이 **전용 executor** 에
+  올려 이벤트 루프를 막지 않는다
+  (`docs/superpowers/plans/2026-08-27-B-bedrock-translation.md` Task 10 과 같은 형태).
+- 반환은 기존 `ExtractedText` 그대로. **호출부가 백엔드를 몰라야 한다.**
+
+- [ ] **Step 4: 통과를 확인한다**
+
+```bash
+PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.test_bedrock_document_extractor -v
+```
+
+- [ ] **Step 5: A/B 실측 스크립트를 쓴다 — 지연·정확도·환각을 한 번에 잰다**
+
+`scripts/ab_extraction_backends.py`. **같은 입력**을 두 백엔드에 넣고 나란히 기록한다.
+셋을 각각 재지 않으면 «느려졌지만 정확해졌다» 같은 답을 못 낸다.
+
+| 축 | 재는 법 | 통과 기준 (§Step 6 게이트에서 씀) |
+|---|---|---|
+| 지연 | 호출 시작~반환 ms, 입력별 | — (판정은 Step 6) |
+| 정확도 | 원본에 확실히 있는 문자열 N개의 포함률, 표 마커(`\|` 2줄 이상) 유무 | — |
+| **환각** | Task 4 Step 11 의 `verdict()` 를 **그대로 재사용** | negative control 에서 `FAIL(fabricated)` **0건** |
+| 비용 | 콜당 토큰 수 기록(응답 usage) | 참고값 |
+
+표본: **PDF 5건 + 이미지 5건 + negative control 3건.** negative 는 Task 4 Step 12 가
+만든 `.tmp-probe/` 를 재사용한다. **HWP 는 표본에 넣지 않는다** — 못 옮기는 포맷이다.
+
+- [ ] **Step 6: 판정 게이트 — 넷을 전부 넘어야 전환한다**
+
+| # | 게이트 | 기준 | 못 넘으면 |
+|---|---|---|---|
+| **G1** | 환각 | negative control 에서 Bedrock `FAIL(fabricated)` **0건** | **전환 중단.** 이걸 못 넘으면 나머지는 볼 필요가 없다 |
+| **G2** | 정확도 | 필수 문자열 포함률이 Gemini 이상. 표 보존이 Gemini 이상 | 승급 모델(Sonnet 4.6)로 한 번 재시도. 그래도 못 넘으면 중단 |
+| **G3** | 지연 | 판독 1건 중앙값이 Gemini 대비 **1.5배 이내** | 중단. PDF 14~16초(스펙 §19.2)가 이 게이트에 걸릴 수 있다 — **그래서 A/B 가 선행이다** |
+| **G4** | 실패율 | 10건 중 예외·빈 결과 0건 | 중단 |
+
+> **G3 이 이 Task 의 진짜 위험이다.** 「비용은 비목표, 시간이 우선」(스펙 §17 #3)이
+> 여기서는 **이전에 불리하게** 작용한다. 이전이 판독을 느리게 만들면 그건 사용자 결정에
+> 정면으로 어긋나므로, 비용이 싸다는 이유로 넘어가지 않는다.
+
+- [ ] **Step 7: env 한 줄로 전환한다**
+
+`EXTRACTION_BACKEND=bedrock`. 되돌리기는 그 한 줄을 `gemini` 로 바꾸는 것이다.
+**추출 Job 에만** 넣는다. 사업 B 의 `TRANSLATION_BACKEND` 와 같은 형태이고 서로 독립이다.
+
+- [ ] **Step 8: 커밋**
+
+커밋 메시지에 **G1~G4 의 실제 수치**를 적는다. 「통과했다」가 아니라 「무엇이 몇이었나」다.
+
+---
+
+## 판독 환각 판정 (Task 4 Step 13 실행 후 채운다)
+
+```
+판정: H-PASS | H-FAIL
+negative 결과:  qr=___  blank=___  noise=___
+positive 결과:  ___
+선택 Task 13 착수 조건 충족 여부: ___
+```
+
+---
+
 ## 진단 결과 (Task 9 실행 후 채운다)
 
 ```
@@ -2549,6 +2876,10 @@ Task 6 실행 여부:
 | C10 게시판 오선택 감지 (⑤) | Task 8 | 실패로 강등하지 않음 |
 | C11 크롤→추출 연결 (⑥) | Task 12 | 코드 미변경, 측정 + 문서화. 폴백 유지 |
 | §5 `budget_exhausted` 즉시 포기 유지 | (변경 없음) | 스펙 결정대로 코드를 건드리지 않았다 |
+| §15 환각 N1~N3 (negative/positive control) | **Task 4 Step 11~13** | 본 계획. 선택 아님 — 현행 Gemini 도 같은 위험을 갖는다 |
+| §19 판독 백엔드 이전 (가)/(나) | **선택 Task 13** | 권고는 (가). (나)는 착수 조건(H-FAIL 또는 사용자 지시) 아래 분리 |
+| §19.4 HWP 는 Bedrock 으로 못 옮긴다 | 선택 Task 13 머리말 + Step 1 #2 | `DocumentBlock.format` 에 hwp 없음(확인). 테스트로 «조용한 우회» 를 금지 |
+| §19.8 모델 정책 (Haiku 기본 / Sonnet 승급 / **Opus 금지** / Nova 용도제한) | Global Constraints + 선택 Task 13 Step 1 #3 | 문서 규칙에 더해 **코드 레벨에서 `opus` 문자열 거부** |
 
 **2. 스펙과 달라진 점 (의도된 것)**
 
@@ -2561,6 +2892,8 @@ Task 6 실행 여부:
 | 5 | §14 배포 2 에 타일 계측 | 타일 계측을 Task 4 로 이동 | 같은 함수(`extract_image_text`)를 두 번 고치지 않기 위해. 진단이 필요로 하는 계측은 본문 사진 경로뿐 |
 | 6 | §14 배포 3(진단)이 수정보다 앞 | Task 9 가 Task 4·5·7 뒤 | H0 이 끝나 «고장 아님»이 확정된 이상 Task 4·5·7 은 진단에 의존하지 않는다. 의존하는 것은 Task 6 하나뿐이고 그것만 Task 9 뒤에 뒀다 |
 | 7 | §10 #7 «인라인 필터 사유 분포 — 추가 불필요» | 그대로 따름 | `_inline_image_ocr_decision` 의 `reason` 이 이미 `errors[]` 에 저장된다(`extract_pipeline.py:250`) |
+| 8 | (2026-08-27 스펙 갱신 전) 판독 검증이 «표가 나오는가» 뿐 | **Task 4 에 negative control Step 3개 추가** | 판독의 진짜 실패는 «못 읽고 지어냈다» 이고 그건 기존 기준을 전부 통과한다. Nova 시험이 그 양상을 보였다(스펙 §19.2) |
+| 9 | (2026-08-27 스펙 갱신 전) 판독 백엔드는 Gemini 고정 | **선택 Task 13 신설** | GCP 크레딧 소진 + Bedrock 판독 실측 성공. 다만 권고는 (가) 이므로 본 배포 순서 밖에 둔다(스펙 §19.7) |
 
 **3. 자리표시자 점검** — "TBD"·"적절히"·"비슷하게" 없음. 모든 코드 Step 에 실제 코드가 들어 있다. Task 9 Step 6 · Task 12 Step 3 의 빈칸(`___`)은 **실행 후 측정치를 적는 자리**이지 미정 설계가 아니다.
 
@@ -2591,6 +2924,13 @@ Task 6 실행 여부:
 - **Task 9 가 결론 없이 끝날 수 있다.** 재가동 전에는 신규 로그가 없어 D4 가 D2 와
   구분되지 않을 수 있다. **수용한다** — 스펙 §16 의 판단대로, ②는 이미 72일 방치됐고
   서비스가 죽지 않았다. 결론이 안 나면 «미해결»로 기록하고 넘긴다.
+- **Task 4 Step 11~13 의 환각 판정은 «지어냄 마커» 라는 대리 지표다.** 판독 불가 입력에
+  「학교」·「교장」 같은 구체 명사가 나오면 지어낸 것이라는 논리는 견고하지만,
+  **마커에 없는 방식으로 지어내면 놓친다.** 정확도 채점이 아니라 **하한선**이다 —
+  H-PASS 가 «절대 환각하지 않는다» 를 뜻하지는 않는다. **수용한다.**
+- **선택 Task 13 의 G3(지연) 기준선이 아직 없다.** 현행 Gemini 판독 지연을 한 번도
+  잰 적이 없어(스펙 §18 #9) «1.5배 이내» 의 분모가 비어 있다. 재가동 후 로그가 그
+  분모를 채운다. **그 전에는 선택 Task 13 을 착수하지 않는다.**
 - **Task 10 의 「워터마크 비대상」 구멍은 막을 수 없다.** 비숫자 post_id·해시 생성 글은
   워터마크로 걸러지지 않으므로 재가동 첫 런에 들어올 수 있다. dry-run 이 그 수를
   미리 알려주고, Task 11 Step 5 가 실제 유입과 대조한다.
@@ -2601,7 +2941,7 @@ Task 6 실행 여부:
 |---|---|
 | 1 | env·args·메모리 되돌리기 (`EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN` 삭제 → 코드 기본값 80 복귀) |
 | 2, 3 | 로그·경고 제거. 동작에 영향 없음 |
-| 4 | `MAX_TILES_PER_IMAGE=1` 로 타일링 사실상 차단, 또는 예약 지점 한 줄 되돌리기 |
+| 4 | `MAX_TILES_PER_IMAGE=1` 로 타일링 사실상 차단, 또는 예약 지점 한 줄 되돌리기. Step 11~13 은 읽기 전용 프로브라 되돌릴 것이 없다 |
 | 5 | 진입 조건을 `len(stripped) >= 40` 으로 되돌리기 |
 | 6 | 실패 경로의 `_combine_body_images_best_effort` 호출 한 줄 제거 |
 | 7 | `extractor/gemini_backoff.py` 를 유지한 채 `gemini_document_extractor.py` 의 두 함수만 되돌리기 (번역 경로는 그대로 산다) |
@@ -2610,6 +2950,7 @@ Task 6 실행 여부:
 | 10 | dry-run 출력의 «롤백용 백업» JSON 으로 `board_watermarks` SQL 복원 |
 | 11 | `gcloud scheduler jobs pause` 재실행 |
 | 12 | 없음 (문서만) |
+| **선택 13** | `EXTRACTION_BACKEND=gemini` 한 줄. `bedrock_document_extractor.py` 는 남겨도 호출되지 않는다 |
 
 ---
 
@@ -2623,3 +2964,7 @@ Task 6 실행 여부:
 | ⬜ | Task 2 머지·배포 완료 | Task 9 Step 5 의 로그 대조 |
 | ⬜ | Task 9 판정 확정 | Task 6 실행 여부 결정 |
 | ⬜ | Task 10 `--apply` 완료 | **Task 11 착수 전제 (건너뛰면 최대 64건 유입)** |
+| ⬜ | Task 4 머지·배포 완료 + `qrcode`(또는 QR 이미지 1장) | Task 4 Step 11~13 (환각 negative control) |
+| ⬜ | **Task 4 Step 13 판정이 H-FAIL** 또는 사용자의 명시적 지시 | **선택 Task 13 착수 전제.** 둘 다 아니면 착수하지 않는다 |
+| ⬜ | 현행 Gemini 판독 지연의 기준선 (재가동 후 로그) | 선택 Task 13 Step 6 의 G3 게이트 — 분모가 없으면 판정 불가 |
+| ⬜ | AWS 자격증명 (Secret Manager `aws-bedrock-access-key-id`·`aws-bedrock-secret-access-key`) + Bedrock 모델 액세스 승인 | 선택 Task 13 전체. **키를 명령줄·URL·로그에 넣지 않는다** |
