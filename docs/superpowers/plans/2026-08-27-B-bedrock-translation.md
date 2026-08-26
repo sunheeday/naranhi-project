@@ -1359,9 +1359,28 @@ Expected: `test_flag_off_skips_the_metadata_call` FAIL — `TypeError: ... unexp
 
 `:173`과 `:302`는 **손대지 않는다** — 쿼터 폴백 경로라 카드가 필요하다.
 
-- [ ] **Step 5: dead 분기를 지운다 (Task 1에서 `low = 0건`이었을 때만)**
+- [ ] ~~**Step 5: dead 분기를 지운다**~~ — 🔴 **취소됨. 건너뛴다.**
 
-Task 1 Step 3이 `low = 0건`으로 나왔을 때만 진행한다. 아니면 이 Step을 건너뛰고 보고한다.
+> **2026-08-27 판정 — 게이트가 열리지 않았다. Step 5·7 을 실행하지 마라.**
+>
+> Task 1 이 측정했다(`scripts/probe_risk_profile_levels.py`, 커밋 `07c3f57`):
+> 운영 번역본 **35건 중 본문만으로 `high` 확정이 29건(82.9%)**, 나머지 **6건(17.1%)**
+> 이 저위험 후보다. `low = 0건` 조건이 성립하지 않는다.
+>
+> 그 6건은 hard_facts 조건(연락처·URL·기한 등)까지 반영하면 더 줄겠지만, **더 재지 않고
+> 지우지 않는 쪽으로 끝낸다.** 이유는 비대칭이다 —
+> - **지워서 얻는 것:** 46줄의 복잡도 감소. 작다.
+> - **지워서 잃는 것:** 그 분기는 `context_tone` 검증을 **건너뛰고 조기 반환하는
+>   빠른 경로**다(`:186-231`). 지우면 해당 공지가 전체 검증을 돈다 — 위험해지는 게 아니라
+>   **느려진다.** 사업 B 의 목표가 속도인데 최대 17% 의 공지를 느리게 만드는 셈이다.
+> - **더 재는 비용:** 6건에 hard_facts 추출을 돌려야 한다. 얻는 답이 「46줄을 지워도
+>   되는가」뿐이라 값어치가 없다.
+>
+> **Step 5(삭제)와 Step 7(그 삭제를 전제한 테스트 교체)을 둘 다 건너뛴다.**
+> `test_low_risk_does_not_start_back_translation` 은 **그대로 둔다** — 살아 있는 계약이다.
+> Task 6 의 나머지(Step 1~4·6, 카드 메타데이터 플래그)는 정상 진행한다.
+>
+> 원래 조건: ~~Task 1 Step 3이 `low = 0건`으로 나왔을 때만 진행한다.~~
 
 `backend/app/translation/orchestrator.py:186-231`의 블록 전체(`if risk_profile["level"] == "low":`부터 그 `return {...}`의 닫는 괄호까지, 46줄)를 삭제한다.
 
@@ -1375,7 +1394,7 @@ PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.tes
 
 Expected: PASS (2 tests)
 
-- [ ] **Step 7: 삭제된 분기를 검증하던 테스트를 새 계약으로 고친다**
+- [ ] ~~**Step 7: 삭제된 분기를 검증하던 테스트를 새 계약으로 고친다**~~ — 🔴 **취소됨(Step 5 취소에 종속). 기존 테스트를 그대로 둔다.**
 
 `backend/tests/test_orchestrator_parallel_thinking.py:167-186`의 `test_low_risk_does_not_start_back_translation`은 저위험 입력에서 역번역·문맥어조를 **건너뛰던** 동작을 단언한다. Step 5가 그 분기를 지웠으므로 실패한다. 아래로 교체한다:
 
