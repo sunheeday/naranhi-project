@@ -5,7 +5,9 @@ import { safeNextPath } from '@/lib/auth/redirect'
 import { isValidLocale } from '@/lib/i18n'
 
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production' || process.env.DEV_LOGIN_ENABLED !== 'true') {
+  // 프로덕션에서도 켤 수 있다(사용자 결정 2026-08-26). 스위치는 DEV_LOGIN_ENABLED 하나뿐이며,
+  // 이 값을 'true' 가 아닌 것으로 바꾸면 우회 경로가 완전히 닫힌다.
+  if (process.env.DEV_LOGIN_ENABLED !== 'true') {
     return NextResponse.json({ ok: false, error: 'dev_login_disabled' }, { status: 404 })
   }
 
