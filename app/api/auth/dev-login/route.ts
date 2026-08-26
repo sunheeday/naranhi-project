@@ -20,9 +20,6 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const next = safeNextPath(body?.next)
-  const profileEmail = typeof body?.profileEmail === 'string' ? body.profileEmail.trim() : ''
-  const displayName = typeof body?.displayName === 'string' ? body.displayName.trim() : ''
-  const resetOnboarding = body?.resetOnboarding === true
   const response = NextResponse.json({ ok: true, next })
 
   const supabase = createServerClient<Database>(
@@ -50,17 +47,6 @@ export async function POST(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    if (resetOnboarding) {
-      const { error: deleteChildrenError } = await supabase
-        .from('children')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (deleteChildrenError) {
-        return NextResponse.json({ ok: false, error: 'dev_login_reset_failed' }, { status: 500 })
-      }
-    }
-
     const { data: profile } = await supabase
       .from('profiles')
       .select('locale,native_language,email,display_name')
@@ -69,8 +55,8 @@ export async function POST(request: NextRequest) {
 
     const nextProfile = {
       id: user.id,
-      email: profileEmail || profile?.email || user.email || null,
-      display_name: displayName || profile?.display_name || null,
+      email: profile?.email || user.email || null,
+      display_name: profile?.display_name || null,
       locale: isValidLocale(profile?.locale) ? profile.locale : 'ko',
       native_language: isValidLocale(profile?.native_language) ? profile.native_language : 'ko',
     }
