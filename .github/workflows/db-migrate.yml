@@ -50,10 +50,19 @@ jobs:
         with:
           version: latest
 
+      # `supabase db push` 는 Postgres 에 직접 붙으므로 ACCESS_TOKEN 만으로는 안 된다
+      # (`--password` / `SUPABASE_DB_PASSWORD`). 시크릿이 없으면 «실패» 가 아니라
+      # «건너뜀» 으로 끝낸다 — 없는 열쇠 때문에 머지마다 빨간 X 가 뜨는 것을 막는다.
+      # 자동 적용을 켜려면: gh secret set SUPABASE_DB_PASSWORD
       - name: 적용 예정 목록 (적용하지 않음)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::notice::SUPABASE_DB_PASSWORD 없음 — 미리보기를 건너뛴다. 대시보드 SQL Editor 로 수동 적용할 것."
+            exit 0
+          fi
           supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
           supabase db push --dry-run --include-all
 
@@ -77,11 +86,24 @@ jobs:
       - name: 마이그레이션 적용
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::warning::SUPABASE_DB_PASSWORD 없음 — 자동 적용을 건너뛴다."
+            echo "::warning::supabase/migrations/ 의 미적용분을 대시보드 SQL Editor 에서 직접 실행할 것."
+            exit 0
+          fi
           supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
           supabase db push --include-all
 
+      # `secrets` 컨텍스트는 스텝 단위 if 에서 못 쓴다 — 셸에서 판정한다.
       - name: 적용 후 이력 확인
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase migration list
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::notice::건너뜀 (적용 단계가 실행되지 않았다)."
+            exit 0
+          fi
+          supabase migration list
