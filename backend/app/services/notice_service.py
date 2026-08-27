@@ -251,6 +251,9 @@ class NoticeService:
                     notice={},
                     target_language=target_language,
                     source_text=source_text,
+                    # 호출부(content_extraction_service.py:946-947)가 translation 만 꺼내고
+                    # pipeline_result 를 버린다 — 카드 메타데이터 콜은 그대로 낭비다.
+                    with_card_metadata=False,
                 )
             except Exception as exc:
                 raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
@@ -629,6 +632,7 @@ class NoticeService:
         notice: dict[str, Any],
         target_language: str,
         source_text: str,
+        with_card_metadata: bool = True,
     ) -> dict[str, Any]:
         prompt = _best_effort_translation_prompt(
             source_text=source_text,
@@ -664,25 +668,28 @@ class NoticeService:
             metadata["title_target_language"] = fallback_title
         # 폴백으로 끝나도 카드 메타데이터(요약·할일)는 만들어 둔다 — 카드가 비면
         # 앱이 번역을 미완성으로 보고 풀 파이프라인을 무한 재요청하기 때문.
-        try:
-            generated = await gemini.generate_json(
-                prompt=build_supabase_payload_prompt(
-                    source_text=source_text,
-                    final_target_translation=translated_text,
-                    source_hard_facts={},
-                    validation_results=validation_results,
-                    target_language=target_language,
-                ),
-                temperature=0.0,
-            )
-            if isinstance(generated, dict):
-                metadata = {**generated, **metadata}
-        except Exception as exc:  # noqa: BLE001 - 카드 메타데이터는 베스트에포트.
-            LOGGER.warning(
-                "best effort fallback metadata generation failed: target_language=%s error=%s",
-                target_language,
-                exc,
-            )
+        # 다만 호출부가 pipeline_result 를 버리는 경로(translate_text 의
+        # notice_summary/notice_source)에서는 이 콜이 그대로 낭비라 끈다.
+        if with_card_metadata:
+            try:
+                generated = await gemini.generate_json(
+                    prompt=build_supabase_payload_prompt(
+                        source_text=source_text,
+                        final_target_translation=translated_text,
+                        source_hard_facts={},
+                        validation_results=validation_results,
+                        target_language=target_language,
+                    ),
+                    temperature=0.0,
+                )
+                if isinstance(generated, dict):
+                    metadata = {**generated, **metadata}
+            except Exception as exc:  # noqa: BLE001 - 카드 메타데이터는 베스트에포트.
+                LOGGER.warning(
+                    "best effort fallback metadata generation failed: target_language=%s error=%s",
+                    target_language,
+                    exc,
+                )
 
         return {
             "status": "ready_to_save",
