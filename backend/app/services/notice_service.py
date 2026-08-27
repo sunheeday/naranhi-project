@@ -5,7 +5,7 @@ from typing import Any
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
 from app.crawler.detail_content_extractor import fetch_notice_detail_content
-from app.translation.gemini_client import GeminiJsonClient
+from app.translation.gemini_client import GeminiJsonClient, is_quota_exhausted_error
 from app.translation.orchestrator import TranslationPipeline, TranslationPipelineInput
 from app.translation.prompts import (
     build_supabase_payload_prompt,
@@ -1370,18 +1370,17 @@ def _log_translation_pipeline_summary(
 
 
 def _is_gemini_quota_error(error: Exception) -> bool:
-    message = str(error).lower()
-    return any(
-        token in message
-        for token in (
-            "429",
-            "too many requests",
-            "quota",
-            "resource_exhausted",
-            "rate limit",
-            "rate_limit",
-        )
-    )
+    """스로틀 판정은 `is_quota_exhausted_error` 하나로 모은다.
+
+    원래는 이 함수가 자기 낱말 목록을 따로 들고 있었다. 그 결과 Task 8 이
+    `is_quota_exhausted_error` 에 Bedrock 마커(`throttling`·`serviceunavailable`·
+    `modelnotready`)를 넣었을 때 **이쪽만 뒤처져** 같은 예외에 다른 답을 냈다.
+    목록이 둘이면 또 갈라진다 — 그래서 위임한다.
+
+    이 함수는 `:171`·`:302` 에서 「스로틀이면 폴백, 아니면 재전파」를 가른다.
+    Bedrock 의 일시적 예외를 못 알아보면 폴백 없이 잡이 실패한다.
+    """
+    return is_quota_exhausted_error(error)
 
 
 def _best_effort_translation_prompt(
