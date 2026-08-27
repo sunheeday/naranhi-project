@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.config import get_settings
-from app.translation.gemini_client import GeminiJsonClient
+from app.translation.json_client import JsonModelClient
 from app.translation.prompts import (
     back_translate_to_ko_prompt,
     build_supabase_payload_prompt,
@@ -54,10 +54,19 @@ class TranslationPipelineInput:
 
 
 class TranslationPipeline:
-    def __init__(self, gemini: GeminiJsonClient) -> None:
+    def __init__(self, gemini: JsonModelClient) -> None:
         self.gemini = gemini
         # 비기계 단계에 넘길 thinking 예산. None 이면 모델 기본값을 그대로 쓴다.
         self.thinking_budget = get_settings().translation_thinking_budget
+        # 문맥·어조 검증 단계만 thinking을 되돌리는 부분 적용 스위치(계획서 §6.2, arm-b2).
+        # thinking 전면 off(arm-b) 실측에서 hard_fact 보존이 무너졌다(학년 오기재·없는
+        # 날짜 생성·이메일을 전화번호로 지어냄) — 검증 단계만 모델 기본(동적) thinking을
+        # 쓰고 나머지 비기계 단계는 self.thinking_budget 그대로 둔다.
+        self.context_tone_thinking_budget = (
+            None
+            if get_settings().translation_context_tone_thinking_override
+            else self.thinking_budget
+        )
 
     async def run(self, payload: TranslationPipelineInput) -> dict[str, Any]:
         source_hard_facts = await self.gemini.generate_json(
@@ -265,7 +274,7 @@ class TranslationPipeline:
                 target_language=payload.target_language,
             ),
             temperature=0.0,
-            thinking_budget=self.thinking_budget,
+            thinking_budget=self.context_tone_thinking_budget,
         )
         context_tone_attempts = 0
 
@@ -307,7 +316,7 @@ class TranslationPipeline:
                     target_language=payload.target_language,
                 ),
                 temperature=0.0,
-                thinking_budget=self.thinking_budget,
+                thinking_budget=self.context_tone_thinking_budget,
             )
 
         if context_tone_validation.get("verdict") != "PASS":

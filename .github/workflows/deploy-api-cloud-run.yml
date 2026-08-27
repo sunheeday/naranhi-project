@@ -90,6 +90,8 @@ jobs:
             GEMINI_API_KEY=gemini-api-key:latest
             CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest
             NEIS_API_KEY=neis-api-key:latest
+            AWS_ACCESS_KEY_ID=aws-bedrock-access-key-id:latest
+            AWS_SECRET_ACCESS_KEY=aws-bedrock-secret-access-key:latest
           flags: >-
             --allow-unauthenticated
             --port=8080
@@ -114,7 +116,7 @@ jobs:
             --memory=512Mi \
             --cpu=1 \
             --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},GEMINI_MAX_CONCURRENCY=32" \
-            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest,AWS_ACCESS_KEY_ID=aws-bedrock-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-bedrock-secret-access-key:latest"
 
       - name: Deploy crawler worker Job to Cloud Run
         if: ${{ env.CRAWLER_WORKER_JOB != '' }}

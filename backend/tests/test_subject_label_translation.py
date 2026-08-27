@@ -60,7 +60,7 @@ class SubjectLabelTranslationServiceTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch("app.services.notice_service.build_json_client", return_value=gemini),
         ):
             result = await service.translate_text(
                 source_text="# 시간표 과목 번역 항목\n[[S001]] 국어\n[[S002]] 창의적 체험활동\n",
@@ -93,7 +93,7 @@ class SubjectLabelTranslationServiceTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch("app.services.notice_service.build_json_client", return_value=gemini),
         ):
             result = await service.translate_text(
                 source_text="# 시간표 과목 번역 항목\n[[S001]] 수학\n[[S002]] 해양과학탐구\n",

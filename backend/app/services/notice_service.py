@@ -5,7 +5,8 @@ from typing import Any
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
 from app.crawler.detail_content_extractor import fetch_notice_detail_content
-from app.translation.gemini_client import GeminiJsonClient, is_quota_exhausted_error
+from app.translation.gemini_client import is_quota_exhausted_error
+from app.translation.json_client import JsonModelClient, build_json_client
 from app.translation.orchestrator import TranslationPipeline, TranslationPipelineInput
 from app.translation.prompts import (
     build_supabase_payload_prompt,
@@ -152,7 +153,7 @@ class NoticeService:
             if not resolved_source_text:
                 raise RuntimeError("번역할 원문이 없습니다.")
 
-            gemini = GeminiJsonClient.from_settings(settings)
+            gemini = build_json_client(settings)
             pipeline = TranslationPipeline(gemini)
             try:
                 result = await pipeline.run(
@@ -247,7 +248,7 @@ class NoticeService:
         if translation_kind in {"notice_summary", "notice_source"}:
             try:
                 fallback = await self._best_effort_translate_notice(
-                    gemini=GeminiJsonClient.from_settings(settings),
+                    gemini=build_json_client(settings),
                     notice={},
                     target_language=target_language,
                     source_text=source_text,
@@ -269,7 +270,7 @@ class NoticeService:
         if translation_kind == "message_to_ko":
             try:
                 fallback = await self._translate_message_to_korean(
-                    gemini=GeminiJsonClient.from_settings(settings),
+                    gemini=build_json_client(settings),
                     source_text=source_text,
                 )
             except Exception as exc:
@@ -284,7 +285,7 @@ class NoticeService:
             }
 
         try:
-            gemini = GeminiJsonClient.from_settings(settings)
+            gemini = build_json_client(settings)
             pipeline = TranslationPipeline(gemini)
             result = await pipeline.run(
                 TranslationPipelineInput(
@@ -303,7 +304,7 @@ class NoticeService:
                 raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
 
             fallback = await self._best_effort_translate_notice(
-                gemini=GeminiJsonClient.from_settings(settings),
+                gemini=build_json_client(settings),
                 notice={},
                 target_language=target_language,
                 source_text=source_text,
@@ -436,7 +437,7 @@ class NoticeService:
                 "saved": {},
             }
 
-        gemini = GeminiJsonClient.from_settings(settings)
+        gemini = build_json_client(settings)
         pipeline_result = await self._build_korean_notice_artifacts(
             gemini=gemini,
             source_text=resolved_source_text,
@@ -465,7 +466,7 @@ class NoticeService:
     async def _build_korean_notice_artifacts(
         self,
         *,
-        gemini: GeminiJsonClient,
+        gemini: JsonModelClient,
         source_text: str,
     ) -> dict[str, Any]:
         source_hard_facts = await gemini.generate_json(
@@ -526,7 +527,7 @@ class NoticeService:
         target_language: str,
     ) -> dict[str, object]:
         settings = get_settings()
-        gemini = GeminiJsonClient.from_settings(settings)
+        gemini = build_json_client(settings)
         items = _parse_meal_label_source_text(source_text)
         if not items:
             return {
@@ -579,7 +580,7 @@ class NoticeService:
         target_language: str,
     ) -> dict[str, object]:
         settings = get_settings()
-        gemini = GeminiJsonClient.from_settings(settings)
+        gemini = build_json_client(settings)
         items = _parse_meal_label_source_text(source_text)
         if not items:
             return {
@@ -628,7 +629,7 @@ class NoticeService:
     async def _best_effort_translate_notice(
         self,
         *,
-        gemini: GeminiJsonClient,
+        gemini: JsonModelClient,
         notice: dict[str, Any],
         target_language: str,
         source_text: str,
@@ -715,7 +716,7 @@ class NoticeService:
     async def _translate_message_to_korean(
         self,
         *,
-        gemini: GeminiJsonClient,
+        gemini: JsonModelClient,
         source_text: str,
     ) -> dict[str, Any]:
         prompt = _message_to_korean_prompt(source_text=source_text)

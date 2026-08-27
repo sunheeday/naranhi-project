@@ -10,6 +10,39 @@
       "id": "arm-b",
       "label": "gemini-2.5-flash-thinking-off",
       "env": { "TRANSLATION_THINKING_BUDGET": "0" }
+    },
+    {
+      "id": "arm-b2",
+      "label": "gemini-2.5-flash-thinking-off-except-context-tone",
+      "env": {
+        "TRANSLATION_THINKING_BUDGET": "0",
+        "TRANSLATION_CONTEXT_TONE_THINKING_OVERRIDE": "true"
+      }
+    },
+    {
+      "id": "arm-c",
+      "label": "bedrock-claude-haiku-4-5",
+      "env": {
+        "TRANSLATION_BACKEND": "bedrock",
+        "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      }
+    },
+    {
+      "id": "arm-d",
+      "label": "bedrock-claude-sonnet-4-6",
+      "env": {
+        "TRANSLATION_BACKEND": "bedrock",
+        "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-sonnet-4-6"
+      }
+    },
+    {
+      "id": "arm-e",
+      "label": "bedrock-mixed-haiku-mechanical-plus-sonnet-translation",
+      "env": {
+        "TRANSLATION_BACKEND": "bedrock",
+        "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_MECHANICAL_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      }
     }
   ]
 }

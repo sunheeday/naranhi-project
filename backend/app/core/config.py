@@ -59,6 +59,14 @@ class Settings(BaseSettings):
         ge=0,
         alias="TRANSLATION_THINKING_BUDGET",
     )
+    # 문맥·어조 검증 단계만 thinking을 기본(동적)으로 되돌리는 부분 적용 스위치(arm-b2,
+    # 계획서 §6.2). thinking 전면 off(arm-b) 실측에서 hard_fact 보존이 무너졌다
+    # (학년 오기재·없는 날짜 생성·이메일을 전화번호로 지어냄). True면 검증 단계만
+    # thinking_budget=None, 나머지 비기계 단계는 translation_thinking_budget 그대로.
+    translation_context_tone_thinking_override: bool = Field(
+        default=False,
+        alias="TRANSLATION_CONTEXT_TONE_THINKING_OVERRIDE",
+    )
     vertex_ai_project_id: str | None = Field(default=None, alias="VERTEX_AI_PROJECT_ID")
     vertex_ai_location: str = Field(default="global", alias="VERTEX_AI_LOCATION")
     # 번역 파이프라인이 쓸 JSON 모델 백엔드. gemini | bedrock.
