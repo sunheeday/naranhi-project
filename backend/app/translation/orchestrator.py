@@ -69,21 +69,37 @@ class TranslationPipeline:
         )
 
     async def run(self, payload: TranslationPipelineInput) -> dict[str, Any]:
-        source_hard_facts = await self.gemini.generate_json(
-            prompt=extract_source_hard_facts_prompt(payload.source_text),
-            temperature=0.0,
-            model=getattr(self.gemini, "source_hard_fact_model", None),
-            thinking_budget=MECHANICAL_THINKING_BUDGET,
+        # ①(원문 하드팩트)과 ②(식재료 매핑)은 둘 다 source_text 만 읽는다.
+        # ②가 ①의 meal_and_allergy 를 보긴 하지만 «식사 정보가 있나» 게이트일 뿐이라,
+        # 둘을 동시에 띄우고 게이트는 결과가 다 온 뒤에 적용한다. 프롬프트는 그대로다.
+        source_hard_facts_task = asyncio.create_task(
+            self.gemini.generate_json(
+                prompt=extract_source_hard_facts_prompt(payload.source_text),
+                temperature=0.0,
+                model=getattr(self.gemini, "source_hard_fact_model", None),
+                thinking_budget=MECHANICAL_THINKING_BUDGET,
+            )
         )
+        ingredient_map_task = asyncio.create_task(
+            self._map_ingredients_unconditional(payload=payload)
+        )
+        try:
+            source_hard_facts = await source_hard_facts_task
+        except BaseException:
+            await _discard_task(ingredient_map_task)
+            raise
+
         risk_profile = _risk_profile_from_source(
             source_text=payload.source_text,
             source_hard_facts=source_hard_facts,
         )
 
-        ingredient_map = await self._map_ingredients_if_needed(
-            payload=payload,
-            source_hard_facts=source_hard_facts,
-        )
+        if _has_meal_info(source_hard_facts):
+            ingredient_map = await ingredient_map_task
+        else:
+            # 식사 정보가 없으면 매핑 결과를 쓰지 않는다 — 기존 게이트와 같은 판정이다.
+            await _discard_task(ingredient_map_task)
+            ingredient_map = _empty_ingredient_map()
 
         pivot = await self.gemini.generate_json(
             prompt=translate_ko_to_en_pivot_prompt(
@@ -265,6 +281,35 @@ class TranslationPipeline:
             )
         back_translation_ko = str(back_translation.get("back_translation_ko") or "")
 
+        # ⑧(카드 메타데이터)은 최종 번역문만 필요하고 검증 결과와 무관하다.
+        # ⑤'(역번역)와 같은 폐기 패턴으로 검증과 병렬로 미리 띄운다.
+        translation_when_metadata_started = target_translation
+        metadata_task: asyncio.Task[dict[str, Any]] | None = asyncio.create_task(
+            self.gemini.generate_json(
+                prompt=build_supabase_payload_prompt(
+                    source_text=payload.source_text,
+                    final_target_translation=target_translation,
+                    source_hard_facts=source_hard_facts,
+                    validation_results={
+                        "hard_fact": {
+                            "status": "passed",
+                            "attempts": hard_fact_attempts,
+                            "issues": [],
+                        },
+                        "context_tone": {"status": "passed", "attempts": 0, "issues": []},
+                    },
+                    target_language=payload.target_language,
+                ),
+                temperature=0.0,
+                thinking_budget=self.thinking_budget,
+            )
+        )
+        # 위에서 만든 태스크가 실제로 스케줄러에 올라가도록 한 틱 양보한다.
+        # 그렇지 않으면 바로 다음 줄의 검증 호출이 같은 태스크 안에서 곧장 실행돼
+        # «투기적 선실행»이 아니라 매번 검증이 끝난 뒤에야 카드가 시작되는
+        # 순차 실행이 되어 버린다(콜 자체는 그대로지만 시간 절약 효과가 없어진다).
+        await asyncio.sleep(0)
+
         context_tone_validation = await self.gemini.generate_json(
             prompt=validate_context_tone_prompt(
                 source_text=payload.source_text,
@@ -282,6 +327,8 @@ class TranslationPipeline:
             context_tone_validation.get("verdict") == "FAIL_FIXABLE"
             and context_tone_attempts < payload.max_auto_fix_attempts_per_stage
         ):
+            # 자동수정 루프가 번역문을 바꾸면 미리 띄운 카드는 무효 — 버린다.
+            await _discard_task(metadata_task)
             context_tone_attempts += 1
             fixed = await self.gemini.generate_json(
                 prompt=fix_context_tone_prompt(
@@ -320,6 +367,7 @@ class TranslationPipeline:
             )
 
         if context_tone_validation.get("verdict") != "PASS":
+            await _discard_task(metadata_task)
             return await self._validation_failed_result(
                 payload=payload,
                 source_hard_facts=source_hard_facts,
@@ -344,17 +392,22 @@ class TranslationPipeline:
                 "issues": [],
             },
         }
-        metadata = await self.gemini.generate_json(
-            prompt=build_supabase_payload_prompt(
-                source_text=payload.source_text,
-                final_target_translation=target_translation,
-                source_hard_facts=source_hard_facts,
-                validation_results=validation_results,
-                target_language=payload.target_language,
-            ),
-            temperature=0.0,
-            thinking_budget=self.thinking_budget,
-        )
+        if metadata_task is not None and target_translation == translation_when_metadata_started:
+            metadata = await metadata_task
+        else:
+            # 자동수정 루프가 번역문을 바꿨으면 미리 띄운 카드는 무효 — 버리고 새로 돈다.
+            await _discard_task(metadata_task)
+            metadata = await self.gemini.generate_json(
+                prompt=build_supabase_payload_prompt(
+                    source_text=payload.source_text,
+                    final_target_translation=target_translation,
+                    source_hard_facts=source_hard_facts,
+                    validation_results=validation_results,
+                    target_language=payload.target_language,
+                ),
+                temperature=0.0,
+                thinking_budget=self.thinking_budget,
+            )
 
         return {
             "status": "ready_to_save",
@@ -381,31 +434,16 @@ class TranslationPipeline:
             },
         }
 
-    async def _map_ingredients_if_needed(
+    async def _map_ingredients_unconditional(
         self,
         *,
         payload: TranslationPipelineInput,
-        source_hard_facts: dict[str, Any],
     ) -> dict[str, Any]:
-        meal = source_hard_facts.get("meal_and_allergy") or {}
-        ingredients_raw = list(meal.get("ingredients_raw") or [])
-        menu_items_raw = list(meal.get("menu_items_raw") or [])
-
-        if not meal.get("has_meal_info") and not ingredients_raw and not menu_items_raw:
-            return {
-                "mapped_ingredients": [],
-                "unmapped_ingredients": [],
-                "critical_flags": {
-                    "contains_allergen": False,
-                    "contains_religious_restriction_item": False,
-                    "contains_unmapped_critical_item": False,
-                },
-            }
-
+        """식재료 매핑을 게이트 없이 돌린다. 게이트는 호출부가 결과 폐기로 적용한다."""
         return await self.gemini.generate_json(
             prompt=map_ingredient_identity_prompt(
-                meal_text="\n".join(str(item) for item in menu_items_raw),
-                ingredients_raw=ingredients_raw,
+                meal_text=payload.source_text,
+                ingredients_raw=[],
                 approved_dictionary=payload.approved_ingredient_dictionary,
             ),
             temperature=0.0,
@@ -563,6 +601,27 @@ def _validation_status(validation: dict[str, Any]) -> str:
     if status in {"skipped", "failed", "passed"}:
         return status
     return "passed" if validation.get("verdict") == "PASS" else "failed"
+
+
+def _has_meal_info(source_hard_facts: dict[str, Any]) -> bool:
+    meal = source_hard_facts.get("meal_and_allergy") or {}
+    return bool(
+        meal.get("has_meal_info")
+        or list(meal.get("ingredients_raw") or [])
+        or list(meal.get("menu_items_raw") or [])
+    )
+
+
+def _empty_ingredient_map() -> dict[str, Any]:
+    return {
+        "mapped_ingredients": [],
+        "unmapped_ingredients": [],
+        "critical_flags": {
+            "contains_allergen": False,
+            "contains_religious_restriction_item": False,
+            "contains_unmapped_critical_item": False,
+        },
+    }
 
 
 def _risk_profile_from_source(
