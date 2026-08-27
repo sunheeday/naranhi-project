@@ -4,6 +4,11 @@
 이어서 본문 추출·카드 생성(`scheduled_content_extractor`)을 돌린다. 두 Job은 큐(app_jobs)를
 거치지 않고 **Cloud Scheduler가 직접** 실행한다(step 2의 enqueue-트리거 워커와는 별개).
 
+> **"등록된 전체 학교"는 `schools` 테이블 전체가 아니다.** `select_school_targets`는
+> `children.school_id` 조인으로 **자녀가 실제 등록된 학교만** 대상으로 삼는다.
+> 2026-08-27 기준 `schools` 8곳 중 실제 스케줄러 대상은 **4곳뿐**이다(2026-08-27 Task 10 확인).
+> 이전 계획 문서의 "8개 학교" 가정은 낡은 값이다.
+
 ## 동작 개요
 
 ```
@@ -48,7 +53,7 @@ for JOB in naranhi-school-crawler naranhi-content-extractor; do
 done
 ```
 
-## Cloud Scheduler 4개
+## Cloud Scheduler (실제 6개)
 
 콘솔로 하려면: Cloud Run → 작업 → 각 Job → **트리거 탭 → 스케줄러 트리거 추가**(백스톱 만들 때와 동일).
 크롤러에 `0 6 * * *`·`0 18 * * *`, 추출기에 `0 7 * * *`·`0 19 * * *`, 시간대 Asia/Seoul.
@@ -66,6 +71,153 @@ gcloud scheduler jobs create http naranhi-school-crawler-1800 --schedule="0 18 *
 gcloud scheduler jobs create http naranhi-content-extractor-0700 --schedule="0 7 * * *"  --uri="$E_URI" $COMMON
 gcloud scheduler jobs create http naranhi-content-extractor-1900 --schedule="0 19 * * *" --uri="$E_URI" $COMMON
 ```
+
+### 실제 배치 (2026-08-27 `gcloud scheduler jobs list --location=asia-northeast3` 실측 — 위 create 예시와 이름·상태가 다르다)
+
+| 스케줄러 | 주기 | 2026-08-27 상태 | 비고 |
+|---|---|---|---|
+| `naranhi-school-crawler-0600` | `0 6 * * *` | **PAUSED** | 2026-06-15 발표 준비로 정지 |
+| `naranhi-school-crawler-1900` | `0 19 * * *` | **PAUSED** | 위 create 예시의 `-1800` 은 옛 이름. 2026-06-15 발표 준비로 정지 |
+| `naranhi-content-extractor-0700` | `0 7 * * *` | **PAUSED** | 2026-06-15 발표 준비로 정지 |
+| `naranhi-content-extractor-2000` | `0 20 * * *` | **PAUSED** | 위 create 예시의 `-1900` 은 옛 이름. 2026-06-15 발표 준비로 정지 |
+| `naranhi-crawler-backstop` | `*/10 * * * *` | **PAUSED** | 큐 경로에서 놓친 잡 회수. 2026-06-15 발표 준비로 정지 |
+| `naranhi-translation-backstop` | `*/10 * * * *` | ENABLED | 5개가 정지된 동안에도 계속 돎(정지 대상이 아니었음) |
+
+**규칙: 누군가 스케줄러를 pause/resume 하면 이 표의 상태 칸을 그 자리에서 고치고 날짜와 이유를 적는다.**
+2026-06-15 발표 준비로 5개를 정지시킨 사실이 이 저장소 어디에도 기록되지 않아 72일 동안
+아무도 그 사실을 몰랐다(`gcloud scheduler jobs pause|resume` 언급이 저장소에 0건이었다).
+개인 메모는 저장소 문서가 아니다.
+
+## 재가동 · 비상 정지
+
+**순서가 중요하다: 추출기 → 크롤러 백스톱 → 크롤러.**
+크롤러가 먼저 켜지면 신규 공지가 `pending` 으로 쌓이는데 추출기가 자고 있어,
+「크롤→추출 연결이 끊겼다」와 구분할 수 없는 상태가 만들어진다.
+추출기가 먼저 깨어 있으면 「크롤 → 다음 정시 추출」이 그대로 이어진다.
+`naranhi-translation-backstop` 은 이미 `ENABLED` 이므로 이 절차에서 건드리지 않는다.
+
+**선행 조건 — 반드시 끝나 있어야 한다.** 워터마크 시딩(`scripts/seed_watermarks.py --apply`)이
+이미 적용됐는지 먼저 확인한다. 컷오프 없이 재가동하면 정지 기간 동안 쌓인 글이 전부
+신규로 잡힌다. 2026-08-27 기준 운영 `school_crawl_state`:
+
+| 학교 | school_id | 워터마크 |
+|---|---|---|
+| 연수중 | `39dad243` | 34062026 |
+| 부천부흥중 | `8da4b348` | 1228320 |
+| 동인천중 | `6406fa75` | 34065336 |
+| 함박초 | `4d74020a` | 33863948 |
+| 문남초 | `26a4bc3e` | 33891448 |
+| (동명 부천부흥중) | `3b33ac1d` | **비어 있음** — `homepage_fetch_failed` 로 시딩 자체가 안 됨 |
+| — | `55b773d0` | 비어 있음 |
+
+`3b33ac1d` 는 홈페이지 접속 자체가 안 되는 상태라 크롤도 못 할 가능성이 높지만,
+**재가동 첫 런에서 반드시 확인한다** — 아래 "첫 런 직후 확인" 참고.
+비숫자 post_id·해시 생성·첨부 파일번호는 워터마크로 걸러지지 않는다. 그만큼은
+재가동 즉시 들어올 수 있다(Task 10 dry-run 기준 이번 스캔에서는 0건이었으나 보장은 아니다).
+
+```bash
+REGION="asia-northeast3"
+
+# 0. 현재 상태를 눈으로 본다
+gcloud scheduler jobs list --location="$REGION" \
+  --format="table(name.basename(), schedule, state)"
+
+# 1. 추출기
+gcloud scheduler jobs resume naranhi-content-extractor-0700 --location="$REGION"
+gcloud scheduler jobs resume naranhi-content-extractor-2000 --location="$REGION"
+
+# 2. 크롤러 백스톱 (큐 경로에서 놓친 잡을 10분 안에 회수한다)
+gcloud scheduler jobs resume naranhi-crawler-backstop --location="$REGION"
+
+# 3. (권장) 크롤을 수동 1회로 먼저 돌려 컷오프를 검증 — "첫 런 직후 확인" 참고
+gcloud run jobs execute naranhi-school-crawler --region="$REGION" --wait
+
+# 4. 수동 실행 로그에서 모든 학교 success_count=0 을 확인한 뒤에만 크롤러 스케줄러를 켠다
+gcloud scheduler jobs resume naranhi-school-crawler-0600 --location="$REGION"
+gcloud scheduler jobs resume naranhi-school-crawler-1900 --location="$REGION"
+
+# 5. 전부 ENABLED 확인
+gcloud scheduler jobs list --location="$REGION" --format="table(name.basename(), schedule, state)"
+```
+
+**비상 정지 — 쏟아지는 것을 봤을 때 즉시:**
+```bash
+REGION="asia-northeast3"
+gcloud scheduler jobs pause naranhi-school-crawler-0600 --location="$REGION"
+gcloud scheduler jobs pause naranhi-school-crawler-1900 --location="$REGION"
+gcloud scheduler jobs pause naranhi-content-extractor-0700 --location="$REGION"
+gcloud scheduler jobs pause naranhi-content-extractor-2000 --location="$REGION"
+gcloud scheduler jobs pause naranhi-crawler-backstop --location="$REGION"
+```
+그리고 위 "실제 배치" 상태표를 즉시 고친다(상태 칸 + 날짜 + 이유).
+
+**정기 크롤러에는 재시도가 없다** (`--max-retries=0`, `deploy-api-cloud-run.yml`).
+실패하면 다음 스케줄까지 최대 12~13시간이다. `naranhi-crawler-backstop`(10분 주기)이
+사실상의 재시도 역할을 한다. Cloud Run Job retry 는 task 전체 재실행이라 학교 단위
+재시도가 아니므로 켜지 않는다.
+
+## 첫 런 직후 확인 (이 사업이 넣은 계측을 이렇게 읽는다)
+
+재가동 후 첫 크롤·추출 런이 끝나면 아래를 확인한다. 하나라도 「쏟아졌다」로 읽히면
+바로 위 "비상 정지" 명령으로 해당 스케줄러를 멈추고 원인부터 본다 — 재추출 금지
+제약상 일단 들어온 것을 되돌릴 방법은 없다(멈추는 것만 가능).
+
+1. **크롤 결과 — 워터마크가 먹혔는지.**
+   ```bash
+   gcloud logging read \
+     'resource.type="cloud_run_job" AND resource.labels.job_name="naranhi-school-crawler" AND textPayload:"scheduled school crawler result:"' \
+     --limit=20 --freshness=30m --format="value(textPayload)"
+   ```
+   로그 형식: `scheduled school crawler result: school_id=%s status=%s success_count=%s`.
+   **기대값: 모든 학교 `success_count=0`.** `3b33ac1d`(무워터마크)에서 `success_count>0` 이
+   나오면 그 학교부터 의심한다. 0이 아닌 학교가 있으면 새로 들어온 글의 post_id 가 숫자
+   일련번호인지 먼저 확인한다(숫자인데 들어왔으면 시딩 실패 — 즉시 정지하고 Task 10의
+   백업 JSON 으로 워터마크 복원).
+
+2. **게시판 감지 폴백 경고.**
+   ```bash
+   gcloud logging read \
+     'resource.type="cloud_run_job" AND resource.labels.job_name="naranhi-school-crawler" AND textPayload:"scheduled crawler board fallback:"' \
+     --limit=20 --freshness=30m --format="value(textPayload)"
+   ```
+   `scheduled crawler board fallback: count=%s schools=%s` — 나오면 해당 학교가 지정
+   게시판이 아니라 공지사항 전체 폴백으로 스캔됐다는 뜻. 워터마크 board_key 와 어긋날
+   수 있으니 이름이 나온 학교는 워터마크 값을 다시 대조한다.
+
+3. **추출기 — 본문 사진 합성.**
+   ```bash
+   gcloud logging read \
+     'resource.type="cloud_run_job" AND resource.labels.job_name="naranhi-content-extractor" AND textPayload:"body images: notice_id="' \
+     --limit=20 --freshness=30m --format="value(textPayload)"
+   ```
+   `body images: notice_id=%s collected=%s stitched=0|1 [bytes=%s] upload=ok|fail|skip`.
+   `upload=fail` 이 반복되면 Storage 업로드 경로를 본다.
+
+4. **추출기 — 이미지 타일 OCR.**
+   ```bash
+   gcloud logging read \
+     'resource.type="cloud_run_job" AND resource.labels.job_name="naranhi-content-extractor" AND textPayload:"image tiles: source="' \
+     --limit=20 --freshness=30m --format="value(textPayload)"
+   ```
+   `image tiles: source=%s tiles=%s ok=%s empty=%s failed=%s`. `failed` 이 `tiles` 대비
+   과반이면 롤백: 추출기 Job env `MAX_TILES_PER_IMAGE=1`.
+
+5. **추출기 — HWP 표 뭉개짐 경고 (Cloud Logging 이 아니라 DB 조회).**
+   `hwp5html_below_threshold: chars=N table_rows=M` / `hwp5html_skip_no_command` 는
+   LOGGER 로 찍히지 않고 공지별 `notices.extracted_content.sources[].errors` 에
+   저장된다. Supabase SQL Editor(읽기 전용)에서:
+   ```sql
+   select id, title,
+          jsonb_path_query_array(extracted_content, '$.sources[*].errors[*]') as source_errors
+   from notices
+   where created_at > now() - interval '1 day'
+     and extracted_content::text like '%hwp5html%';
+   ```
+   `hwp5html_below_threshold` 가 몰리면 표가 실제로 뭉개지는지 카드 내용을 눈으로 대조한다.
+   롤백: 추출기 Job env `HWP5HTML_ACCEPT_SHORT_TABLES=0` (옛 길이 전용 규칙으로 복귀).
+
+**개인정보:** 위 로그 어디에도 본문·첨부 내용·학생명·연락처가 없다 — 식별자·개수·
+상태값·정제된 예외 메시지뿐(Task 2·4·8 계측 설계 그대로).
 
 ## 튜닝 / 비상
 
