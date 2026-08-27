@@ -5,6 +5,11 @@
       "id": "arm-a",
       "label": "baseline-gemini-2.5-flash",
       "env": {}
+    },
+    {
+      "id": "arm-b",
+      "label": "gemini-2.5-flash-thinking-off",
+      "env": { "TRANSLATION_THINKING_BUDGET": "0" }
     }
   ]
 }

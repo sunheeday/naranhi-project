@@ -50,6 +50,15 @@ class Settings(BaseSettings):
         le=64,
         alias="GEMINI_MAX_CONCURRENCY",
     )
+    # 번역 파이프라인의 비기계 단계(피벗·타겟·검증·자동수정·카드)에 적용할 thinking 예산.
+    # None = 모델 기본값(Gemini 2.5 Flash 는 Auto, 최대 8,192). 0 = 끔.
+    # 실측상 파이프라인 지연의 75~78% 가 thinking 토큰이다. 0 으로 두면 134.7s → 33.5s.
+    # 기계적 추출·역번역 5콜은 이 값과 무관하게 항상 0이다(MECHANICAL_THINKING_BUDGET).
+    translation_thinking_budget: int | None = Field(
+        default=None,
+        ge=0,
+        alias="TRANSLATION_THINKING_BUDGET",
+    )
     vertex_ai_project_id: str | None = Field(default=None, alias="VERTEX_AI_PROJECT_ID")
     vertex_ai_location: str = Field(default="global", alias="VERTEX_AI_LOCATION")
     google_calendar_credentials_json: str | None = Field(

@@ -112,7 +112,7 @@ class OrchestratorThinkingBudgetTest(unittest.TestCase):
         self.assertEqual(budget_by_kind["source_hf"], MECHANICAL_THINKING_BUDGET)
         self.assertEqual(budget_by_kind["target_hf"], MECHANICAL_THINKING_BUDGET)
         self.assertEqual(budget_by_kind["back"], MECHANICAL_THINKING_BUDGET)
-        # 번역·검증·카드 단계(②③⑥⑦)는 기본(동적 thinking) 유지
+        # 번역·검증·카드 단계(②③⑥⑦)는 설정값을 따른다 — 기본값 None = 모델 기본(동적 thinking)
         self.assertIsNone(budget_by_kind["pivot"])
         self.assertIsNone(budget_by_kind["target"])
         self.assertIsNone(budget_by_kind["tone"])

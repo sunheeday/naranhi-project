@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.config import get_settings
 from app.translation.gemini_client import GeminiJsonClient
 from app.translation.prompts import (
     back_translate_to_ko_prompt,
@@ -55,6 +56,8 @@ class TranslationPipelineInput:
 class TranslationPipeline:
     def __init__(self, gemini: GeminiJsonClient) -> None:
         self.gemini = gemini
+        # 비기계 단계에 넘길 thinking 예산. None 이면 모델 기본값을 그대로 쓴다.
+        self.thinking_budget = get_settings().translation_thinking_budget
 
     async def run(self, payload: TranslationPipelineInput) -> dict[str, Any]:
         source_hard_facts = await self.gemini.generate_json(
@@ -80,6 +83,7 @@ class TranslationPipeline:
                 ingredient_map=ingredient_map,
             ),
             temperature=0.1,
+            thinking_budget=self.thinking_budget,
         )
         pivot_translation_en = str(pivot.get("pivot_translation_en") or "")
 
@@ -92,6 +96,7 @@ class TranslationPipeline:
                 target_dictionary=payload.approved_ingredient_dictionary_target,
             ),
             temperature=0.1,
+            thinking_budget=self.thinking_budget,
         )
         target_translation = str(target.get("target_translation") or "")
 
@@ -132,6 +137,7 @@ class TranslationPipeline:
                         translated_hard_facts=target_hard_facts,
                     ),
                     temperature=0.0,
+                    thinking_budget=self.thinking_budget,
                 )
                 hard_fact_validation = _merge_validation(hard_fact_validation, llm_validation)
 
@@ -151,6 +157,7 @@ class TranslationPipeline:
                         target_dictionary=payload.approved_ingredient_dictionary_target,
                     ),
                     temperature=0.0,
+                    thinking_budget=self.thinking_budget,
                 )
                 target_translation = str(
                     fixed.get("corrected_target_translation") or target_translation
@@ -205,6 +212,7 @@ class TranslationPipeline:
                     target_language=payload.target_language,
                 ),
                 temperature=0.0,
+                thinking_budget=self.thinking_budget,
             )
 
             return {
@@ -257,6 +265,7 @@ class TranslationPipeline:
                 target_language=payload.target_language,
             ),
             temperature=0.0,
+            thinking_budget=self.thinking_budget,
         )
         context_tone_attempts = 0
 
@@ -275,6 +284,7 @@ class TranslationPipeline:
                     source_hard_facts=source_hard_facts,
                 ),
                 temperature=0.0,
+                thinking_budget=self.thinking_budget,
             )
             target_translation = str(
                 fixed.get("corrected_target_translation") or target_translation
@@ -297,6 +307,7 @@ class TranslationPipeline:
                     target_language=payload.target_language,
                 ),
                 temperature=0.0,
+                thinking_budget=self.thinking_budget,
             )
 
         if context_tone_validation.get("verdict") != "PASS":
@@ -333,6 +344,7 @@ class TranslationPipeline:
                 target_language=payload.target_language,
             ),
             temperature=0.0,
+            thinking_budget=self.thinking_budget,
         )
 
         return {
@@ -388,6 +400,7 @@ class TranslationPipeline:
                 approved_dictionary=payload.approved_ingredient_dictionary,
             ),
             temperature=0.0,
+            thinking_budget=self.thinking_budget,
         )
 
     async def _extract_target_hard_facts_with_retry(
@@ -456,6 +469,7 @@ class TranslationPipeline:
                     target_language=payload.target_language,
                 ),
                 temperature=0.0,
+                thinking_budget=self.thinking_budget,
             )
             if isinstance(generated, dict):
                 metadata = {**generated, **metadata}
