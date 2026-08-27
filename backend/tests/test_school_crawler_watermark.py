@@ -4,6 +4,7 @@ from app.services.school_crawler_service import (
     DiscoveredPostPreview,
     _apply_watermark_filter,
     _watermark_post_value,
+    compute_board_watermarks,
 )
 
 
@@ -76,6 +77,45 @@ class ApplyWatermarkFilterTest(unittest.TestCase):
         kept, updated = _apply_watermark_filter(posts, {"b1": 50, "b2": 3})
         self.assertEqual([(p.board_key, p.post_id) for p in kept], [("b1", "100"), ("b2", "5")])  # b1 40<50 제외
         self.assertEqual(updated, {"b1": 100, "b2": 5})
+
+
+class ComputeBoardWatermarksTest(unittest.TestCase):
+    """재가동 컷오프 시딩이 쓸 '게시판별 현재 최대 글번호' 계산."""
+
+    def _post(self, board_key: str, post_id: str, method: str = "list", source: str = "href query id2") -> DiscoveredPostPreview:
+        return DiscoveredPostPreview(
+            title="t",
+            post_id=post_id,
+            post_uid=f"{board_key}#{post_id}",
+            board_key=board_key,
+            detail_url="https://example.test/view",
+            status="success",
+            method=method,
+            source=source,
+            cms_key="egov",
+            parser_family="egov",
+            reason="",
+        )
+
+    def test_takes_max_per_board_key(self) -> None:
+        posts = [
+            self._post("boardA", "100"),
+            self._post("boardA", "342"),
+            self._post("boardB", "7"),
+        ]
+        self.assertEqual(compute_board_watermarks(posts), {"boardA": 342, "boardB": 7})
+
+    def test_ignores_posts_outside_watermark_scope(self) -> None:
+        """해시 생성·첨부 파일번호·비숫자 id 는 시간순이 보장되지 않아 워터마크 대상이 아니다."""
+        posts = [
+            self._post("boardA", "abc123"),
+            self._post("boardA", "500", method="generated"),
+            self._post("boardA", "600", method="file_download"),
+        ]
+        self.assertEqual(compute_board_watermarks(posts), {})
+
+    def test_empty_input_is_empty_output(self) -> None:
+        self.assertEqual(compute_board_watermarks([]), {})
 
 
 if __name__ == "__main__":

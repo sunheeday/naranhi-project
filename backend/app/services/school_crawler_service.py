@@ -666,6 +666,21 @@ def _watermark_post_value(post: DiscoveredPostPreview) -> int | None:
     return int(post_id)
 
 
+def compute_board_watermarks(posts: list[DiscoveredPostPreview]) -> dict[str, int]:
+    """게시판(board_key)별 최대 글번호. 재가동 컷오프 시딩(scripts/seed_watermarks.py)이 쓴다.
+
+    _apply_watermark_filter 안의 갱신 로직과 같은 계산이지만 '필터링 없이 최대값만'
+    필요한 경우가 있어 따로 뺐다. 워터마크 비대상(_watermark_post_value 가 None)은 무시한다.
+    """
+    watermarks: dict[str, int] = {}
+    for post in posts:
+        value = _watermark_post_value(post)
+        if value is None:
+            continue
+        watermarks[post.board_key] = max(watermarks.get(post.board_key, 0), value)
+    return watermarks
+
+
 def _apply_watermark_filter(
     valid_posts: list[DiscoveredPostPreview],
     watermarks: dict[str, int],
