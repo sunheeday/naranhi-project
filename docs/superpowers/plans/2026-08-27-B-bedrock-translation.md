@@ -987,9 +987,8 @@ async def process_jobs(
             remaining = slots if max_jobs <= 0 else max_jobs - counters["claimed"]
             free = slots - (pending.qsize() + counters["in_flight"])
             limit = min(free, remaining)
-            # claim 은 동기 DB 왕복이다. 매 완료마다 하면 왕복이 늘어나므로
-            # 여유 슬롯이 절반 이상 났을 때만 채운다.
-            if limit <= 0 or free < max(1, slots // 2):
+            # 슬롯이 하나라도 비면 곧바로 채운다. (2026-08-27 정정 — 아래 주석 참조)
+            if limit <= 0:
                 if remaining <= 0 and pending.qsize() == 0 and counters["in_flight"] == 0:
                     break
                 slot_freed.clear()
@@ -1074,7 +1073,10 @@ git commit -m "perf(worker): 번역 워커의 배치 대기 제거 — 슬롯이
 먼저 끝난 슬롯이 가장 느린 잡을 기다리며 놀았다(유휴율 약 23%).
 
 소비자 N개가 큐에서 뽑아 처리하고, 여유 슬롯이 batch_size/2 이상 났을 때만
-claim 한다 — claim 은 동기 DB 왕복이라 매 완료마다 하면 왕복이 늘어난다.
+claim 한다. **🔴 2026-08-27 정정 — 원안의 「여유가 절반 이상일 때만 채운다」 임계값을 뺐다.**
+Task 3 실측으로 잡 하나가 약 51.64초(공지 1건 x 언어 1개)인 것이 확인됐는데 claim 왕복은
+수십 밀리초다. 슬롯 10개에서 임계값을 절반에 두면 다섯 번째 완료를 기다리는 동안 최대 네
+슬롯이 수십 초를 논다 — 아끼는 것은 왕복 여덟 번뿐이라 잘못된 절충이었다. 커밋 `dd276e1`.
 
 gather 의 취소 전파(한 잡이 취소되면 형제를 접고 CancelledError 를 올린다)는
 graceful shutdown 계약이라 소비자 구조에서도 유지한다.
