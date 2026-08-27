@@ -149,8 +149,19 @@ class GeminiJsonClient:
 
     def _get_vertex_client(self) -> Any:
         if self._vertex_client is None:
+            import socket
+
             from google import genai
             from google.genai import types
+
+            # googleapis/python-genai #2705: 기본 httpx transport 가 SO_KEEPALIVE 를
+            # 켜지 않아, 콜당 20~30초 무응답이 정상인 이 워크로드에서 NAT 가 연결을 끊는다.
+            # TCP_KEEPIDLE 계열은 리눅스에만 있으므로 있는 것만 넣는다.
+            socket_options = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+            for name, value in (("TCP_KEEPIDLE", 15), ("TCP_KEEPINTVL", 5), ("TCP_KEEPCNT", 6)):
+                option = getattr(socket, name, None)
+                if option is not None:
+                    socket_options.append((socket.IPPROTO_TCP, option, value))
 
             self._vertex_client = genai.Client(
                 vertexai=True,
@@ -159,6 +170,12 @@ class GeminiJsonClient:
                 http_options=types.HttpOptions(
                     api_version="v1",
                     timeout=int(self.timeout_seconds * 1000),
+                    # #1875: SDK 내부 재시도(고정 백오프 5회)가 앱 백오프 4회와 중첩돼
+                    # 최악 ~20회 시도가 된다. SDK 쪽을 1회로 묶고 앱 백오프만 남긴다.
+                    retry_options=types.HttpRetryOptions(attempts=1),
+                    async_client_args={
+                        "transport": httpx.AsyncHTTPTransport(socket_options=socket_options),
+                    },
                 ),
             )
         return self._vertex_client
