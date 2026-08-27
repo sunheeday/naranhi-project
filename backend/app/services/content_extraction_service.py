@@ -739,11 +739,23 @@ async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tu
     ordered = [data for _, data in ordered_items]
     combined = await asyncio.to_thread(_stitch_images_vertically, ordered)
     if not combined:
+        LOGGER.info(
+            "body images: notice_id=%s collected=%s stitched=0 upload=skip",
+            notice_id,
+            len(ordered),
+        )
         return ""
     from app.services.attachment_storage import upload_bytes
 
     info = await upload_bytes(
         notice_id=notice_id, name="body-images", data=combined, content_type="image/png", ext=".png"
+    )
+    LOGGER.info(
+        "body images: notice_id=%s collected=%s stitched=1 bytes=%s upload=%s",
+        notice_id,
+        len(ordered),
+        len(combined),
+        "ok" if info else "fail",
     )
     return info["storage_path"] if info else ""
 

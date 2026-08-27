@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import re
 import tempfile
@@ -45,6 +46,8 @@ from extractor.extractors.image_gemini_extractor import extract_image_text
 from extractor.extractors.pdf_extractor import extract_pdf_text
 from extractor.extractors.xlsx_extractor import extract_xlsx_text
 
+
+LOGGER = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path("outputs")
 MIN_TEXT_CHARS = 20
@@ -240,8 +243,13 @@ async def _extract_source(
                         referer=fetched_final_url,
                     )
                     await on_attachment(candidate.source_id, collected)
-                except Exception:  # noqa: BLE001 - 수집 실패가 추출을 막지 않게.
-                    pass
+                except Exception as exc:  # noqa: BLE001 - 수집 실패가 추출을 막지 않게.
+                    LOGGER.warning(
+                        "inline image collect failed: source_id=%s stage=skip_path %s: %s",
+                        candidate.source_id,
+                        type(exc).__name__,
+                        sanitize_error(exc),
+                    )
             return _source_from_text(
                 candidate,
                 raw_text="",
@@ -263,8 +271,13 @@ async def _extract_source(
             if on_attachment is not None:
                 try:
                     await on_attachment(candidate.source_id, downloaded)
-                except Exception:  # noqa: BLE001 - 수집 실패가 추출을 막지 않게.
-                    pass
+                except Exception as exc:  # noqa: BLE001 - 수집 실패가 추출을 막지 않게.
+                    LOGGER.warning(
+                        "inline image collect failed: source_id=%s stage=ocr_path %s: %s",
+                        candidate.source_id,
+                        type(exc).__name__,
+                        sanitize_error(exc),
+                    )
             if gemini is None:
                 raise RuntimeError("Gemini API key is required for image OCR.")
             extracted = await extract_image_text(
