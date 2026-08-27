@@ -61,6 +61,34 @@ class Settings(BaseSettings):
     )
     vertex_ai_project_id: str | None = Field(default=None, alias="VERTEX_AI_PROJECT_ID")
     vertex_ai_location: str = Field(default="global", alias="VERTEX_AI_LOCATION")
+    # 번역 파이프라인이 쓸 JSON 모델 백엔드. gemini | bedrock.
+    # 문서판독(GeminiDocumentExtractor)과 크롤러는 이 값과 무관하게 Gemini 를 계속 쓴다.
+    # 되돌리기는 이 한 줄이다 — 코드 revert 가 필요 없다.
+    translation_backend: str = Field(default="gemini", alias="TRANSLATION_BACKEND")
+    # global. 라우팅은 사용자 승인됨(스펙 §16 해결됨 Q1). 다만 학교 공지에는
+    # 학생 이름·학년반·보호자 연락처가 섞이므로 호출한 프로필을 로그에 남긴다.
+    bedrock_region: str = Field(default="ap-northeast-2", alias="BEDROCK_REGION")
+    # 기본은 Haiku 다(스펙 §5.10.1). 2026-08-27 실측에서 PDF·이미지 판독 정확도가
+    # Sonnet 과 동급이고 텍스트 지연은 더 짧았다(920ms vs 1,303ms).
+    # 게이트를 못 넘을 때만 Sonnet 으로 승급한다 — env 한 줄이다.
+    # Opus 는 쓰지 않는다(비용, 사용자 지시). Nova 는 한국어 본문 생성 경로에서 제외한다
+    # (읽지 못한 문서의 본문을 지어냈다 — 스펙 §5.9.2).
+    bedrock_translation_model: str = Field(
+        default="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        alias="BEDROCK_TRANSLATION_MODEL",
+    )
+    # 원문 하드팩트 추출 단계만 다른 모델로 돌리고 싶을 때 쓴다.
+    # None 이면 bedrock_translation_model 을 그대로 쓴다.
+    # 여기에도 Nova 를 넣지 않는다 — 하드팩트는 «지어내면 코드가 못 잡는» 자리다.
+    bedrock_mechanical_model: str | None = Field(default=None, alias="BEDROCK_MECHANICAL_MODEL")
+    # Bedrock Converse 는 boto3 동기 호출이라 전용 스레드풀에서 돈다.
+    # asyncio 기본 executor 는 min(32, cpu+4) = 워커(--cpu=1)에서 5라 조용히 직렬화된다.
+    bedrock_max_workers: int = Field(
+        default=32,
+        ge=1,
+        le=64,
+        alias="BEDROCK_MAX_WORKERS",
+    )
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
