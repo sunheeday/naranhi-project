@@ -125,7 +125,7 @@ jobs:
             --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
             --region="$REGION" \
             --command=python \
-            --args="-m,app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3" \
+            --args="-m,app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3,--batch-size,3" \
             --task-timeout=3600 \
             --max-retries=1 \
             --memory=512Mi \
@@ -150,6 +150,10 @@ jobs:
             --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},CRAWLER_SCHEDULE_NOTICE_COUNT=8" \
             --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
 
+      # EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN=0 = 런당 콜 상한 해제. _cap_reached 가 cap>0 일 때만
+      # 동작하고, 같은 조건이 batch_size=1 강제 직렬화도 켠다 → 0 이 상한 해제 + 동시성 3 복원.
+      # 폭주 방어는 --max-notices 30 / 공지당 8콜 / 26MB / 600초 / OCR 동시 6 이 남는다.
+      # 메모리 2Gi: 타일 24조각 + PIL 본문사진 합성 12장(_MAX_BODY_IMAGES)에 512Mi 는 OOM 위험.
       - name: Deploy scheduled content extractor Job to Cloud Run
         if: ${{ env.CONTENT_EXTRACTOR_JOB != '' }}
         run: |
@@ -160,7 +164,7 @@ jobs:
             --args="-m,app.jobs.scheduled_content_extractor,--max-notices,30" \
             --task-timeout=14400 \
             --max-retries=0 \
-            --memory=512Mi \
+            --memory=2Gi \
             --cpu=1 \
-            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},GEMINI_MAX_CONCURRENCY=32,EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN=0" \
             --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
