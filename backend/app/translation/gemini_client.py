@@ -24,12 +24,27 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 QUOTA_BACKOFF_DELAYS_SECONDS: tuple[float, ...] = (5.0, 10.0, 20.0, 40.0)
 
 
+# Bedrock 은 스로틀을 ThrottlingException 으로 돌려주고 메시지는 "Too many requests,
+# please wait before trying again." 이다 — 429·quota·rate limit 이 하나도 없다.
+# 마커를 넓히지 않으면 백오프가 한 번도 동작하지 않고 잡 실패로 직행한다.
+# Gemini 경로에는 무해하다(그 문자열이 나올 일이 없다).
+QUOTA_ERROR_MARKERS: tuple[str, ...] = (
+    "429",
+    "resource_exhausted",
+    "rate limit",
+    "rate_limit",
+    "quota",
+    "throttling",
+    "too many requests",
+    "toomanyrequests",
+    "serviceunavailable",
+    "modelnotready",
+)
+
+
 def is_quota_exhausted_error(error: Exception) -> bool:
     message = f"{type(error).__name__}: {error}".lower()
-    return any(
-        marker in message
-        for marker in ("429", "resource_exhausted", "rate limit", "rate_limit", "quota")
-    )
+    return any(marker in message for marker in QUOTA_ERROR_MARKERS)
 
 
 async def call_with_quota_backoff(
