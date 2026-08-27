@@ -41,6 +41,24 @@ from app.translation.orchestrator import (  # noqa: E402
 )
 
 
+def _apply_arm_env(iter_dir: Path, arm_id: str) -> dict:
+    """arms.json 의 env 를 프로세스 환경에 적용하고 arm 정의를 돌려준다.
+
+    get_settings 는 lru_cache 라 환경을 바꾼 뒤 반드시 캐시를 비워야 한다.
+    """
+    arms_path = iter_dir / "arms.json"
+    if not arms_path.is_file():
+        raise SystemExit(f"ERROR: arms.json not found at {arms_path}")
+    arms = json.loads(arms_path.read_text(encoding="utf-8")).get("arms") or []
+    for arm in arms:
+        if arm.get("id") == arm_id:
+            for key, value in (arm.get("env") or {}).items():
+                os.environ[key] = str(value)
+            get_settings.cache_clear()
+            return arm
+    raise SystemExit(f"ERROR: arm '{arm_id}' not found in {arms_path}")
+
+
 async def run_one(
     pipeline: TranslationPipeline,
     source_text: str,
@@ -85,6 +103,11 @@ async def main() -> int:
         default=None,
         help="Comma-separated notice IDs to limit run to (default: all).",
     )
+    parser.add_argument(
+        "--arm",
+        default=None,
+        help="arms.json 의 arm id. 지정하면 pipeline-output/<arm>/ 아래에 쓴다.",
+    )
     args = parser.parse_args()
 
     iter_dir: Path = args.iter
@@ -94,6 +117,7 @@ async def main() -> int:
         return 2
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    arm = _apply_arm_env(iter_dir, args.arm) if args.arm else None
     target_langs = (
         [lang.strip() for lang in args.langs.split(",") if lang.strip()]
         if args.langs
@@ -130,6 +154,8 @@ async def main() -> int:
         role = notice["role"]
         source_path = iter_dir / notice["source_path"]
         out_dir = source_path.parent / "pipeline-output"
+        if args.arm:
+            out_dir = out_dir / args.arm
         out_dir.mkdir(parents=True, exist_ok=True)
         source_text = source_path.read_text(encoding="utf-8")
         source_meta = _load_source_meta(source_path)
@@ -165,6 +191,10 @@ async def main() -> int:
                 }
                 print(f"  {lang}: ERROR — {exc}", file=sys.stderr)
 
+            wall_seconds = round(time.time() - t0, 2)
+            if isinstance(result, dict):
+                result["wall_seconds"] = wall_seconds
+
             (out_dir / f"{lang}.json").write_text(
                 json.dumps(result, ensure_ascii=False, indent=2),
                 encoding="utf-8",
@@ -172,15 +202,17 @@ async def main() -> int:
             notice_summary["languages"][lang] = {
                 "status": result.get("status"),
                 "validation": result.get("validation"),
+                "wall_seconds": wall_seconds,
             }
         summary.append(notice_summary)
 
     elapsed = time.time() - start
     print(f"\nDone in {elapsed:.1f}s")
 
-    (iter_dir / "_pipeline_run_summary.json").write_text(
+    summary_name = f"_pipeline_run_summary.{args.arm}.json" if args.arm else "_pipeline_run_summary.json"
+    (iter_dir / summary_name).write_text(
         json.dumps(
-            {"elapsed_seconds": round(elapsed, 1), "notices": summary},
+            {"arm": args.arm, "elapsed_seconds": round(elapsed, 1), "notices": summary},
             ensure_ascii=False,
             indent=2,
         ),
