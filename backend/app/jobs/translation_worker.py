@@ -74,45 +74,102 @@ async def process_jobs(
 ) -> int:
     queue = JobQueueService()
     queue.reclaim_stale_jobs(job_types=[JOB_TYPE], stale_seconds=stale_seconds)
-    processed = 0
-    grace_used = False
-    # max_jobs<=0 이면 큐가 빌 때까지 drain(Cloud Run Job 1회 실행용).
-    while max_jobs <= 0 or processed < max_jobs:
-        limit = batch_size if max_jobs <= 0 else min(batch_size, max_jobs - processed)
-        jobs = queue.claim(job_types=[JOB_TYPE], limit=limit)
-        if not jobs:
-            # enqueue-트리거 경합: drain 종료 직전 짧게 한 번 더 폴링해
-            # 막 들어온 잡을 놓치지 않는다.
-            if idle_grace_seconds > 0 and not grace_used:
-                grace_used = True
-                await asyncio.sleep(idle_grace_seconds)
-                continue
-            break
-        grace_used = False
-        LOGGER.info(
-            "translation worker batch claimed: count=%s job_ids=%s",
-            len(jobs),
-            ",".join(str(job.get("id")) for job in jobs),
-        )
-        async def _process_one(job: dict[str, object]) -> None:
-            try:
-                result = await _run_job(job)
-                queue.complete(str(job["id"]), result=serialize_job_result(result))
-                LOGGER.info("translation worker job completed: job_id=%s", job.get("id"))
-            except asyncio.CancelledError as exc:
-                LOGGER.warning("translation worker job cancelled: job_id=%s", job.get("id"))
-                queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
-                raise
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.exception("translation worker job failed: job_id=%s", job.get("id"))
-                queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
 
-        # 배치를 동시에 처리한다(직렬 → 병렬). 한 잡의 실패는 다른 잡에 영향이 없고,
-        # Vertex로 가는 콜 동시수는 gemini_client의 전역 세마포어가 DSQ 천장으로 통제한다.
-        # 한 잡이 취소되면 gather가 형제를 취소하고 CancelledError를 전파(graceful shutdown).
-        await asyncio.gather(*(_process_one(job) for job in jobs))
-        processed += len(jobs)
-    return processed
+    slots = max(1, batch_size)
+    pending: asyncio.Queue[dict[str, object] | None] = asyncio.Queue()
+    counters = {"claimed": 0, "processed": 0, "in_flight": 0}
+    slot_freed = asyncio.Event()
+
+    async def _process_one(job: dict[str, object]) -> None:
+        try:
+            result = await _run_job(job)
+            queue.complete(str(job["id"]), result=serialize_job_result(result))
+            LOGGER.info("translation worker job completed: job_id=%s", job.get("id"))
+        except asyncio.CancelledError as exc:
+            LOGGER.warning("translation worker job cancelled: job_id=%s", job.get("id"))
+            queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
+            raise
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("translation worker job failed: job_id=%s", job.get("id"))
+            queue.fail(job, error=f"{type(exc).__name__}: {exc}", retry_delay_seconds=retry_delay_seconds)
+
+    async def _consumer() -> None:
+        while True:
+            job = await pending.get()
+            if job is None:
+                return
+            counters["in_flight"] += 1
+            try:
+                await _process_one(job)
+            finally:
+                counters["in_flight"] -= 1
+                counters["processed"] += 1
+                slot_freed.set()
+
+    consumers = [asyncio.create_task(_consumer()) for _ in range(slots)]
+    grace_used = False
+    # claim()이 빈 응답을 준 뒤로는(그리고 grace 재폴링도 소진했다면) 더 이상
+    # 새 claim을 시도하지 않는다 — 이미 pending/in-flight인 잡만 비워내고 끝낸다.
+    # 이게 없으면 top-up이 바쁜 동안(슬롯이 남아 있는 한) idle_grace_seconds=0이어도
+    # 슬롯이 빌 때마다 계속 claim을 재시도해 "grace 없음" 계약을 어긴다.
+    queue_exhausted = False
+
+    try:
+        while True:
+            if queue_exhausted:
+                if pending.qsize() == 0 and counters["in_flight"] == 0:
+                    break
+                slot_freed.clear()
+                await slot_freed.wait()
+                continue
+
+            remaining = slots if max_jobs <= 0 else max_jobs - counters["claimed"]
+            free = slots - (pending.qsize() + counters["in_flight"])
+            limit = min(free, remaining)
+            # claim 은 동기 DB 왕복이다. 매 완료마다 하면 왕복이 늘어나므로
+            # 여유 슬롯이 절반 이상 났을 때만 채운다.
+            if limit <= 0 or free < max(1, slots // 2):
+                if remaining <= 0 and pending.qsize() == 0 and counters["in_flight"] == 0:
+                    break
+                slot_freed.clear()
+                await slot_freed.wait()
+                continue
+
+            jobs = queue.claim(job_types=[JOB_TYPE], limit=limit)
+            if not jobs:
+                # enqueue-트리거 경합: drain 종료 직전 짧게 한 번 더 폴링해
+                # 막 들어온 잡을 놓치지 않는다.
+                if idle_grace_seconds > 0 and not grace_used:
+                    grace_used = True
+                    await asyncio.sleep(idle_grace_seconds)
+                    continue
+                queue_exhausted = True
+                continue
+
+            grace_used = False
+            counters["claimed"] += len(jobs)
+            LOGGER.info(
+                "translation worker batch claimed: count=%s job_ids=%s",
+                len(jobs),
+                ",".join(str(job.get("id")) for job in jobs),
+            )
+            for job in jobs:
+                pending.put_nowait(job)
+    except BaseException:
+        # 바깥에서 취소되면 소비자도 함께 접는다 — gather 시절의 취소 전파와 같은 계약.
+        for task in consumers:
+            task.cancel()
+        await asyncio.gather(*consumers, return_exceptions=True)
+        raise
+
+    for _ in consumers:
+        pending.put_nowait(None)
+    results = await asyncio.gather(*consumers, return_exceptions=True)
+    for item in results:
+        # CancelledError 는 Exception 이 아니다. graceful shutdown 신호이므로 그대로 전파한다.
+        if isinstance(item, BaseException) and not isinstance(item, Exception):
+            raise item
+    return counters["processed"]
 
 
 async def run_async(args: argparse.Namespace) -> int:
