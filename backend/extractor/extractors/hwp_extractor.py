@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 import shutil
 import subprocess
 import re
@@ -17,6 +18,14 @@ from extractor.extractors.image_gemini_extractor import extract_image_text
 
 _URL_RE = re.compile(r"(?:https?://|www\.)[A-Za-z0-9./:_?=&%#@~+\-]+")
 
+# 줄 시작 '|' 가 2줄 이상이면 markdownify 가 실제 <table> 을 변환한 것으로 본다.
+# 한 줄짜리는 깨진 markdown 일 수 있으므로 표로 치지 않는다.
+_TABLE_ROW_RE = re.compile(r"(?m)^\s*\|")
+
+
+def _has_markdown_table(markdown: str) -> bool:
+    return len(_TABLE_ROW_RE.findall(markdown)) >= 2
+
 
 async def extract_hwp_text(
     path: Path,
@@ -29,7 +38,18 @@ async def extract_hwp_text(
 
     markdown = _hwp_to_markdown(path, warnings)
     stripped = markdown.strip()
-    if len(stripped) >= 40:  # hwp5html 로 표 구조·앞글자 보존 성공
+    # 1순위의 존재 이유는 '표 보존'이다(_hwp_to_markdown docstring). 표가 나왔는데 짧다는
+    # 이유로 표를 못 읽는 2순위(PARA_TEXT 레코드만)로 떨어뜨리면 목적에 반한다.
+    # 일정표 한 장짜리 가정통신문이 정확히 여기 걸렸다. 길이가 아니라 구조로 판정한다.
+    # 20자 하한은 남긴다 — 깨진 markdown 이 표 마커만 갖고 통과하는 것을 막는다.
+    # HWP5HTML_ACCEPT_SHORT_TABLES=0 이면 옛 길이 전용(>=40) 판정으로 롤백한다.
+    table_rows = len(_TABLE_ROW_RE.findall(stripped))
+    accept_short_table = (
+        os.getenv("HWP5HTML_ACCEPT_SHORT_TABLES", "1") != "0"
+        and _has_markdown_table(stripped)
+        and len(stripped) >= 20
+    )
+    if len(stripped) >= 40 or accept_short_table:  # hwp5html 로 표 구조·앞글자 보존 성공
         return ExtractedText(
             source=source_name,
             method="hwp5html_markdown",
@@ -40,8 +60,11 @@ async def extract_hwp_text(
         )
 
     # 1순위가 표를 보존하는 유일한 경로다. 여기까지 왔다는 것은 실패했다는 뜻이므로
-    # 이유를 남긴다 — 운영 6건이 이유 없이 2순위로 떨어져 원인 규명이 불가능했다.
-    warnings.append(f"hwp5html_too_short: chars={len(stripped)}")
+    # 이유를 남긴다 — 운영 6건이 이유 없이 2순위로 떨어져 원인 규명이 불가능했다(Task 3).
+    # Task 5: 진입 조건이 '길이 단독'에서 '길이 또는 표 구조'로 바뀌어 "너무 짧다"만으로는
+    # 더 이상 이유를 설명하지 못한다. 이름을 바꾸고, 새 조건이 실제로 본 관측값
+    # (글자수·표로 인식된 줄 수)을 함께 남긴다.
+    warnings.append(f"hwp5html_below_threshold: chars={len(stripped)} table_rows={table_rows}")
 
     body_text = _try_hwp_ole_bodytext(path, warnings)
     filtered_body_text = _clean_hwp_text(body_text, aggressive=True)

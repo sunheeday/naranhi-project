@@ -156,8 +156,10 @@ class HwpFirstTierSilentExitTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(result.method, "hwp_ole_bodytext_filtered")
+        # Task 5: 진입 조건이 길이 단독에서 '길이 또는 표 구조'로 바뀌면서 경고 이름도
+        # hwp5html_too_short -> hwp5html_below_threshold 로 바뀌었다(관측값은 유지).
         self.assertTrue(
-            any(w.startswith("hwp5html_too_short:") for w in result.warnings),
+            any(w.startswith("hwp5html_below_threshold:") for w in result.warnings),
             f"이유가 기록되지 않았다: {result.warnings}",
         )
 
@@ -172,6 +174,71 @@ class HwpFirstTierSilentExitTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(markdown, "")
         self.assertIn("hwp5html_skip_no_command", warnings)
+
+
+class HwpShortTableTest(unittest.IsolatedAsyncioTestCase):
+    """표만 있고 산문이 적은 가정통신문(일정표 한 장)이 표를 잃으면 안 된다.
+
+    1순위의 존재 이유가 표 보존인데, 표가 나왔는데도 '짧다'는 이유로 표를 못 읽는
+    2순위(PARA_TEXT 레코드만 긁음)로 떨어뜨리는 것은 목적에 반한다.
+    """
+
+    SHORT_TABLE = "| 날짜 | 내용 |\n| --- | --- |\n| 3/2 | 개학 |"
+
+    async def test_short_markdown_with_table_is_accepted(self) -> None:
+        from unittest.mock import patch
+
+        from extractor.extractors import hwp_extractor
+
+        self.assertLess(len(self.SHORT_TABLE.strip()), 40)  # 기존 임계값에 걸리는 길이
+
+        with patch.object(hwp_extractor, "_hwp_to_markdown", return_value=self.SHORT_TABLE), patch.object(
+            hwp_extractor, "_append_hwp_hyperlinks", side_effect=lambda md, _p: md
+        ):
+            result = await hwp_extractor.extract_hwp_text(
+                Path("dummy.hwp"), source_name="dummy.hwp", gemini=None, work_dir=Path(".")
+            )
+
+        self.assertEqual(result.method, "hwp5html_markdown")
+        self.assertIn("| 3/2 | 개학 |", result.text)
+
+    async def test_short_markdown_without_table_still_falls_back(self) -> None:
+        from unittest.mock import patch
+
+        from extractor.extractors import hwp_extractor
+
+        with patch.object(hwp_extractor, "_hwp_to_markdown", return_value="짧은 산문"), patch.object(
+            hwp_extractor, "_try_hwp_ole_bodytext", return_value="본문 텍스트가 충분히 길게 들어 있는 문단입니다."
+        ):
+            result = await hwp_extractor.extract_hwp_text(
+                Path("dummy.hwp"), source_name="dummy.hwp", gemini=None, work_dir=Path(".")
+            )
+
+        self.assertEqual(result.method, "hwp_ole_bodytext_filtered")
+
+    async def test_short_table_falls_back_when_rollback_switch_disabled(self) -> None:
+        """HWP5HTML_ACCEPT_SHORT_TABLES=0 이면 옛 길이 전용(>=40) 판정으로 되돌아간다."""
+        import os
+        from unittest.mock import patch
+
+        from extractor.extractors import hwp_extractor
+
+        with patch.object(hwp_extractor, "_hwp_to_markdown", return_value=self.SHORT_TABLE), patch.object(
+            hwp_extractor, "_try_hwp_ole_bodytext", return_value="본문 텍스트가 충분히 길게 들어 있는 문단입니다."
+        ), patch.dict(os.environ, {"HWP5HTML_ACCEPT_SHORT_TABLES": "0"}):
+            result = await hwp_extractor.extract_hwp_text(
+                Path("dummy.hwp"), source_name="dummy.hwp", gemini=None, work_dir=Path(".")
+            )
+
+        self.assertEqual(result.method, "hwp_ole_bodytext_filtered")
+        self.assertTrue(any(w.startswith("hwp5html_below_threshold:") for w in result.warnings))
+
+    async def test_single_pipe_line_is_not_a_table(self) -> None:
+        """깨진 markdown 한 줄이 표로 오인되면 쓰레기가 1순위로 통과한다."""
+        from extractor.extractors.hwp_extractor import _has_markdown_table
+
+        self.assertFalse(_has_markdown_table("| 뭔가"))
+        self.assertTrue(_has_markdown_table("| a |\n| b |"))
 
 
 if __name__ == "__main__":
