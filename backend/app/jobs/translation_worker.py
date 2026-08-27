@@ -126,9 +126,15 @@ async def process_jobs(
             remaining = slots if max_jobs <= 0 else max_jobs - counters["claimed"]
             free = slots - (pending.qsize() + counters["in_flight"])
             limit = min(free, remaining)
-            # claim 은 동기 DB 왕복이다. 매 완료마다 하면 왕복이 늘어나므로
-            # 여유 슬롯이 절반 이상 났을 때만 채운다.
-            if limit <= 0 or free < max(1, slots // 2):
+            # 슬롯이 하나라도 비면 곧바로 채운다.
+            #
+            # 처음엔 「claim 이 동기 DB 왕복이니 여유가 절반 이상일 때만 채운다」로
+            # 두었는데, 실측을 얻고 보니 잘못된 절충이었다. 잡 하나가 약 51초인데
+            # (Task 3: 공지 1건 x 언어 1개 = 51.64초) claim 왕복은 수십 밀리초다.
+            # 슬롯 10개 기준 임계값을 절반에 두면 다섯 번째 완료를 기다리는 동안
+            # 최대 네 슬롯이 수십 초를 논다. 그걸 아끼려고 절약하는 것은
+            # 왕복 여덟 번 — 1초도 안 된다. 바꾼 쪽이 맞다.
+            if limit <= 0:
                 if remaining <= 0 and pending.qsize() == 0 and counters["in_flight"] == 0:
                     break
                 slot_freed.clear()
