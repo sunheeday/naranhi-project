@@ -28,7 +28,8 @@ async def extract_hwp_text(
     warnings: list[str] = []
 
     markdown = _hwp_to_markdown(path, warnings)
-    if len(markdown.strip()) >= 40:  # hwp5html 로 표 구조·앞글자 보존 성공
+    stripped = markdown.strip()
+    if len(stripped) >= 40:  # hwp5html 로 표 구조·앞글자 보존 성공
         return ExtractedText(
             source=source_name,
             method="hwp5html_markdown",
@@ -37,6 +38,10 @@ async def extract_hwp_text(
             warnings=warnings,
             metadata={"quality": _text_quality(markdown)},
         )
+
+    # 1순위가 표를 보존하는 유일한 경로다. 여기까지 왔다는 것은 실패했다는 뜻이므로
+    # 이유를 남긴다 — 운영 6건이 이유 없이 2순위로 떨어져 원인 규명이 불가능했다.
+    warnings.append(f"hwp5html_too_short: chars={len(stripped)}")
 
     body_text = _try_hwp_ole_bodytext(path, warnings)
     filtered_body_text = _clean_hwp_text(body_text, aggressive=True)
@@ -97,6 +102,7 @@ def _hwp_to_markdown(path: Path, warnings: list[str]) -> str:
     """
     command = _hwp5html_command()
     if command is None:
+        warnings.append("hwp5html_skip_no_command")
         return ""
     try:
         import markdownify  # lazy import: 미설치 환경에선 이 경로만 건너뛰고 폴백

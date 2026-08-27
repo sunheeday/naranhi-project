@@ -136,5 +136,43 @@ class HwpTableSpanExpansionTests(unittest.TestCase):
         self.assertIn("진단서", md)
 
 
+class HwpFirstTierSilentExitTest(unittest.IsolatedAsyncioTestCase):
+    """1순위(hwp5html)가 실패했으면 이유가 반드시 warnings 에 남아야 한다.
+
+    운영 6건이 2순위로 떨어졌는데 이유가 하나도 기록되지 않았다. 침묵 이탈이
+    남아 있으면 Task 5(임계값 완화)가 먹혔는지 검증할 수단이 없다.
+    """
+
+    async def test_short_markdown_records_reason(self) -> None:
+        from unittest.mock import patch
+
+        from extractor.extractors import hwp_extractor
+
+        with patch.object(hwp_extractor, "_hwp_to_markdown", return_value="짧음"), patch.object(
+            hwp_extractor, "_try_hwp_ole_bodytext", return_value="본문 텍스트가 충분히 길게 들어 있는 문단입니다."
+        ):
+            result = await hwp_extractor.extract_hwp_text(
+                Path("dummy.hwp"), source_name="dummy.hwp", gemini=None, work_dir=Path(".")
+            )
+
+        self.assertEqual(result.method, "hwp_ole_bodytext_filtered")
+        self.assertTrue(
+            any(w.startswith("hwp5html_too_short:") for w in result.warnings),
+            f"이유가 기록되지 않았다: {result.warnings}",
+        )
+
+    async def test_missing_command_records_reason(self) -> None:
+        from unittest.mock import patch
+
+        from extractor.extractors import hwp_extractor
+
+        warnings: list[str] = []
+        with patch.object(hwp_extractor, "_hwp5html_command", return_value=None):
+            markdown = hwp_extractor._hwp_to_markdown(Path("dummy.hwp"), warnings)
+
+        self.assertEqual(markdown, "")
+        self.assertIn("hwp5html_skip_no_command", warnings)
+
+
 if __name__ == "__main__":
     unittest.main()
