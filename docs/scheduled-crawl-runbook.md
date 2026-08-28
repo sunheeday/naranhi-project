@@ -76,11 +76,11 @@ gcloud scheduler jobs create http naranhi-content-extractor-1900 --schedule="0 1
 
 | 스케줄러 | 주기 | 2026-08-27 상태 | 비고 |
 |---|---|---|---|
-| `naranhi-school-crawler-0600` | `0 6 * * *` | **PAUSED** | 2026-06-15 발표 준비로 정지 |
-| `naranhi-school-crawler-1900` | `0 19 * * *` | **PAUSED** | 위 create 예시의 `-1800` 은 옛 이름. 2026-06-15 발표 준비로 정지 |
-| `naranhi-content-extractor-0700` | `0 7 * * *` | **PAUSED** | 2026-06-15 발표 준비로 정지 |
-| `naranhi-content-extractor-2000` | `0 20 * * *` | **PAUSED** | 위 create 예시의 `-1900` 은 옛 이름. 2026-06-15 발표 준비로 정지 |
-| `naranhi-crawler-backstop` | `*/10 * * * *` | **PAUSED** | 큐 경로에서 놓친 잡 회수. 2026-06-15 발표 준비로 정지 |
+| `naranhi-school-crawler-0600` | `0 6 * * *` | **ENABLED** | 2026-06-15 발표 준비로 정지 → 2026-08-27 재가동(Task 11·12 확인) |
+| `naranhi-school-crawler-1900` | `0 19 * * *` | **ENABLED** | 위 create 예시의 `-1800` 은 옛 이름. 2026-08-27 재가동 |
+| `naranhi-content-extractor-0700` | `0 7 * * *` | **ENABLED** | 2026-08-27 재가동 |
+| `naranhi-content-extractor-2000` | `0 20 * * *` | **ENABLED** | 위 create 예시의 `-1900` 은 옛 이름. 2026-08-27 재가동 |
+| `naranhi-crawler-backstop` | `*/10 * * * *` | **ENABLED** | 큐 경로에서 놓친 잡 회수. 2026-08-27 재가동 |
 | `naranhi-translation-backstop` | `*/10 * * * *` | ENABLED | 5개가 정지된 동안에도 계속 돎(정지 대상이 아니었음) |
 
 **규칙: 누군가 스케줄러를 pause/resume 하면 이 표의 상태 칸을 그 자리에서 고치고 날짜와 이유를 적는다.**
@@ -228,6 +228,75 @@ gcloud scheduler jobs pause naranhi-crawler-backstop --location="$REGION"
 - **증분수집 끄기**: 크롤러 Job env `CRAWLER_WATERMARK_ENABLED=false` → 즉시 비활성(상위 N + 중복제거만).
 - **재크롤(기준선 무시)**: `scheduled_school_crawler --force`는 시간/unsupported 쿨다운만 무시한다.
   CMS가 글번호를 리셋해 신규글이 누락되면 해당 학교 `board_watermarks`를 SQL로 비우거나 낮춘다.
+
+## 크롤 → 추출 연결 (경로가 둘이고 계약이 다르다)
+
+| 경로 | 진입 | 크롤 후 추출 연결 |
+|---|---|---|
+| **큐 경로** (`crawler_worker`) | API `POST /crawler/schools/{id}/discover` 등이 잡을 enqueue | **있다.** `_run_discovery_job`(`backend/app/jobs/crawler_worker.py:31-37`)이 `status == "success" and success_count > 0` 이면 `school_notice_extraction` 잡을 enqueue 하고 같은 워커의 drain 루프(`:116-129`)가 이어서 집는다 |
+| **정기 경로** (`scheduled_school_crawler`) | Cloud Scheduler 06:00/19:00 | **없다. 이건 고장이 아니라 설계다.** 추출은 1시간 뒤 별도 스케줄러(`naranhi-content-extractor-0700`/`-2000`)가 `claim_notice_extractions` RPC로 직접 pending 공지를 집는다 — app_jobs 큐를 거치지 않는다 |
+
+큐 경로에서 연결이 끊길 수 있는 지점:
+
+| 지점 | 코드 | 끊기는 조건 |
+|---|---|---|
+| enqueue 조건 | `crawler_worker.py:31` | `success_count == 0` 이면 enqueue 자체가 없다. **워터마크가 켜져 있으면 「새 글 없음」 = 0 이 정상이다** |
+| 중복 억제 | `job_queue_service.py:51-64` | 같은 `job_key`(`school-extraction:{id}`)로 `queued`/`processing` 잡이 있으면 `already_running` 으로 새로 만들지 않는다 |
+| drain 종료 | `crawler_worker.py:116-129` | enqueue 직후 `idle_grace_seconds`(배포값 3초) 안에 claim 되어야 한다. 놓치면 백스톱까지 대기 |
+| 백스톱 | `naranhi-crawler-backstop` | 10분 주기. **2026-06-15 ~ 08-27 동안 PAUSED 였다** — 그동안은 놓친 잡을 아무도 깨우지 않았다 |
+
+> **브리프 정정:** 위 표에 인용된 gcloud 로그 검색식은 계획서 원문에서 Cloud Run Job 이름을
+> `naranhi-crawler-worker` 로 썼으나 **실제 배포된 Job 이름은 `naranhi-crawler-worker-job`이다**
+> (`gcloud run jobs list` 2026-08-28 실측). 아래 Step 2 쿼리는 정정된 이름을 쓴다.
+
+`scripts/recrawl_monitor.py:78-81` 의 수동 킥 폴백은 **이 표가 없어서 생긴 것이다.**
+운영자가 관측된 증상에 스크립트로 대응했다. **지우지 않는다** — 백스톱 resume 후
+실제 지연을 재고(아래), 필요 없다는 수치가 나오면 그때 지운다.
+
+### 실측 (재가동 후, 2026-08-28 Cloud Logging + `app_jobs`/`notices` 읽기 전용 조회)
+
+**정기 경로 지연: 약 59분 47초** (설계상 ~1시간과 일치).
+2026-08-27 21:00:25Z(=06:00:25 KST) 마지막 `scheduled school crawler result:` 로그 →
+2026-08-27 22:00:12Z(=07:00:12 KST) `naranhi-content-extractor` 의 첫 `claim_notice_extractions` 호출.
+
+**단, 그 정기 추출 런은 도중에 크래시했다(측정 중 실제 관측된 사고, 조작 아님).**
+문남초(`26a4bc3e`) 게시글의 인라인 이미지(5230만 픽셀 PNG, `DecompressionBombWarning`)를
+받아 처리하던 중 `Out-of-memory event detected in container` → `Container terminated on
+signal 9.` 로 컨테이너가 죽었다(`--memory=2Gi`, Task 1 이 이미 올린 값인데도 발생).
+`--max-retries=0` 이라 자동 재시도가 없고, 다음 기회는 20:00 KST(=11:00 UTC) 다음 정기런이다.
+`EXTRACTOR_STALE_MINUTES`(기본 180분) 경과 후 그 공지의 `processing` 클레임이 풀려 재시도
+대상이 된다 — **정기 경로에는 이 재클레임 외에 별도 백스톱이 없다.** 같은 이미지가 큐
+앞쪽에 남아 있으면 다음 런도 같은 자리에서 다시 죽을 위험이 있다(수 추측, 미확정).
+이 OOM 은 Task 12 범위 밖이라 **코드를 고치지 않았다** — 사실만 기록한다.
+
+**큐 경로: 최근 30일간 `school_board_discovery` 잡이 단 한 번도 실행되지 않아 자동
+enqueue 연결을 이번 관측 기간에는 잴 수 없었다(판정불가).** API 서비스 로그
+(`naranhi-api`, `httpRequest.requestUrl`)에도 `/crawler/schools/*/discover`·
+`/crawler/schools/*/extract-pending` 호출이 30일간 0건이다. 대신 `app_jobs` 테이블의
+과거 기록이 설계 동작 자체는 뒷받침한다:
+- 정상 케이스(백스톱이 살아있던 2026-06-11~14): enqueue 성공한 `school_notice_extraction`
+  잡 9건 모두 `created_at`→`started_at` 간격이 **1초 미만**(예: 92ms) — drain 루프가 즉시 집는다.
+- **폴백이 왜 생겼는지의 실물 증거:** 잡 `35386af5`(school_id=`26a4bc3e`)는 `created_at`
+  2026-06-15T03:38:18Z 에 enqueue 됐지만 `started_at` 은 2026-08-27T14:40:08Z —
+  **72일 9시간 22분** 방치됐다가 백스톱 재가동 첫 폴 사이클(10분 이내)에 회수됐다.
+  방치 사유는 정확히 이 문서가 지금 적고 있는 것: 백스톱이 72일간 PAUSED 였다.
+
+**`recrawl_monitor.py` 의 120초 폴백(`extract-pending` API) 발동 횟수: 0회**
+(API 서비스 Cloud Run 로그, `httpRequest.requestUrl:"extract-pending"`, 최근 7일 기준 0건).
+
+**현재 큐 상태(관측 시점): `app_jobs` 에 queued/processing 0건**(discovery 16건·
+extraction 14건 전부 completed). `notices` 는 37 done / 1 processing(위 OOM 영향 추정,
+문남초) / 0 pending.
+
+**판정 — 수동 킥이 필요한가: 판정불가(보류).** 관측 기간이 재가동 후 하루(2026-08-27~28)
+뿐이라 표본이 한 사이클(정기 크롤 1회 + 재가동 직후 수동 검증 크롤 1회, 정기 추출
+1회 — 그마저 크래시)뿐이다. 폴백
+발동은 0회였지만, 그 자체가 「필요 없다」는 근거로 삼기엔 이르다 — 아래 조건이 이어지면
+그때 삭제를 판단한다.
+
+**실측 (재가동 후): 정기 경로 지연 약 60분 / 큐 경로 지연 판정불가(30일간 발동 없음, 과거
+기록상 정상 시 1초 미만) / `recrawl_monitor.py` 의 120초 폴백 조건 발동 0회.**
+발동 0회가 며칠 이어지면 그때 폴백 삭제를 판단한다.
 
 ## 한계 (정직하게)
 
