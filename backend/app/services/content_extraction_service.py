@@ -687,13 +687,32 @@ def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
 def _stitch_images_vertically(images: list[bytes]) -> bytes | None:
     """여러 이미지 바이트를 같은 폭으로 맞춰 세로로 이어 붙인 PNG 1장(바이트)로 반환."""
     import io
+    import os
 
     from PIL import Image
+
+    # 디코드 «전에» 크기를 본다. `Image.open` 은 지연 로딩이라 헤더만 읽는다.
+    #
+    # 2026-08-27 운영에서 5230만 픽셀 PNG 한 장이 추출 Job(2Gi)을 OOM 으로 죽였다.
+    # RGB 로 펼치면 한 장에 약 150MB 이고 `.convert()` 가 사본을 하나 더 만든다.
+    # 컨테이너가 OS 에 죽는 것이라 `except Exception` 으로는 못 잡는다 — 그래서 사전 차단이다.
+    #
+    # 어차피 아래에서 폭을 1600 으로 줄인다. 거대한 원본을 살릴 이유가 없다.
+    # 한 장을 버리는 것이 그 런의 모든 공지를 잃는 것보다 낫다.
+    max_pixels = int(os.getenv("MAX_BODY_IMAGE_PIXELS", "40000000"))
 
     pil: list[Any] = []
     for data in images:
         try:
-            pil.append(Image.open(io.BytesIO(data)).convert("RGB"))
+            probe = Image.open(io.BytesIO(data))
+            pixels = probe.width * probe.height
+            if pixels > max_pixels:
+                LOGGER.warning(
+                    "body image skipped: too_large pixels=%s limit=%s size=%sx%s",
+                    pixels, max_pixels, probe.width, probe.height,
+                )
+                continue
+            pil.append(probe.convert("RGB"))
         except Exception:  # noqa: BLE001 - 깨진 이미지는 건너뜀
             continue
     if not pil:
