@@ -13,6 +13,7 @@ from app.crawler.cms_patterns import CmsDetection
 from app.crawler.homepage_client import extract_js_redirect_url
 from app.crawler.http_client import DEFAULT_HEADERS, make_async_client_for_url, same_origin, with_retries
 from app.crawler.link_extractor import page_snippet, page_title
+from app.crawler.rss_feed import RssFeedState, fetch_feed, parse_feed
 from app.crawler.unknown_post_resolver import UnknownPostGeminiResolver
 
 
@@ -54,6 +55,7 @@ class NoticePostRefResult:
     success_count: int
     gemini_used: bool
     error: str | None = None
+    source_channel: str = "html"
 
 
 @dataclass
@@ -78,6 +80,7 @@ async def extract_notice_post_refs(
     gemini_enabled: bool = False,
     max_posts: int = 30,
     timeout: float,
+    rss_feed: RssFeedState | None = None,
 ) -> NoticePostRefResult:
     if cms.key == "schoolbell" or "schoolbell-e.com" in urlparse(board_url).netloc:
         return NoticePostRefResult(
@@ -150,6 +153,25 @@ async def extract_notice_post_refs(
                 parser_family=parser_family,
                 max_posts=max_posts,
             )
+
+            # RSS 는 '게시판 HTML → 후보' 한 구간만 대체한다. 상세 접근 검증
+            # (_validate_candidate)은 그대로 탄다 — RSS 가 링크를 준다고 그것이
+            # 열린다는 보장은 없고, 로그인 게시판이면 여전히
+            # unsupported_login_required 로 떨어져야 한다.
+            #
+            # 게시판 HTML 을 그대로 먼저 받는 이유: RSS 가 실패했을 때 폴백할
+            # 후보와 referer 가 이미 손에 있어야 한다. 요청 1회가 비용이다.
+            source_channel = "html"
+            if rss_feed is not None:
+                rss_candidates = await _raw_candidates_from_rss(
+                    rss_feed=rss_feed,
+                    parser_family=parser_family,
+                    max_posts=max_posts,
+                    timeout=timeout,
+                )
+                if rss_candidates:
+                    raw_candidates = rss_candidates
+                    source_channel = "rss"
 
             gemini_used = False
             if parser_family == "generic" and not raw_candidates:
@@ -227,6 +249,7 @@ async def extract_notice_post_refs(
         success_count=success_count,
         gemini_used=gemini_used or any(item.gemini_used for item in posts),
         error=None,
+        source_channel=source_channel,
     )
 
 
@@ -816,6 +839,69 @@ def _raw_candidates_from_gemini(
             )
         )
     return candidates[:max_posts]
+
+
+def _rss_post_id(link: str, parser_family: str) -> tuple[str, str]:
+    """HTML 경로와 **같은 키·같은 정규식**으로만 뽑는다(:306, :417).
+
+    여기서 다른 값을 만들면 post_uid(:832)가 갈라져 같은 글이 두 행으로 저장되고,
+    에러가 나지 않으므로 아무도 모른다.
+    """
+    if parser_family == "select_ntt_like":
+        query = parse_qs(urlparse(link).query)
+        post_id = _first(query, "nttSn") or _first(query, "nttId") or _first(query, "articleId")
+        return (post_id or "", "href query" if post_id else "")
+    if parser_family == "slash_view_like":
+        match = SLASH_VIEW_RE.search(urlparse(link).path)
+        return (match.group(1), "path /view/") if match else ("", "")
+    return ("", "")
+
+
+async def _raw_candidates_from_rss(
+    *,
+    rss_feed: RssFeedState,
+    parser_family: str,
+    max_posts: int,
+    timeout: float,
+) -> list[_RawPostCandidate]:
+    """RSS item[] → _RawPostCandidate.
+
+    board_key 는 프로브가 저장한 값을 **그대로** 쓴다(재계산 금지).
+    post_id_source / detail_method 도 HTML 경로의 기존 값을 재사용한다 —
+    'rss' 같은 새 문자열을 만들면 워터마크 제외목록에는 안 걸리지만
+    crawl_result 진단이 갈라진다.
+
+    실패하면 빈 리스트를 돌려주고 호출부가 HTML 후보를 그대로 쓴다.
+    RSS 때문에 크롤이 실패하는 일은 없어야 한다.
+    """
+    if not rss_feed.url or not rss_feed.flavor or not rss_feed.board_key:
+        return []
+    try:
+        status_code, body = await fetch_feed(rss_feed.url, timeout=timeout)
+        if status_code != 200:
+            return []
+        items = parse_feed(body, flavor=rss_feed.flavor, feed_url=rss_feed.url)
+    except Exception:  # noqa: BLE001 - RSS 실패는 항상 HTML 경로로 폴백한다.
+        return []
+
+    candidates: list[_RawPostCandidate] = []
+    for index, item in enumerate(items[:max_posts]):
+        post_id, post_id_source = _rss_post_id(item.link, parser_family)
+        if not post_id:
+            continue
+        candidates.append(
+            _RawPostCandidate(
+                row_id=f"R{index}",
+                title=item.title,
+                row_text=item.title,
+                board_key=rss_feed.board_key,
+                post_id=post_id,
+                post_id_source=post_id_source,
+                detail_method="href",
+                url_candidates=[item.link],
+            )
+        )
+    return _dedupe_raw_candidates(candidates)[:max_posts]
 
 
 def _post_ref(

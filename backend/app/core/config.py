@@ -137,6 +137,12 @@ class Settings(BaseSettings):
         default=True,
         alias="CRAWLER_RSS_PROBE_ENABLED",
     )
+    # RSS 수집 경로: rss_feed.status='ok' 인 학교의 목록만 RSS 로 대체한다.
+    # 문제가 생기면 false 로 즉시 전 학교가 기존 HTML 경로로 돌아간다.
+    crawler_rss_collect_enabled: bool = Field(
+        default=False,
+        alias="CRAWLER_RSS_COLLECT_ENABLED",
+    )
     crawler_schedule_concurrency: int = Field(
         default=3,
         ge=1,

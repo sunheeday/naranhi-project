@@ -65,6 +65,7 @@ class SchoolBoardDiscoveryResult:
     board_source: str = "discovered"
     rediscovery_used: bool = False
     cached_board_failed_status: str | None = None
+    source_channel: str = "html"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -266,6 +267,11 @@ class SchoolCrawlerService:
                     gemini_enabled=gemini_enabled,
                     max_posts=post_limit,
                     timeout=settings.crawler_timeout_seconds,
+                    rss_feed=(
+                        _rss_feed_for_school(context.school_id)
+                        if settings.crawler_rss_collect_enabled
+                        else None
+                    ),
                 )
                 if cached_result.success_count > 0:
                     return cached_result
@@ -496,6 +502,7 @@ def _build_result_from_detail(
         board_source=board.board_source,
         rediscovery_used=board.rediscovery_used,
         cached_board_failed_status=board.cached_board_failed_status,
+        source_channel=detail_result.source_channel,
     )
 
 
@@ -588,6 +595,7 @@ async def _extract_cached_board_posts(
     gemini_enabled: bool,
     max_posts: int,
     timeout: float,
+    rss_feed: RssFeedState | None = None,
 ) -> SchoolBoardDiscoveryResult:
     detail_result = await extract_notice_post_refs(
         board_url=cached_board.board_url,
@@ -596,6 +604,7 @@ async def _extract_cached_board_posts(
         gemini_enabled=gemini_enabled,
         max_posts=max_posts,
         timeout=timeout,
+        rss_feed=rss_feed,
     )
     return _result_from_cached_detail_result(
         context=context,
@@ -769,6 +778,41 @@ def _read_rss_feed(school_id: str) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+def _rss_feed_for_school(school_id: str) -> RssFeedState | None:
+    """수집에 쓸 수 있는 상태(ok)일 때만 돌려준다.
+
+    브리프 원안은 `_fetch_school_row`가 병합한 row에서 `rss_feed`를 읽는
+    `_rss_feed_from_row(row)`였다. 그러려면 `_fetch_school_row`의
+    `school_crawl_state` select(:341-350)에 `rss_feed`를 추가해야 하는데, 그
+    select에는 try/except가 없다. Task 10이 실측으로 확인했듯 `0040`
+    마이그레이션이 운영에 아직 적용되지 않은 상태에서(이번 Task에서 직접
+    재확인함 - 운영 PostgREST가 42703로 400을 반환) 거기에 `rss_feed`를 넣으면
+    그 select 자체가 예외를 던져 **모든 학교의 모든 크롤이 `internal_error`가
+    된다** - 수집 전면 중단이다.
+
+    그래서 이미 자체 try/except로 컬럼 부재를 흡수하도록 만들어진 별도 쿼리
+    `_read_rss_feed`(:753-769, Task 9/10이 작성)를 그대로 재사용한다.
+    `_fetch_school_row`의 select는 건드리지 않는다.
+    """
+    raw = _read_rss_feed(school_id)
+    if raw.get("status") != "ok":
+        return None
+    url = _optional_str(raw.get("url"))
+    flavor = _optional_str(raw.get("flavor"))
+    board_key = _optional_str(raw.get("board_key"))
+    if not url or not flavor or not board_key:
+        return None
+    return RssFeedState(
+        status="ok",
+        flavor=flavor,
+        url=url,
+        board_key=board_key,
+        item_count=int(raw.get("item_count") or 0),
+        checked_at=str(raw.get("checked_at") or ""),
+        error=None,
+    )
+
+
 def _write_rss_feed(school_id: str, payload: dict[str, Any]) -> None:
     try:
         get_supabase_client().table("school_crawl_state").update(
@@ -846,6 +890,7 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
             "parser_family": post.parser_family or result.parser_family,
             "crawl_checked_at": crawl_checked_at,
             "post_rank": post_rank,
+            "source_channel": result.source_channel,
             "post": asdict(post),
         }
         payload = {
