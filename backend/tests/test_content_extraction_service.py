@@ -21,6 +21,7 @@ from app.services.content_extraction_service import (
     _primary_source_id,
     _refine_sources,
     _save_success,
+    _source_summary,
     _stitch_images_vertically,
     translate_sources_for_locale,
     _school_translation_locales,
@@ -682,13 +683,23 @@ class BodyImagesTests(unittest.TestCase):
         }
         with patch("app.services.content_extraction_service.get_supabase_client", return_value=client):
             _save_success(
-                {"id": "n1", "title": "t"}, FakeResult(), refinements, None, None, "https://x/body-images.png"
+                {"id": "n1", "title": "t"}, FakeResult(), refinements, None, None, "n1/body-images-abc123.png"
             )
         sources = client.table.return_value.update.call_args.args[0]["extracted_content"]["sources"]
         body = [s for s in sources if s.get("source_id") == "body_images_combined"]
         self.assertEqual(len(body), 1)
-        self.assertEqual(body[0]["public_url"], "https://x/body-images.png")
+        self.assertEqual(body[0]["storage_path"], "n1/body-images-abc123.png")
         self.assertEqual(body[0]["metadata"]["file_type"], "image")
+
+
+class SourceSummaryUploadTests(unittest.TestCase):
+    """_source_summary 가 만든 dict 에 public_url 이 새어나가면 안 된다."""
+
+    def test_upload_public_url_does_not_leak_into_summary(self) -> None:
+        upload = {"storage_path": "abc/def.png", "public_url": "https://store/abc/def.png"}
+        summary = _source_summary(FakeSource(), None, upload)
+        self.assertEqual(summary["storage_path"], "abc/def.png")
+        self.assertNotIn("public_url", summary)
 
 
 class TranslateSourcesForLocaleTests(unittest.IsolatedAsyncioTestCase):
@@ -754,14 +765,14 @@ class CombineBodyImagesCapTests(unittest.IsolatedAsyncioTestCase):
             return b"PNG-BYTES"
 
         async def _fake_upload(**kwargs: object) -> dict[str, str]:
-            return {"public_url": "https://store/body.png"}
+            return {"storage_path": "notice-1/body-images-abc123.png"}
 
         many = [(f"inline_image_{i}", b"x") for i in range(1, 20)]  # 19장
         with patch("app.services.content_extraction_service._stitch_images_vertically", _fake_stitch), patch(
             "app.services.attachment_storage.upload_bytes", _fake_upload
         ):
             url = await _combine_and_upload_body_images("notice-1", many)
-        self.assertEqual(url, "https://store/body.png")
+        self.assertEqual(url, "notice-1/body-images-abc123.png")
         self.assertEqual(captured["count"], 12)  # 상한(12장)까지만 합쳐진다
 
     async def test_empty_returns_blank(self) -> None:

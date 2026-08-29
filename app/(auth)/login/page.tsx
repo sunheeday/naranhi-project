@@ -80,9 +80,6 @@ export default async function LoginPage({ searchParams }: Props) {
         initialError={initialError}
         nextPath={next}
         googleLoginEnabled={process.env.AUTH_GOOGLE_ENABLED !== 'false'}
-        devLoginEnabled={
-          process.env.NODE_ENV !== 'production' && process.env.DEV_LOGIN_ENABLED === 'true'
-        }
       />
 
       <p className="text-xs text-muted-soft text-center mt-8 leading-relaxed">

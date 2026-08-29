@@ -1,0 +1,109 @@
+# DB 마이그레이션 검사·적용.
+#
+# ⚠️ 롤백이 없다는 것을 알고 써라.
+# `supabase db push` 는 마이그레이션을 순차 적용하고, 중간에 실패하면 그 앞까지는
+# 적용된 채로 남는다. 자동 복구 장치는 없고 만들 수도 없다 — DDL 은 트랜잭션으로
+# 묶이지 않는 것이 섞여 있다.
+#
+# 실패 시 대응은 「되돌리기」가 아니라 **「새 마이그레이션으로 앞으로 고치기」**다.
+# `supabase migration list` 로 어디까지 적용됐는지 확인하고, 그 다음 번호로
+# 교정 마이그레이션을 만든다. 이미 적용된 파일을 수정하거나 되돌리려 하지 마라 —
+# 원격 이력과 어긋나 더 큰 사고가 된다.
+#
+# PR 에서는 검사만 하고 적용하지 않는다. 프로덕션 DB 가 하나뿐이라 PR 단계 적용은
+# 되돌릴 수 없기 때문이다.
+name: DB migrations
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/db-migrate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/db-migrate.yml'
+  workflow_dispatch:
+
+# 프로덕션 DB 는 하나뿐이다. 적용 잡이 동시에 돌면 마이그레이션 순서가 엉킨다.
+# 진행 중인 것을 취소하지 않는다 — DB 를 건드리는 중에 끊으면 부분 적용이 남는다.
+concurrency:
+  group: db-migrate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: 번호 검사 + 적용 예정 확인
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 마이그레이션 번호 중복 검사
+        run: python scripts/check_migration_numbers.py
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # `supabase db push` 는 Postgres 에 직접 붙으므로 ACCESS_TOKEN 만으로는 안 된다
+      # (`--password` / `SUPABASE_DB_PASSWORD`). 시크릿이 없으면 «실패» 가 아니라
+      # «건너뜀» 으로 끝낸다 — 없는 열쇠 때문에 머지마다 빨간 X 가 뜨는 것을 막는다.
+      # 자동 적용을 켜려면: gh secret set SUPABASE_DB_PASSWORD
+      - name: 적용 예정 목록 (적용하지 않음)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::notice::SUPABASE_DB_PASSWORD 없음 — 미리보기를 건너뛴다. 대시보드 SQL Editor 로 수동 적용할 것."
+            exit 0
+          fi
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+          supabase db push --dry-run --include-all
+
+  apply:
+    name: 적용
+    if: github.event_name != 'pull_request'
+    needs: check
+    # GitHub 는 여기 참조된 환경을 자동 생성한다. 보호 규칙이 없으면 그대로 통과하므로
+    # 지금 당장 동작은 바뀌지 않는다. 저장소 Settings → Environments → production 에서
+    # "Required reviewers" 를 켜는 순간, 코드 수정 없이 승인 게이트가 걸린다.
+    # 사업 D 의 파괴적 마이그레이션(컬럼 삭제·데이터 삭제)을 보내기 전에 반드시 켤 것.
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 마이그레이션 적용
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::warning::SUPABASE_DB_PASSWORD 없음 — 자동 적용을 건너뛴다."
+            echo "::warning::supabase/migrations/ 의 미적용분을 대시보드 SQL Editor 에서 직접 실행할 것."
+            exit 0
+          fi
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+          supabase db push --include-all
+
+      # `secrets` 컨텍스트는 스텝 단위 if 에서 못 쓴다 — 셸에서 판정한다.
+      - name: 적용 후 이력 확인
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::notice::건너뜀 (적용 단계가 실행되지 않았다)."
+            exit 0
+          fi
+          supabase migration list

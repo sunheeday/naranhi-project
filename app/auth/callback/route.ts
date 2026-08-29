@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 import { safeNextPath } from '@/lib/auth/redirect'
 import { publicOrigin } from '@/lib/request-origin'
+import { withAuthCookieMaxAge } from '@/lib/supabase/config'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, withAuthCookieMaxAge(value, options))
           })
         },
       },
@@ -52,12 +53,6 @@ export async function GET(request: NextRequest) {
     if (next !== '/') loginUrl.searchParams.set('next', next)
     return NextResponse.redirect(loginUrl)
   }
-
-  response.cookies.set('ui_preview', '', {
-    path: '/',
-    maxAge: 0,
-    sameSite: 'lax',
-  })
 
   return response
 }

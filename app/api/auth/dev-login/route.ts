@@ -3,9 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 import { safeNextPath } from '@/lib/auth/redirect'
 import { isValidLocale } from '@/lib/i18n'
+import { withAuthCookieMaxAge } from '@/lib/supabase/config'
 
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production' || process.env.DEV_LOGIN_ENABLED !== 'true') {
+  // 프로덕션에서도 켤 수 있다(사용자 결정 2026-08-26). 스위치는 DEV_LOGIN_ENABLED 하나뿐이며,
+  // 이 값을 'true' 가 아닌 것으로 바꾸면 우회 경로가 완전히 닫힌다.
+  if (process.env.DEV_LOGIN_ENABLED !== 'true') {
     return NextResponse.json({ ok: false, error: 'dev_login_disabled' }, { status: 404 })
   }
 
@@ -17,9 +20,6 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const next = safeNextPath(body?.next)
-  const profileEmail = typeof body?.profileEmail === 'string' ? body.profileEmail.trim() : ''
-  const displayName = typeof body?.displayName === 'string' ? body.displayName.trim() : ''
-  const resetOnboarding = body?.resetOnboarding === true
   const response = NextResponse.json({ ok: true, next })
 
   const supabase = createServerClient<Database>(
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, withAuthCookieMaxAge(value, options))
           })
         },
       },
@@ -47,17 +47,6 @@ export async function POST(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    if (resetOnboarding) {
-      const { error: deleteChildrenError } = await supabase
-        .from('children')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (deleteChildrenError) {
-        return NextResponse.json({ ok: false, error: 'dev_login_reset_failed' }, { status: 500 })
-      }
-    }
-
     const { data: profile } = await supabase
       .from('profiles')
       .select('locale,native_language,email,display_name')
@@ -66,8 +55,8 @@ export async function POST(request: NextRequest) {
 
     const nextProfile = {
       id: user.id,
-      email: profileEmail || profile?.email || user.email || null,
-      display_name: displayName || profile?.display_name || null,
+      email: profile?.email || user.email || null,
+      display_name: profile?.display_name || null,
       locale: isValidLocale(profile?.locale) ? profile.locale : 'ko',
       native_language: isValidLocale(profile?.native_language) ? profile.native_language : 'ko',
     }

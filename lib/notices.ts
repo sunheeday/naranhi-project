@@ -1,8 +1,7 @@
 import 'server-only'
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
 import { pickTranslation, type Translations } from '@/lib/translations'
-import { isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import type { CardType, Json, NoticeStatus } from '@/types/database'
 
 /**
@@ -25,13 +24,14 @@ export interface NoticeSourceCard {
   needsFile: boolean
   /** 브라우저에서 미리보기 가능한 형식인지(PDF·이미지) */
   previewable: boolean
-  /** 우리 Supabase Storage 의 파일 URL(첨부만) */
+  /** 첨부 서명 URL 발급 라우트 경로(첨부만). 실제 Storage URL 이 아니다. */
   publicUrl: string | null
 }
 
 /** 원본 파일 카드에 보여줄 첨부 파일(우리 Storage 사본). */
 export interface NoticeAttachmentFile {
   filename: string
+  /** 첨부 서명 URL 발급 라우트 경로(`/api/notices/…/attachments/…`). */
   publicUrl: string
   previewable: boolean
 }
@@ -106,9 +106,7 @@ export async function getNoticeDetail(
   noticeId: string,
   locale: Locale = 'ko'
 ): Promise<NoticeDetailDto | null> {
-  const supabase = isTestEntryBypassEnabled()
-    ? createSupabaseServiceClient()
-    : await createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const { data: notice, error } = await supabase
     .from('notices')
@@ -185,8 +183,8 @@ export async function getNoticeDetail(
   const extracted = asJsonObject(notice.extracted_content)
   const needsFile = extracted?.needs_file === true
   const fileLinks = extractFileLinks(extracted)
-  const sourceCards = buildSourceCards(extracted, locale, translatedBodyText)
-  const attachmentFiles = buildAttachmentFiles(extracted)
+  const sourceCards = buildSourceCards(extracted, locale, translatedBodyText, notice.id)
+  const attachmentFiles = buildAttachmentFiles(extracted, notice.id)
   const summaryObj = asJsonObject(extracted?.summary)
   const hasSummary = Boolean(summaryObj && typeof summaryObj.rendered === 'string' && summaryObj.rendered.trim())
   // 요약 텍스트 = extracted_content.summary 의 렌더 텍스트(ko) + 번역(다른 언어).
@@ -286,6 +284,7 @@ function buildSourceCards(
   extracted: Record<string, unknown> | null,
   locale: Locale,
   translatedBodyText: string | null,
+  noticeId: string,
 ): NoticeSourceCard[] {
   if (!extracted) {
     return translatedBodyText
@@ -331,7 +330,9 @@ function buildSourceCards(
       content,
       needsFile: obj.needs_file === true,
       previewable: isPreviewable(obj),
-      publicUrl: typeof obj.public_url === 'string' ? obj.public_url : null,
+      publicUrl: typeof obj.source_id === 'string' && obj.source_id.trim() && typeof obj.storage_path === 'string' && obj.storage_path.trim()
+        ? attachmentRoute(noticeId, obj.source_id.trim())
+        : null,
       _isBody: isBody,
       _order: typeof meta?.order_index === 'number' ? meta.order_index : 999,
     })
@@ -367,8 +368,12 @@ function summaryTextMap(summary: Record<string, unknown> | null): Translations {
   return map
 }
 
-/** extracted_content.sources[] → public_url 있는 첨부 파일들(중복 URL 제거). */
-function buildAttachmentFiles(extracted: Record<string, unknown> | null): NoticeAttachmentFile[] {
+/** extracted_content.sources[] → 첨부 다운로드 경로(중복 제거).
+ *  실제 URL 은 저장하지 않는다. 접근 검사를 거쳐 서명 URL 을 내주는 라우트를 가리킨다. */
+function buildAttachmentFiles(
+  extracted: Record<string, unknown> | null,
+  noticeId: string,
+): NoticeAttachmentFile[] {
   if (!extracted) return []
   const sources = Array.isArray(extracted.sources) ? extracted.sources : []
   const seen = new Set<string>()
@@ -376,13 +381,23 @@ function buildAttachmentFiles(extracted: Record<string, unknown> | null): Notice
   for (const source of sources) {
     const obj = asJsonObject(source)
     if (!obj) continue
-    const url = typeof obj.public_url === 'string' ? obj.public_url.trim() : ''
-    if (!url || seen.has(url)) continue
-    seen.add(url)
+    const storagePath = typeof obj.storage_path === 'string' ? obj.storage_path.trim() : ''
+    const sourceId = typeof obj.source_id === 'string' ? obj.source_id.trim() : ''
+    if (!storagePath || !sourceId || seen.has(sourceId)) continue
+    seen.add(sourceId)
     const filename = typeof obj.filename === 'string' && obj.filename.trim() ? obj.filename.trim() : 'attachment'
-    files.push({ filename, publicUrl: url, previewable: isPreviewable(obj) })
+    files.push({
+      filename,
+      publicUrl: attachmentRoute(noticeId, sourceId),
+      previewable: isPreviewable(obj),
+    })
   }
   return files
+}
+
+/** 첨부 서명 URL 발급 라우트 경로. */
+function attachmentRoute(noticeId: string, sourceId: string): string {
+  return `/api/notices/${encodeURIComponent(noticeId)}/attachments/${encodeURIComponent(sourceId)}`
 }
 
 function asJsonObject(value: unknown): Record<string, unknown> | null {

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getSchoolCrawlerState } from '@/lib/school-crawl-state'
-import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -18,34 +17,26 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'missing_school_id' }, { status: 400 })
   }
 
-  const testEntryBypass = isTestEntryBypassEnabled()
-  if (testEntryBypass) {
-    const child = await ensureTestBypassChild()
-    if (child.school_id !== schoolId) {
-      return NextResponse.json({ ok: false, error: 'school_not_allowed' }, { status: 403 })
-    }
-  } else {
-    const supabase = await createSupabaseServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-    }
+  const supabase = await createSupabaseServerClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
 
-    const { data: lookupRow, error: lookupError } = await supabase
-      .from('children')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('school_id', schoolId)
-      .limit(1)
-      .maybeSingle()
+  const { data: lookupRow, error: lookupError } = await supabase
+    .from('children')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('school_id', schoolId)
+    .limit(1)
+    .maybeSingle()
 
-    if (lookupError) {
-      return NextResponse.json({ ok: false, error: 'school_lookup_failed' }, { status: 500 })
-    }
+  if (lookupError) {
+    return NextResponse.json({ ok: false, error: 'school_lookup_failed' }, { status: 500 })
+  }
 
-    if (!lookupRow) {
-      return NextResponse.json({ ok: false, error: 'school_not_allowed' }, { status: 403 })
-    }
+  if (!lookupRow) {
+    return NextResponse.json({ ok: false, error: 'school_not_allowed' }, { status: 403 })
   }
 
   const serviceClient = createSupabaseServiceClient()

@@ -63,7 +63,7 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     .eq('id', user.id)
     .maybeSingle()
 
-  const devLoginEmail = process.env.NODE_ENV !== 'production'
+  const devLoginEmail = process.env.DEV_LOGIN_ENABLED === 'true'
     ? process.env.DEV_LOGIN_EMAIL?.trim() || null
     : null
   const isDevLoginUser = !!devLoginEmail && user.email === devLoginEmail
