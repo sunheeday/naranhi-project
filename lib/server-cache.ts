@@ -129,10 +129,29 @@ export async function getChildrenForUser(userId: string): Promise<CachedChildSum
   )()
 }
 
-export async function getSchoolSummary(schoolId: string): Promise<CachedSchoolSummary | null> {
+/** 홈 상단의 '공지 수집 중' 배너용 크롤 상태.
+ *
+ *  unstable_cache 콜백은 요청 스코프 밖에서 돌아 쿠키를 못 읽는다. 그래서 세션이
+ *  붙은 anon 클라이언트를 만들 수 없고, RLS 대신 코드가 소유권을 확인한다.
+ *  userId 는 반드시 호출자가 세션에서 꺼낸 값이어야 한다 —
+ *  이 값을 잘못 넘기면 크로스테넌트 유출이다. */
+export async function getSchoolSummary(
+  userId: string,
+  schoolId: string,
+): Promise<CachedSchoolSummary | null> {
   return unstable_cache(
     async () => {
       const serviceClient = createSupabaseServiceClient()
+
+      const { data: owned } = await serviceClient
+        .from('children')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('school_id', schoolId)
+        .limit(1)
+
+      if (!owned || owned.length === 0) return null
+
       const state = await getSchoolCrawlerState(serviceClient, schoolId)
       if (!state) return null
       return {
@@ -142,7 +161,7 @@ export async function getSchoolSummary(schoolId: string): Promise<CachedSchoolSu
         crawl_last_checked_at: state.crawl_last_checked_at,
       }
     },
-    ['school-summary', schoolId],
+    ['school-summary', userId, schoolId],
     { revalidate: HOME_DATA_TTL_SECONDS, tags: [schoolSummaryTag(schoolId)] },
   )()
 }

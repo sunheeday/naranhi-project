@@ -193,7 +193,7 @@ export default async function HomePage() {
   childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`
 
   const schoolPromise = child.school_id
-    ? getSchoolSummary(child.school_id)
+    ? getSchoolSummary(user.id, child.school_id)
     : Promise.resolve(null)
 
   const hiddenRowsPromise = getHiddenNoticeIds(user.id)
