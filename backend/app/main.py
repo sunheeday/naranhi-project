@@ -18,6 +18,12 @@ def create_app() -> FastAPI:
         title="Naranhi API",
         version="0.1.0",
         description="Notice collection, document analysis, translation, and external API integration service.",
+        # 이 서비스는 --allow-unauthenticated 로 떠 있다. 자동 문서를 열어두면
+        # /admin/* 를 포함한 전 엔드포인트 목록이 공개 카탈로그가 된다.
+        # Next 쪽이 관리자 경로를 404 로 숨기는 것과 어긋나므로 닫는다.
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     app.add_middleware(
