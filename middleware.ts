@@ -39,7 +39,15 @@ function adminGate(request: NextRequest): NextResponse {
   }
 
   if (pathname.startsWith('/api/admin')) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+    // 404 다. 401 이 아니다.
+    //
+    // 401 은 「인증하면 뭔가 있다」를 알려준다 — 관리자 API 의 «표면» 이 드러난다.
+    // 어떤 엔드포인트가 존재하는지 훑을 수 있게 되고, 그건 공격자에게 지도를 주는 것이다.
+    // 사업 A 의 첨부 라우트가 같은 이유로 403 대신 404 를 쓴다.
+    //
+    // `requireAdminSession()` 의 거절도 `notFound()` 로 매핑돼 있다. 여기만 401 이면
+    // 같은 「없는 척」 정책이 한 곳에서만 새는 셈이다.
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
   }
 
   return NextResponse.redirect(new URL('/admin/login', request.url))
