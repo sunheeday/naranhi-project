@@ -16,6 +16,7 @@ env:
   CRAWLER_WORKER_JOB: ${{ vars.CLOUD_RUN_CRAWLER_WORKER_JOB }}
   SCHOOL_CRAWLER_JOB: ${{ vars.CLOUD_RUN_SCHOOL_CRAWLER_JOB }}
   CONTENT_EXTRACTOR_JOB: ${{ vars.CLOUD_RUN_CONTENT_EXTRACTOR_JOB }}
+  SCHEDULE_SYNC_JOB: ${{ vars.CLOUD_RUN_SCHEDULE_SYNC_JOB }}
   IMAGE_NAME: naranhi-api
 
 jobs:
@@ -168,3 +169,20 @@ jobs:
             --cpu=1 \
             --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},GEMINI_MAX_CONCURRENCY=32,EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN=0" \
             --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+
+      # 주 1회 배치: NEIS SchoolSchedule → school_events(source='neis').
+      # 학사일정은 거의 바뀌지 않으므로 주 1회면 충분하다(학교당 2~3페이지).
+      - name: Deploy school schedule sync Job to Cloud Run
+        if: ${{ env.SCHEDULE_SYNC_JOB != '' }}
+        run: |
+          gcloud run jobs deploy "$SCHEDULE_SYNC_JOB" \
+            --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
+            --region="$REGION" \
+            --command=python \
+            --args="-m,app.jobs.sync_school_schedules" \
+            --task-timeout=1800 \
+            --max-retries=0 \
+            --memory=512Mi \
+            --cpu=1 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,NEIS_API_KEY=neis-api-key:latest"
