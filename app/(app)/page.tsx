@@ -80,7 +80,7 @@ function relativeTime(iso: string, m: HomeMessages): string {
   return m.relative.days_ago.replace('{n}', String(Math.floor(hours / 24)))
 }
 
-function jsonObject(value: Json | null | undefined): Record<string, Json> {
+function jsonObject(value: Json | null | undefined): Record<string, Json | undefined> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
 }
 

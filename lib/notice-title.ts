@@ -7,7 +7,7 @@ type NoticeTitleSource = {
   translated_titles?: Record<string, string> | null
 }
 
-function jsonObject(value: Json | null | undefined): Record<string, Json> {
+function jsonObject(value: Json | null | undefined): Record<string, Json | undefined> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
 }
 
