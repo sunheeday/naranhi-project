@@ -14,6 +14,7 @@ from app.translation.prompts import (
     translate_meal_labels_prompt,
     translate_subject_labels_prompt,
 )
+from postgrest.exceptions import APIError
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_YEARLESS_NOTICE_YEAR = 2026
@@ -783,15 +784,21 @@ class NoticeService:
             or metadata.get("validation_status")
             or ("passed" if status == "ready_to_save" else "failed")
         )
+        needs_review, review_reason = _needs_review_from_pipeline(pipeline_result, metadata)
         if _optional_str(pipeline_result.get("final_translation")):
             validation_status = "passed"
             metadata["validation_status"] = validation_status
-            if metadata.get("validation_failure_reason"):
+            if review_reason:
                 LOGGER.warning(
                     "notice translation saved with validation warning: notice_id=%s target_language=%s reason=%s",
                     notice_id,
                     target_language,
-                    metadata.get("validation_failure_reason"),
+                    review_reason,
+                    extra={
+                        "notice_id": notice_id,
+                        "target_language": target_language,
+                        "review_reason": review_reason,
+                    },
                 )
         _log_translation_pipeline_summary(
             notice_id=notice_id,
@@ -815,11 +822,15 @@ class NoticeService:
             ),
             "translated_text": pipeline_result.get("final_translation"),
             "validation_status": validation_status,
+            # 번역문은 그대로 사용자에게 나간다. needs_review 는 «표시» 만 바꾼다.
+            "needs_review": needs_review,
+            "review_reason": review_reason,
         }
-        upsert = (
-            supabase.table("notice_ai_translations")
-            .upsert(row, on_conflict="notice_id,target_language")
-            .execute()
+        upsert = _upsert_translation_row(
+            supabase=supabase,
+            row=row,
+            notice_id=notice_id,
+            target_language=target_language,
         )
         cards: list[dict[str, Any]] = []
         school_events: list[dict[str, Any]] = []
@@ -1367,6 +1378,89 @@ def _log_translation_pipeline_summary(
         len(((validation.get("context_tone") or {}).get("issues") or [])) if isinstance(validation.get("context_tone"), dict) else 0,
         len(list(ingredient_map.get("unmapped_ingredients") or [])),
         sorted((pipeline_result.get("raw_steps") or {}).keys()) if isinstance(pipeline_result.get("raw_steps"), dict) else [],
+    )
+
+
+REVIEW_REASON_MAX_LENGTH = 1000
+
+
+def _needs_review_from_pipeline(
+    pipeline_result: dict[str, Any],
+    metadata: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """검토 큐에 올릴지와 그 사유.
+
+    번역문이 있으면 validation_status 는 무조건 'passed' 가 된다(위 저장 블록).
+    사용자에게는 그대로 내보내되, 사유가 있으면 검토 큐에도 함께 올린다.
+
+    근거 두 갈래:
+      ① metadata.validation_failure_reason — 살아 있는 신호.
+         orchestrator.py:504 와 이 파일의 베스트에포트 폴백이 실제 값을 넣는다.
+      ② pipeline_result.admin_review.required — 지금은 모든 자리에서 리터럴 False 라
+         죽어 있지만, 통로는 이미 있다. 살아나면 코드 변경 없이 큐에 오른다.
+    """
+    if not _optional_str(pipeline_result.get("final_translation")):
+        return False, None
+
+    reason = _optional_str(metadata.get("validation_failure_reason"))
+    if not reason:
+        admin_review = pipeline_result.get("admin_review") or {}
+        if isinstance(admin_review, dict) and admin_review.get("required"):
+            reason = _optional_str(admin_review.get("reason")) or "admin_review_required"
+
+    if not reason:
+        return False, None
+    return True, reason[:REVIEW_REASON_MAX_LENGTH]
+
+
+def _upsert_translation_row(
+    *,
+    supabase: Any,
+    row: dict[str, Any],
+    notice_id: str,
+    target_language: str,
+) -> Any:
+    """0041(needs_review/review_reason)이 운영에 아직 적용되지 않았어도 번역
+    저장 자체는 깨지면 안 된다.
+
+    PostgREST 는 스키마 캐시에 없는 컬럼으로 upsert 하면 PGRST204 로 거부한다
+    (content_extraction_service.py 의 _is_missing_claim_rpc_error 가 같은 계열인
+    PGRST202/RPC 미존재를 다루는 것과 대칭). 그 경우 needs_review/review_reason 을
+    빼고 한 번 더 시도한다 — 검토 신호만 유실되고 translated_text/validation_status
+    저장은 그대로 성공해야 한다(크롤·번역이 지금도 돌고 있다).
+    """
+    try:
+        return (
+            supabase.table("notice_ai_translations")
+            .upsert(row, on_conflict="notice_id,target_language")
+            .execute()
+        )
+    except APIError as exc:
+        if not _is_missing_review_columns_error(exc):
+            raise
+        LOGGER.warning(
+            "notice_ai_translations.needs_review/review_reason column missing "
+            "(migration 0041 not applied yet); saving translation without review signal: "
+            "notice_id=%s target_language=%s",
+            notice_id,
+            target_language,
+        )
+        fallback_row = {
+            key: value
+            for key, value in row.items()
+            if key not in {"needs_review", "review_reason"}
+        }
+        return (
+            supabase.table("notice_ai_translations")
+            .upsert(fallback_row, on_conflict="notice_id,target_language")
+            .execute()
+        )
+
+
+def _is_missing_review_columns_error(exc: APIError) -> bool:
+    message = str(exc)
+    return getattr(exc, "code", "") == "PGRST204" and (
+        "needs_review" in message or "review_reason" in message
     )
 
 
