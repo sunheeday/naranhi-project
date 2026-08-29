@@ -937,10 +937,16 @@ def _update_existing_notice_candidate(
     elif post.detail_url:
         select_query = select_query.eq("detail_url", post.detail_url)
     else:
+        # 제목을 찍지 않는다. 한국 학교 공지 제목에는 학생 개인이 드러난다 —
+        # 「3학년 2반 OOO 학생 전학 안내」 같은 것이 흔하다.
+        # 사업 F 가 로그를 구조화 JSON 으로 바꿔 검색이 쉬워졌으므로 위험이 더 커졌다.
+        # 진단에 필요한 것은 「어느 학교에서 몇 자짜리 제목이 식별자 없이 왔는가」이지
+        # 제목 자체가 아니다.
         LOGGER.warning(
-            "Skipped duplicate crawled notice update without post_uid/detail_url: school_id=%s title=%s",
+            "Skipped duplicate crawled notice update without post_uid/detail_url: "
+            "school_id=%s title_len=%s",
             result.school_id,
-            post.title,
+            len(post.title or ""),
         )
         return
 
