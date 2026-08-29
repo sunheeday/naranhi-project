@@ -1,0 +1,163 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+import ssl
+from typing import Any
+from urllib.parse import urlencode, urlparse, urlunparse
+
+import httpx
+
+from app.crawler.http_client import DEFAULT_HEADERS, legacy_ssl_context, make_async_client_for_url
+
+FLAVOR_GYO6_RSS2 = "gyo6_rss2"
+FLAVOR_JBEDU_JSON = "jbedu_json"
+JBEDU_RSS_HOST = "school.jbedu.kr"
+UNSUPPORTED_RECHECK_DAYS = 30
+
+
+@dataclass(frozen=True)
+class RssItem:
+    """두 flavor 를 하나로 정규화한 항목. body_html/attachments 는 저장만 하고 소비하지 않는다."""
+
+    title: str
+    link: str  # 정규화 후 절대 URL
+    published_at: str | None = None
+    guid: str | None = None
+    body_html: str | None = None
+    attachments: list[dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RssFeedState:
+    status: str  # "ok" | "unknown" | "unsupported"
+    flavor: str | None
+    url: str | None
+    board_key: str | None
+    item_count: int
+    checked_at: str
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "flavor": self.flavor,
+            "url": self.url,
+            "board_key": self.board_key,
+            "item_count": self.item_count,
+            "checked_at": self.checked_at,
+            "error": self.error,
+        }
+
+
+def derive_feed_url(*, board_url: str, parser_family: str, board_key: str) -> tuple[str, str] | None:
+    """(피드 URL, flavor). 규칙에 맞지 않으면 None.
+
+    새 URL 빌더를 만들지 않는다 — notice_post_extractor 가 이미 만든 board_key 를
+    그대로 쓰고 경로만 치환한다.
+    """
+    host = (urlparse(board_url).hostname or "").lower()
+
+    if parser_family == "select_ntt_like":
+        params = dict(
+            item.split("=", 1) for item in board_key.split("|") if "=" in item
+        )
+        mi = (params.get("mi") or "").strip()
+        bbs_id = (params.get("bbsId") or "").strip()
+        if not mi or not bbs_id or "None" in (mi, bbs_id):
+            return None
+        feed = urlparse(_feed_path(board_url))
+        return (
+            urlunparse(
+                (feed.scheme, feed.netloc, feed.path, "", urlencode([("mi", mi), ("bbsId", bbs_id)]), "")
+            ),
+            FLAVOR_GYO6_RSS2,
+        )
+
+    # ⚠️ 전북 규칙은 호스트 고정이 필수다. slash_view_like 는 울산(school.use.go.kr)·
+    # 충북(school.cbe.go.kr)에서도 잡히는데(notice_post_extractor.py:239) 그 둘은 RSS 가
+    # 없다. 호스트 검사 없이 적용하면 매 크롤마다 404 를 한 번씩 때린다.
+    if parser_family == "slash_view_like" and host == JBEDU_RSS_HOST:
+        segments = [item for item in board_key.split("/") if item]
+        if len(segments) != 2:
+            return None
+        school_id, board_code = segments
+        return (f"https://{JBEDU_RSS_HOST}/rss/{school_id}/{board_code}.do", FLAVOR_JBEDU_JSON)
+
+    return None
+
+
+def _feed_path(board_url: str) -> str:
+    """notice_post_extractor._replace_path_suffix(:1340-1343) 와 같은 규칙.
+
+    순환 import(그쪽이 이 모듈을 import 한다)를 피하려고 지역 사본을 둔다.
+    """
+    parsed = urlparse(board_url)
+    path = (
+        parsed.path.replace("selectNttList.do", "selectRssFeed.do")
+        if "selectNttList.do" in parsed.path
+        else parsed.path.rstrip("/") + "/selectRssFeed.do"
+    )
+    return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+
+
+def should_probe(raw: dict[str, Any] | None, *, board_key: str, now: datetime) -> bool:
+    """스펙 §4.1 재시도 표."""
+    if not isinstance(raw, dict) or not raw.get("status"):
+        return True
+    if raw.get("board_key") != board_key:
+        return True  # 게시판이 바뀌면 저장된 피드 URL 은 다른 게시판을 가리킨다
+    status = str(raw.get("status"))
+    if status == "ok":
+        return False
+    if status == "unsupported":
+        checked_at = _parse_iso(raw.get("checked_at"))
+        if checked_at is None:
+            return True
+        return now - checked_at >= timedelta(days=UNSUPPORTED_RECHECK_DAYS)
+    return True  # unknown 은 일시적 실패로 보고 다음 크롤에서 재프로브
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def relaxed_ssl_context() -> ssl.SSLContext:
+    """crawler.http_client.legacy_ssl_context() + OP_LEGACY_SERVER_CONNECT.
+
+    school.jbedu.kr / school.gyo6.net 은 기본 legacy 호스트 목록
+    (http_client.DEFAULT_LEGACY_TLS_HOSTS = sen.ms.kr, gen.ms.kr)에 없는데,
+    OpenSSL 3 의 unsafe-legacy-renegotiation 제한에서 연결이 끊긴다(WinError 10054).
+    공용 호스트 목록·공용 컨텍스트를 바꾸지 않으려고 여기서만 옵션을 얹는다.
+    """
+    context = legacy_ssl_context()
+    option = getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0)
+    if option:
+        context.options |= option
+    return context
+
+
+async def fetch_feed(url: str, *, timeout: float) -> tuple[int, bytes]:
+    """피드 1회 GET. 전송 오류일 때만 완화 컨텍스트로 한 번 더 시도한다."""
+    try:
+        async with make_async_client_for_url(url=url, timeout=timeout) as client:
+            response = await client.get(url)
+            return response.status_code, response.content
+    except httpx.TransportError:
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            follow_redirects=True,
+            headers=DEFAULT_HEADERS,
+            verify=relaxed_ssl_context(),
+        ) as client:
+            response = await client.get(url)
+            return response.status_code, response.content
