@@ -9,7 +9,9 @@
     {
       "id": "arm-b",
       "label": "gemini-2.5-flash-thinking-off",
-      "env": { "TRANSLATION_THINKING_BUDGET": "0" }
+      "env": {
+        "TRANSLATION_THINKING_BUDGET": "0"
+      }
     },
     {
       "id": "arm-b2",
@@ -43,6 +45,11 @@
         "BEDROCK_TRANSLATION_MODEL": "global.anthropic.claude-sonnet-4-6",
         "BEDROCK_MECHANICAL_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0"
       }
+    },
+    {
+      "id": "arm-a2",
+      "label": "baseline-after-structural-merges",
+      "env": {}
     }
   ]
 }
