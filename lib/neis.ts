@@ -185,11 +185,31 @@ export async function searchSchools(query: string): Promise<SchoolSearchResult[]
   }))
 }
 
-function normalizeHomepageUrl(value: string | null | undefined): string {
+/** 백엔드 neis_client.normalize_homepage_url(:96-123) 과 같은 규칙.
+ *
+ *  부산(C10)·충북(M10)의 HMPG_ADRES 는 "http://" 한 문자열로만 채워져 사실상 누락이다.
+ *  이걸 통과시키면 온보딩이 그 값을 schools.homepage_url 에 저장하고, 크롤은 다시
+ *  None 으로 떨어뜨려 NEIS 를 재조회하고, 같은 값이 돌아와 homepage_missing 이 반복된다.
+ *  추정으로 채우지 않는다 — 틀린 URL 은 다른 학교의 공지를 학부모에게 보낸다.
+ *  export 하는 이유: 프론트 테스트 러너가 없어 Node 타입 스트리핑으로 직접 검증한다. */
+export function normalizeHomepageUrl(value: string | null | undefined): string {
   const trimmed = (value ?? '').trim()
   if (!trimmed) return ''
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  return `https://${trimmed}`
+  if (['http:', 'https:', 'http://', 'https://'].includes(trimmed.toLowerCase())) return ''
+  if (trimmed.startsWith('//')) return `https:${trimmed}`.replace(/\/+$/, '')
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    let host = ''
+    try {
+      host = new URL(trimmed).host
+    } catch {
+      return ''
+    }
+    if (!host) return ''
+    return trimmed.replace(/\/+$/, '')
+  }
+
+  return `https://${trimmed}`.replace(/\/+$/, '')
 }
 
 // ─── 시간표 ───────────────────────────────────────────────
