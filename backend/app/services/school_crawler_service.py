@@ -328,7 +328,7 @@ def _fetch_school_row(school_id: str) -> dict[str, Any] | None:
     supabase = get_supabase_client()
     result = (
         supabase.table("schools")
-        .select("*")
+        .select(_SCHOOL_ROW_COLUMNS)
         .eq("id", school_id)
         .limit(1)
         .execute()
@@ -603,6 +603,21 @@ async def _extract_cached_board_posts(
     )
 
 
+_SCHOOL_ROW_COLUMNS = "id,name,address,homepage_url,neis_office_code,neis_school_code"
+
+
+def _school_backfill_payload(result: SchoolBoardDiscoveryResult) -> dict[str, Any]:
+    """schools 에 되돌려 쓰는 값. 크롤 상태의 정본은 school_crawl_state 다(0013).
+
+    homepage_url 만 남긴다 — 이 컬럼은 schools 에만 있고(0013 에 미포함),
+    _context_from_school_row 가 크롤 대상 URL 을 얻는 유일한 경로다.
+    """
+    payload: dict[str, Any] = {}
+    if result.homepage_url:
+        payload["homepage_url"] = result.homepage_url
+    return payload
+
+
 def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
     state_payload: dict[str, Any] = {
         "school_id": result.school_id,
@@ -621,22 +636,13 @@ def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
 
     try:
         supabase = get_supabase_client()
-        school_payload: dict[str, Any] = {
-            "crawl_status": result.status,
-            "crawl_error_message": result.error_message,
-            "crawl_result": result.to_dict(),
-            "crawl_last_checked_at": state_payload["crawl_last_checked_at"],
-        }
-        if result.homepage_url:
-            school_payload["homepage_url"] = result.homepage_url
-        if result.verified and result.board_url:
-            school_payload["crawl_board_url"] = state_payload.get("crawl_board_url")
-            school_payload["crawl_board_kind"] = state_payload.get("crawl_board_kind")
-
-        supabase.table("schools").update(school_payload).eq(
-            "id",
-            result.school_id,
-        ).execute()
+        school_payload = _school_backfill_payload(result)
+        # 빈 dict 로 update 를 치면 PostgREST 가 400 을 낸다.
+        if school_payload:
+            supabase.table("schools").update(school_payload).eq(
+                "id",
+                result.school_id,
+            ).execute()
         supabase.table("school_crawl_state").upsert(
             state_payload,
             on_conflict="school_id",
