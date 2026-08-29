@@ -95,7 +95,58 @@ interface NeisListEnvelope<R> {
   > | undefined
 }
 
+export class NeisApiError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(`NEIS ${code}: ${message}`)
+    this.name = 'NeisApiError'
+    this.code = code
+  }
+}
+
+/** 일일 호출 한도 초과. 한도 값은 공식적으로 미공개다. */
+export class NeisQuotaExceededError extends NeisApiError {
+  constructor(message: string) {
+    super('ERROR-337', message)
+    this.name = 'NeisQuotaExceededError'
+  }
+}
+
+const NEIS_BENIGN_CODES = new Set(['INFO-000', 'INFO-200'])
+
+function readNeisResult(envelope: unknown, key: string): { CODE?: string; MESSAGE?: string } | null {
+  if (!envelope || typeof envelope !== 'object') return null
+  const top = (envelope as Record<string, unknown>).RESULT
+  if (top && typeof top === 'object') return top as { CODE?: string; MESSAGE?: string }
+
+  const blocks = (envelope as Record<string, unknown>)[key]
+  if (!Array.isArray(blocks)) return null
+  for (const block of blocks) {
+    if (!block || typeof block !== 'object') continue
+    const head = (block as Record<string, unknown>).head
+    if (!Array.isArray(head)) continue
+    for (const item of head) {
+      const result = item && typeof item === 'object' ? (item as Record<string, unknown>).RESULT : null
+      if (result && typeof result === 'object') return result as { CODE?: string; MESSAGE?: string }
+    }
+  }
+  return null
+}
+
+/** 행 추출 앞단의 RESULT.CODE 판정. 백엔드 neis_client.check_result_code 와 같은 규칙.
+ *  이 판정이 없으면 ERROR-337(한도 초과)이 빈 배열이 되어 '급식 정보 없음'으로 보인다. */
+export function assertNeisResult(envelope: unknown, key: string): void {
+  const result = readNeisResult(envelope, key)
+  const code = (result?.CODE ?? '').trim()
+  if (!code || NEIS_BENIGN_CODES.has(code)) return
+  const message = result?.MESSAGE ?? ''
+  if (code === 'ERROR-337') throw new NeisQuotaExceededError(message)
+  throw new NeisApiError(code, message)
+}
+
 function extractRows<R>(envelope: NeisListEnvelope<R>, key: string): R[] {
+  assertNeisResult(envelope, key)
   const arr = envelope[key]
   if (!Array.isArray(arr)) return []
   for (const block of arr) {
