@@ -1,21 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
 
 from app.api.capture import router as capture_router
 from app.api.crawler import router as crawler_router
 from app.api.health import router as health_router
 from app.api.notices import router as notices_router
 from app.core.config import get_settings
+from app.core.logging_setup import setup_logging
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        force=True,
-    )
+    setup_logging(job_type="api", level=settings.log_level)
 
     app = FastAPI(
         title="Naranhi API",

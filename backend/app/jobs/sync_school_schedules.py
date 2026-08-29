@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 
+from app.core.logging_setup import setup_logging
 from app.crawler.neis_client import NeisQuotaExceeded
 from app.services.school_schedule_sync_service import (
     SchoolScheduleSyncService,
@@ -78,7 +79,7 @@ async def run_async(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    setup_logging(job_type="sync_school_schedules")
     args = build_parser().parse_args(argv)
     try:
         return asyncio.run(run_async(args))

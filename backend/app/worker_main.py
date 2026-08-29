@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.core.logging_setup import setup_logging
 from app.jobs.crawler_worker import process_jobs as process_crawler_jobs
 from app.jobs.translation_worker import process_jobs as process_translation_jobs
 
@@ -73,12 +74,7 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
 
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    level_name = get_settings().log_level.upper()
-    logging.basicConfig(
-        level=getattr(logging, level_name, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        force=True,
-    )
+    setup_logging(job_type="worker_service", level=get_settings().log_level)
     stop_event = asyncio.Event()
     task = asyncio.create_task(_worker_loop(stop_event))
     try:

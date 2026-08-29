@@ -7,6 +7,7 @@ import logging
 import sys
 
 from app.api.notices import _translate_sources_for_locale_background
+from app.core.logging_setup import setup_logging
 from app.services.job_queue_service import JobQueueService, serialize_job_result
 from app.services.notice_service import NoticeService
 
@@ -202,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    setup_logging(job_type="translation_worker")
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
