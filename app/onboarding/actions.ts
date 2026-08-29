@@ -51,25 +51,13 @@ export async function saveChildAndProfile(input: SaveChildInput) {
     throw new Error('아이 이름을 입력해 주세요.')
   }
 
-  const { data: existingProfile } = await supabase
-    .from('profiles')
-    .select('email,display_name')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  const devLoginEmail = process.env.DEV_LOGIN_ENABLED === 'true'
-    ? process.env.DEV_LOGIN_EMAIL?.trim() || null
-    : null
-  const isDevLoginUser = !!devLoginEmail && user.email === devLoginEmail
-
-  // upsert profile (첫 로그인 시 profiles row가 없을 수 있음)
+  // 사용자 식별의 정본은 auth.users 다. profiles 에는 언어 설정만 둔다.
+  // locale = 지금 보고 싶은 언어(설정에서 바뀐다), native_language = 온보딩 때 고른
+  // 모국어(갱신 경로 없음, 온보딩 1회 고정). 백엔드는 둘의 합집합을 번역 대상으로 쓴다.
+  // upsert (첫 로그인 시 profiles row가 없을 수 있음)
   const { error: profileError } = await supabase.from('profiles').upsert(
     {
       id: user.id,
-      email: isDevLoginUser
-        ? existingProfile?.email ?? user.email ?? null
-        : user.email ?? existingProfile?.email ?? null,
-      display_name: existingProfile?.display_name ?? null,
       locale: input.locale,
       native_language: input.locale,
     },
