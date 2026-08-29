@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+import json
 import re
 import ssl
 from typing import Any
-from urllib.parse import urlencode, urlparse, urlunparse
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
+from xml.etree import ElementTree
 
 import httpx
 
@@ -164,9 +166,125 @@ async def fetch_feed(url: str, *, timeout: float) -> tuple[int, bytes]:
             return response.status_code, response.content
 
 
+def normalize_rss_link(raw: str, feed_url: str) -> str:
+    """스펙 §5.2 규칙 1~5. 경북 생성기 버그(스킴 없음 + 선두 세그먼트 2회 반복) 대응.
+
+    규칙 4(호스트 검사)가 외부 링크·오픈 리다이렉트를 차단한다.
+    실패하면 빈 문자열을 돌려주고 그 item 만 버린다 — 크롤은 계속된다.
+    """
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    feed = urlparse(feed_url)
+
+    # 규칙 1·2 — 스킴/호스트 보정
+    if value.startswith("//"):
+        value = f"{feed.scheme}:{value}"
+    elif value.startswith("/"):
+        value = urljoin(f"{feed.scheme}://{feed.netloc}", value)
+    elif not urlparse(value).scheme:
+        value = f"{feed.scheme}://{value}"
+
+    parsed = urlparse(value)
+    if not parsed.netloc:
+        return ""
+
+    # 규칙 4 — 피드 호스트와 다르면 버린다
+    if (parsed.hostname or "").lower() != (feed.hostname or "").lower():
+        return ""
+
+    # 규칙 3 — 선두 세그먼트가 정확히 2회 연속 반복이면 하나 제거.
+    # 맹목적 중복 제거가 아니다: 선두에 한정하고 중간의 /na/na/ 는 건드리지 않는다.
+    segments = parsed.path.split("/")
+    if len(segments) >= 3 and segments[0] == "" and segments[1] and segments[1] == segments[2]:
+        segments = [segments[0], *segments[2:]]
+    path = "/".join(segments)
+
+    # 규칙 5 — fragment·params 를 떨어내고 끝 슬래시를 없앤다
+    # (notice_post_extractor._normalize_url:1371-1373 과 같은 모양).
+    return urlunparse((parsed.scheme, parsed.netloc, path.rstrip("/"), "", parsed.query, ""))
+
+
 def parse_feed(body: bytes, *, flavor: str, feed_url: str) -> list[RssItem]:
-    """flavor 별 파싱. Task 11 에서 두 flavor 를 채운다."""
-    raise NotImplementedError(flavor)
+    """flavor 별 파싱. 실패하면 예외를 올린다 — 호출부(게이트 2)가 unsupported 로 접는다.
+
+    Content-Type 은 보지 않는다: 전북은 JSON 을 주고 첨부는 octet-stream 을 준다.
+    """
+    if flavor == FLAVOR_JBEDU_JSON:
+        return _parse_jbedu_json(body, feed_url)
+    if flavor == FLAVOR_GYO6_RSS2:
+        return _parse_rss2(body, feed_url)
+    raise ValueError(f"unknown rss flavor: {flavor}")
+
+
+def _parse_rss2(body: bytes, feed_url: str) -> list[RssItem]:
+    root = ElementTree.fromstring(body)
+    channel = root.find("channel")
+    if channel is None:
+        channel = root
+    items: list[RssItem] = []
+    for node in channel.findall("item"):
+        title = _node_text(node, "title")
+        link = normalize_rss_link(_node_text(node, "link") or _node_text(node, "guid"), feed_url)
+        if not title or not link:
+            continue
+        attachments = []
+        for file_node in node.findall("file"):
+            name = _node_text(file_node, "fileNm")
+            url = normalize_rss_link(_node_text(file_node, "dwldUrl"), feed_url)
+            if name and url:
+                attachments.append({"name": name, "url": url})
+        items.append(
+            RssItem(
+                title=title,
+                link=link,
+                published_at=_node_text(node, "pubDate") or None,
+                guid=_node_text(node, "guid") or None,
+                body_html=_node_text(node, "description") or None,
+                attachments=attachments,
+            )
+        )
+    if not items and channel.find("item") is None and channel is root:
+        raise ValueError("rss channel not found")
+    return items
+
+
+def _parse_jbedu_json(body: bytes, feed_url: str) -> list[RssItem]:
+    payload = json.loads(body.decode("utf-8", errors="replace"))
+    if not isinstance(payload, dict):
+        raise ValueError("jbedu rss payload is not an object")
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        raise ValueError("jbedu rss payload has no items[]")
+
+    items: list[RssItem] = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+        title = str(raw.get("title") or "").strip()
+        link = normalize_rss_link(str(raw.get("link") or ""), feed_url)
+        if not title or not link:
+            continue
+        description = raw.get("description")
+        body_html = description.get("value") if isinstance(description, dict) else None
+        items.append(
+            RssItem(
+                title=title,
+                link=link,
+                published_at=str(raw.get("pubDate") or "") or None,
+                guid=str(raw.get("guid") or "") or None,
+                body_html=str(body_html) if body_html else None,
+                attachments=[],
+            )
+        )
+    return items
+
+
+def _node_text(node: Any, tag: str) -> str:
+    child = node.find(tag)
+    if child is None:
+        return ""
+    return " ".join((child.text or "").split())
 
 
 async def probe_rss_feed(
