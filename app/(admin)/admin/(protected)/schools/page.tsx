@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { listAdminSchools } from '@/lib/admin/schools'
 import { AdminUnauthorizedError, requireAdminSession } from '@/lib/admin/session'
 import type { SchoolCrawlBoardKind } from '@/types/database'
+import RecrawlButton from './RecrawlButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,12 +62,13 @@ export default async function AdminSchoolsPage() {
               <th className="py-2 px-3">공지</th>
               <th className="py-2 px-3">대기</th>
               <th className="py-2 px-3">오류</th>
+              <th className="py-2 px-3">재크롤</th>
             </tr>
           </thead>
           <tbody>
             {schools.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-4 px-3 text-slate-500">
+                <td colSpan={10} className="py-4 px-3 text-slate-500">
                   등록된 학교가 없습니다.
                 </td>
               </tr>
@@ -95,6 +97,9 @@ export default async function AdminSchoolsPage() {
                   </td>
                   <td className="py-2 px-3 max-w-[240px] whitespace-pre-wrap break-words text-rose-300">
                     {school.crawlErrorMessage ?? '-'}
+                  </td>
+                  <td className="py-2 px-3">
+                    <RecrawlButton schoolId={school.id} />
                   </td>
                 </tr>
               )
