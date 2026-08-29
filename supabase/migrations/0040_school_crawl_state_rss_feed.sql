@@ -1,0 +1,21 @@
+-- 미문서화 RSS 엔드포인트 판정 결과를 학교당 1개 기록한다.
+-- board_watermarks(0033)와 같은 자리·같은 모양이다.
+--
+-- 값의 모양:
+--   {"status":"ok|unknown|unsupported", "flavor":"gyo6_rss2|jbedu_json",
+--    "url":"...", "board_key":"mi=…|bbsId=…", "item_count":15,
+--    "checked_at":"2026-08-27T…+00:00", "error":null}
+--
+-- status 값의 뜻:
+--   ok         — 피드가 응답했고 item_count > 0 인 실제 글을 확인했다.
+--   unknown    — 피드가 응답했으나 item_count == 0 이거나 판정을 아직 못 했다.
+--                방학 중 빈 게시판과 죽은 엔드포인트를 구분할 수 없으므로,
+--                item_count == 0 을 ok 로도 unsupported 로도 단정하지 않는다.
+--   unsupported — 해당 CMS/학교에 RSS 엔드포인트가 없음을 확인했다(예: 404/미지원 flavor).
+--
+-- board_key 를 함께 저장하는 이유: 게시판이 바뀌면(재탐지·학교 리뉴얼) 저장된 피드
+-- URL 이 다른 게시판을 가리키게 된다. board_key 불일치를 무효화 신호로 쓴다.
+--
+-- schools 에 넣지 않는 이유: schools.crawl_* 는 사업 D 에서 제거 대상이다.
+alter table public.school_crawl_state
+  add column if not exists rss_feed jsonb not null default '{}'::jsonb;
