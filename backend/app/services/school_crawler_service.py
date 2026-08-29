@@ -14,6 +14,7 @@ from app.crawler.board_detector import NoticeBoardSearchResult, find_notice_boar
 from app.crawler.cms_patterns import CMS_NAMES, CmsDetection
 from app.crawler.neis_client import NeisClient, normalize_homepage_url
 from app.crawler.notice_post_extractor import NoticePostRefResult, extract_notice_post_refs
+from app.crawler.rss_feed import RssFeedState, probe_rss_feed, should_probe
 
 POST_SUCCESS_STATUSES = {"success", "success_with_derived_id", "success_file_only"}
 LOGGER = logging.getLogger(__name__)
@@ -124,6 +125,7 @@ class SchoolCrawlerService:
         if result.status == "school_not_found":
             return result
         _save_school_discovery_result(result)
+        await _probe_and_save_rss_feed(result)
         _save_discovered_notice_candidates(result)
         return result
 
@@ -746,6 +748,74 @@ def _write_board_watermarks(school_id: str, watermarks: dict[str, int]) -> None:
         ).eq("school_id", school_id).execute()
     except Exception:  # noqa: BLE001 - best-effort; 다음 크롤에서 다시 갱신된다.
         LOGGER.warning("Failed to write board watermarks: school_id=%s", school_id, exc_info=True)
+
+
+def _read_rss_feed(school_id: str) -> dict[str, Any]:
+    try:
+        rows = (
+            get_supabase_client()
+            .table("school_crawl_state")
+            .select("rss_feed")
+            .eq("school_id", school_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:  # noqa: BLE001 - 프로브는 best-effort.
+        LOGGER.warning("Failed to read rss_feed: school_id=%s", school_id, exc_info=True)
+        return {}
+    raw = rows[0].get("rss_feed") if rows else None
+    return raw if isinstance(raw, dict) else {}
+
+
+def _write_rss_feed(school_id: str, payload: dict[str, Any]) -> None:
+    try:
+        get_supabase_client().table("school_crawl_state").update(
+            {"rss_feed": payload}
+        ).eq("school_id", school_id).execute()
+    except Exception:  # noqa: BLE001 - best-effort; 다음 크롤에서 다시 기록된다.
+        LOGGER.warning("Failed to write rss_feed: school_id=%s", school_id, exc_info=True)
+
+
+async def _probe_and_save_rss_feed(result: SchoolBoardDiscoveryResult) -> None:
+    """게시판 탐지 직후 학교당 1회. best-effort — 실패해도 크롤 결과에 손대지 않는다.
+
+    _write_board_watermarks 와 같은 방식이다. 이 시점에 프로브하는 이유는
+    게이트 4(제목 교차검증)에 쓸 sample_posts 가 손에 있기 때문이다.
+    """
+    settings = get_settings()
+    if not settings.crawler_rss_probe_enabled:
+        return
+    if not result.board_url or not result.parser_family:
+        return
+
+    valid_posts = [post for post in result.sample_posts if post.status in POST_SUCCESS_STATUSES]
+    if not valid_posts:
+        return
+    board_key = valid_posts[0].board_key
+
+    try:
+        if not should_probe(
+            _read_rss_feed(result.school_id),
+            board_key=board_key,
+            now=datetime.now(UTC),
+        ):
+            return
+        state = await probe_rss_feed(
+            board_url=result.board_url,
+            parser_family=result.parser_family,
+            board_key=board_key,
+            sample_titles=[post.title for post in valid_posts],
+            timeout=settings.crawler_timeout_seconds,
+        )
+        _write_rss_feed(result.school_id, state.to_dict())
+        LOGGER.info(
+            "rss probe: school_id=%s status=%s flavor=%s items=%s error=%s",
+            result.school_id, state.status, state.flavor, state.item_count, state.error,
+        )
+    except Exception:  # noqa: BLE001 - 프로브는 크롤을 절대 실패시키지 않는다.
+        LOGGER.warning("Failed to probe rss feed: school_id=%s", result.school_id, exc_info=True)
 
 
 def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> int:

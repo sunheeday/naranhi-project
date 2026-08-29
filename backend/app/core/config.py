@@ -131,6 +131,12 @@ class Settings(BaseSettings):
         default=True,
         alias="CRAWLER_WATERMARK_ENABLED",
     )
+    # RSS 프로브: 게시판 탐지 성공 직후 학교당 1회, 결과만 school_crawl_state.rss_feed 에
+    # 기록한다(수집에는 쓰지 않는다). 실패는 크롤 결과에 영향을 주지 않는 best-effort.
+    crawler_rss_probe_enabled: bool = Field(
+        default=True,
+        alias="CRAWLER_RSS_PROBE_ENABLED",
+    )
     crawler_schedule_concurrency: int = Field(
         default=3,
         ge=1,

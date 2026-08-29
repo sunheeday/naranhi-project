@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+import re
 import ssl
 from typing import Any
 from urllib.parse import urlencode, urlparse, urlunparse
@@ -161,3 +162,87 @@ async def fetch_feed(url: str, *, timeout: float) -> tuple[int, bytes]:
         ) as client:
             response = await client.get(url)
             return response.status_code, response.content
+
+
+def parse_feed(body: bytes, *, flavor: str, feed_url: str) -> list[RssItem]:
+    """flavor 별 파싱. Task 11 에서 두 flavor 를 채운다."""
+    raise NotImplementedError(flavor)
+
+
+async def probe_rss_feed(
+    *,
+    board_url: str,
+    parser_family: str,
+    board_key: str,
+    sample_titles: list[str],
+    timeout: float,
+) -> RssFeedState:
+    """4단 게이트를 **전부** 통과해야 ok 다(스펙 §4.3)."""
+    derived = derive_feed_url(board_url=board_url, parser_family=parser_family, board_key=board_key)
+    if not derived:
+        return _state("unsupported", None, None, board_key, 0, "no_feed_rule")
+    feed_url, flavor = derived
+
+    try:
+        status_code, body = await fetch_feed(feed_url, timeout=timeout)
+    except Exception as exc:  # noqa: BLE001 - 프로브 실패는 크롤에 영향을 주지 않는다.
+        return _state("unknown", flavor, feed_url, board_key, 0, f"fetch_{type(exc).__name__}")
+
+    # 게이트 1 — HTTP 200. 부산·제주·경남의 404/400 을 거른다.
+    if status_code != 200:
+        return _state("unsupported", flavor, feed_url, board_key, 0, f"http_{status_code}")
+
+    # 게이트 2 — 파싱 성공. 세종처럼 200 에 오류 HTML 을 담는 경우를 거른다.
+    # Content-Type 은 신뢰하지 않는다: 전북은 JSON 을 주고 첨부는 octet-stream 을 준다.
+    try:
+        items = parse_feed(body, flavor=flavor, feed_url=feed_url)
+    except Exception:  # noqa: BLE001 - 파싱 실패는 '이 엔드포인트는 RSS 가 아니다' 이다.
+        return _state("unsupported", flavor, feed_url, board_key, 0, "parse_failed")
+
+    # 게이트 3 — 비어있지 않음. item 0건은 ok 가 아니라 unknown 이다.
+    # 방학 중 빈 게시판과 서울 AJAX 식 '조용한 0건' 을 구분할 수 없기 때문.
+    usable = [item for item in items if item.title and (item.link or item.guid)]
+    if not usable:
+        return _state("unknown", flavor, feed_url, board_key, len(items), "empty_feed")
+
+    # 게이트 4 — 교차검증. 같은 크롤에서 HTML 파서가 뽑은 제목과 교집합 ≥ 1.
+    # mi/bbsId 가 다른 게시판(급식·앨범)을 가리키면 여기서 걸린다.
+    if sample_titles and not titles_intersect([item.title for item in usable[:5]], sample_titles):
+        return _state("unknown", flavor, feed_url, board_key, len(usable), "title_mismatch")
+
+    return _state("ok", flavor, feed_url, board_key, len(usable), None)
+
+
+def titles_intersect(feed_titles: list[str], sample_titles: list[str]) -> bool:
+    """HTML 목록 제목에는 '[가정통신문] … NEW 첨부' 같은 잡음이 섞이므로 포함 관계로 본다."""
+    samples = [item for item in (_compact(value) for value in sample_titles) if item]
+    for title in feed_titles:
+        needle = _compact(title)
+        if len(needle) < 4:
+            continue
+        if any(needle in sample or sample in needle for sample in samples):
+            return True
+    return False
+
+
+def _compact(value: str) -> str:
+    return re.sub(r"\s+", "", (value or "").replace("\xa0", " ")).lower()
+
+
+def _state(
+    status: str,
+    flavor: str | None,
+    url: str | None,
+    board_key: str,
+    item_count: int,
+    error: str | None,
+) -> RssFeedState:
+    return RssFeedState(
+        status=status,
+        flavor=flavor,
+        url=url,
+        board_key=board_key,
+        item_count=item_count,
+        checked_at=datetime.now(UTC).isoformat(),
+        error=error,
+    )
