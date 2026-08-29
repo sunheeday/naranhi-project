@@ -88,6 +88,7 @@ jobs:
             CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest
             DEV_LOGIN_EMAIL=dev-login-email:latest
             DEV_LOGIN_PASSWORD=dev-login-password:latest
+            ADMIN_API_TOKEN=admin-api-token:latest
           flags: >-
             --allow-unauthenticated
             --port=8080

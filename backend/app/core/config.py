@@ -245,6 +245,14 @@ class Settings(BaseSettings):
     translation_worker_job_name: str = Field(default="", alias="TRANSLATION_WORKER_JOB_NAME")
     crawler_worker_job_name: str = Field(default="", alias="CRAWLER_WORKER_JOB_NAME")
 
+    # 관리자 콘솔 전용 토큰. crawler_internal_token 과 분리한다 —
+    # 그쪽은 토큰 미설정 + local 이면 통과하는 fail-open 분기가 있다(crawler.py:24-26).
+    admin_api_token: str | None = Field(default=None, alias="ADMIN_API_TOKEN")
+    # Cloud Scheduler 잡의 location. Cloud Run region 과 같은지 미확인이었으나
+    # 읽기 전용 gcloud 로 asia-northeast3 로 동일함을 확인했다(Task 12 보고 참고).
+    # 비어 있으면 gcp_region 으로 폴백한다.
+    scheduler_location: str = Field(default="", alias="SCHEDULER_LOCATION")
+
     @property
     def cors_origins(self) -> list[str]:
         return [

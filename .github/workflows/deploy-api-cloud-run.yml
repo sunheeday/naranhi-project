@@ -93,6 +93,7 @@ jobs:
             NEIS_API_KEY=neis-api-key:latest
             AWS_ACCESS_KEY_ID=aws-bedrock-access-key-id:latest
             AWS_SECRET_ACCESS_KEY=aws-bedrock-secret-access-key:latest
+            ADMIN_API_TOKEN=admin-api-token:latest
           flags: >-
             --allow-unauthenticated
             --port=8080
