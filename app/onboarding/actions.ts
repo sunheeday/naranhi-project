@@ -4,7 +4,6 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n'
-import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { backfillSchoolEventsForSchool } from '@/lib/schedule-backfill'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
@@ -43,11 +42,6 @@ export async function saveChildAndProfile(input: SaveChildInput) {
   const homepageUrl = input.schoolHomepageUrl?.trim() || null
   const childName = input.childName.trim()
   const dietaryRestrictions = parseDietaryRestrictions(input.dietaryRestrictions)
-  const isDemoSchool = isDemoSchoolSelection({
-    schoolName,
-    neisOfficeCode: officeCode,
-    neisSchoolCode: schoolCode,
-  })
 
   if (!schoolName || !officeCode || !schoolCode) {
     throw new Error('학교를 검색하여 다시 선택해 주세요.')
@@ -164,11 +158,6 @@ export async function saveChildAndProfile(input: SaveChildInput) {
 
   if (!school) {
     throw new Error('학교 정보 저장 실패')
-  }
-
-  if (isDemoSchool) {
-    await ensureDemoSchoolSeed(serviceClient, school.id)
-    shouldTriggerCrawl = false
   }
 
   const { data: child, error } = await supabase.from('children').insert({

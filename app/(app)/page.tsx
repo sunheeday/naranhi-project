@@ -2,11 +2,10 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getHiddenNoticeIds, getLatestChildForUser, getSchoolSummary } from '@/lib/server-cache'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
-import { ensureDemoSchoolSeed, isDemoSchoolSelection } from '@/lib/demo-school'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterEmptyState from '@/components/brand/CharacterEmptyState'
@@ -189,18 +188,6 @@ export default async function HomePage() {
 
   if (!child) {
     redirect('/onboarding')
-  }
-
-  if (
-    child.school_id
-    && isDemoSchoolSelection({
-      schoolName: child.school_name,
-      neisOfficeCode: child.neis_office_code,
-      neisSchoolCode: child.neis_school_code,
-    })
-  ) {
-    const serviceClient = await createSupabaseServiceClient()
-    await ensureDemoSchoolSeed(serviceClient, child.school_id)
   }
 
   childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`

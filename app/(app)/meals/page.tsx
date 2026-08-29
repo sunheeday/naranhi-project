@@ -1,10 +1,5 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import {
-  ensureDemoSchoolSeed,
-  getSeededDemoMealsForRange,
-  isDemoSchoolSelection,
-} from '@/lib/demo-school'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
@@ -87,40 +82,7 @@ export default async function MealsPage({ searchParams }: Props) {
   childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`
   dietaryRestrictions = child.dietary_restrictions
 
-  const isDemoSchool = isDemoSchoolSelection({
-    schoolName: child.school_name,
-    neisOfficeCode: child.neis_office_code,
-    neisSchoolCode: child.neis_school_code,
-  })
-  if (isDemoSchool) {
-    const serviceClient = await createSupabaseServiceClient()
-    try {
-      if (child.school_id) {
-        await ensureDemoSchoolSeed(serviceClient, child.school_id)
-      }
-      const map = await getSeededDemoMealsForRange(serviceClient, monday, friday)
-      const days: DayEntry[] = []
-      let hasAnyMeals = false
-      for (let i = 0; i < 5; i++) {
-        const iso = addDaysIso(monday, i)
-        const rows = map.get(iso) ?? []
-        const meals = rows.map(row => ({
-          mealType: row.meal_type,
-          mealTypeName: row.meal_type_name,
-          dishes: Array.isArray(row.dishes) ? (row.dishes as unknown as Meal['dishes']) : [],
-          calories: row.calories,
-          nutrients: Array.isArray(row.nutrients) ? (row.nutrients as Meal['nutrients']) : null,
-          origins: Array.isArray(row.origins) ? (row.origins as Meal['origins']) : null,
-        }))
-        if (meals.length > 0) hasAnyMeals = true
-        days.push({ isoDate: iso, meals })
-      }
-      dayEntries = hasAnyMeals ? days : await previewMealEntries(monday, locale)
-    } catch (e) {
-      console.error('[meals] demo fetch failed:', e instanceof Error ? e.message : e)
-      dayEntries = await previewMealEntries(monday, locale)
-    }
-  } else if (!child.neis_office_code || !child.neis_school_code) {
+  if (!child.neis_office_code || !child.neis_school_code) {
     unsupported = true
   } else {
     try {
@@ -212,64 +174,4 @@ export default async function MealsPage({ searchParams }: Props) {
       )}
     </main>
   )
-}
-
-async function previewMealEntries(monday: string, locale: Locale): Promise<DayEntry[]> {
-  const menus: Meal[][] = [
-    [{
-      mealType: 2,
-      mealTypeName: '중식',
-      dishes: [
-        { name: '현미밥', allergens: [] },
-        { name: '미역국', allergens: [5] },
-        { name: '닭갈비', allergens: [5, 15] },
-        { name: '배추김치', allergens: [] },
-      ],
-      calories: '672 Kcal',
-      nutrients: null,
-      origins: null,
-    }],
-    [{
-      mealType: 2,
-      mealTypeName: '중식',
-      dishes: [
-        { name: '카레라이스', allergens: [2, 6] },
-        { name: '오이무침', allergens: [] },
-        { name: '요구르트', allergens: [2] },
-      ],
-      calories: '701 Kcal',
-      nutrients: null,
-      origins: null,
-    }],
-    [],
-    [{
-      mealType: 2,
-      mealTypeName: '중식',
-      dishes: [
-        { name: '보리밥', allergens: [] },
-        { name: '된장찌개', allergens: [5, 6] },
-        { name: '생선구이', allergens: [7] },
-      ],
-      calories: '645 Kcal',
-      nutrients: null,
-      origins: null,
-    }],
-    [{
-      mealType: 2,
-      mealTypeName: '중식',
-      dishes: [
-        { name: '김치볶음밥', allergens: [5, 10] },
-        { name: '계란국', allergens: [1] },
-        { name: '사과', allergens: [] },
-      ],
-      calories: '628 Kcal',
-      nutrients: null,
-      origins: null,
-    }],
-  ]
-
-  return menus.map((meals, index) => ({
-    isoDate: addDaysIso(monday, index),
-    meals,
-  }))
 }
