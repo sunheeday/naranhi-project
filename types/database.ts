@@ -139,6 +139,94 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           },
         ]
       }
+      // crawl_run_history(0041_admin_console_observability.sql)도 admin_* 셋과 같은 이유로
+      // 여기 수기 보강한다 — 0041 이 운영에 아직 적용되지 않아 gen:types 가 못 본다.
+      // 필드는 ScheduledCrawlerSummary(scheduled_crawler_service.py:61-76) + outcome +
+      // error_message. 0041 이 적용되고 gen:types 를 다시 돌리면 이 블록은 지운다.
+      crawl_run_history: {
+        Row: {
+          id: string
+          started_at: string
+          finished_at: string
+          outcome: CrawlRunOutcome
+          dry_run: boolean
+          force: boolean
+          total_registered: number
+          selected_count: number
+          skipped_count: number
+          processed_count: number
+          success_count: number
+          failure_count: number
+          fallback_count: number
+          success_rate: number
+          alarm: boolean
+          targets: Json
+          results: Json
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          started_at: string
+          finished_at: string
+          outcome: CrawlRunOutcome
+          dry_run?: boolean
+          force?: boolean
+          total_registered?: number
+          selected_count?: number
+          skipped_count?: number
+          processed_count?: number
+          success_count?: number
+          failure_count?: number
+          fallback_count?: number
+          success_rate?: number
+          alarm?: boolean
+          targets?: Json
+          results?: Json
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          started_at?: string
+          finished_at?: string
+          outcome?: CrawlRunOutcome
+          dry_run?: boolean
+          force?: boolean
+          total_registered?: number
+          selected_count?: number
+          skipped_count?: number
+          processed_count?: number
+          success_count?: number
+          failure_count?: number
+          fallback_count?: number
+          success_rate?: number
+          alarm?: boolean
+          targets?: Json
+          results?: Json
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      // needs_review/review_reason(0041_admin_console_observability.sql)도 같은 이유로
+      // 수기 보강한다. notice_ai_translations 는 generated 쪽에 이미 있는 테이블이라
+      // 여기서는 두 신규 컬럼만 얹는다 — 교차 타입이 기존 필드(validation_status 등)와
+      // 새 필드를 합쳐준다. 0041 적용 후 gen:types 를 다시 돌리면 이 블록은 지운다.
+      notice_ai_translations: {
+        Row: {
+          needs_review: boolean
+          review_reason: string | null
+        }
+        Insert: {
+          needs_review?: boolean
+          review_reason?: string | null
+        }
+        Update: {
+          needs_review?: boolean
+          review_reason?: string | null
+        }
+      }
     }
     Functions: GeneratedPublicSchema['Functions'] & {
       // outcome은 SQL에서 text로 선언돼 실제 gen types도 string을 낸다(리터럴
@@ -175,3 +263,6 @@ export type SchoolCrawlBoardKind = 'family_notice' | 'announcement_fallback' | '
 export type NoticeAiValidationStatus = 'passed' | 'failed'
 /** app_jobs.status는 DB에서 text라 gen types가 string을 낸다 — 실제 값 도메인만 좁혀 제공. */
 export type AppJobStatus = 'queued' | 'processing' | 'completed' | 'failed'
+/** crawl_run_history.outcome도 DB에서 text + CHECK라 gen types가 string을 낸다
+ *  (0041_admin_console_observability.sql). 값 도메인만 좁혀 제공. */
+export type CrawlRunOutcome = 'ok' | 'idle' | 'alarm' | 'crashed'
