@@ -102,6 +102,12 @@ async def process_jobs(
             counters["in_flight"] += 1
             try:
                 await _process_one(job)
+            except Exception:  # noqa: BLE001
+                # _process_one 은 잡 실패를 스스로 삼키지만 queue.complete/fail 자체가
+                # 던질 수 있다(DB 순단 등). 그때 이 태스크가 죽으면 슬롯이 영구 소실되고,
+                # 전부 죽으면 producer 가 slot_freed 에서 잡 타임아웃까지 매달린다.
+                # 잡 하나를 잃더라도 소비자는 살려 둔다.
+                LOGGER.exception("translation worker consumer error: job_id=%s", job.get("id"))
             finally:
                 counters["in_flight"] -= 1
                 counters["processed"] += 1

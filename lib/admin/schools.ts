@@ -17,8 +17,9 @@ export interface AdminSchoolRow {
   pendingNoticeCount: number
 }
 
-/** rss_feed(0040_school_crawl_state_rss_feed.sql)는 운영에 아직 적용되지 않았다 —
- *  select 목록에 절대 넣지 않는다(넣으면 PostgREST 가 컬럼 없음 에러를 낸다).
+/** 이 화면이 그리는 열만 가져온다. rss_feed(0040)는 운영에 적용돼 있지만
+ *  AdminSchoolRow 에 대응하는 항목이 없어 select 하지 않는다 — 화면에 RSS 판정을
+ *  띄우려면 여기와 AdminSchoolRow, 표 헤더를 함께 늘려야 한다.
  *  이 화면이 실제로 쓰는 컬럼(board_watermarks 포함)은 전부 0013 이 이미
  *  운영에 적용해 뒀다 — schools/school_crawl_state/notices 셋 다 기존 테이블이라
  *  "테이블 없음" 을 흉내 낼 필요가 없다(Task 10 과 동일 판단). */

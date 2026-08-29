@@ -25,6 +25,13 @@ drop policy if exists "notice cards select own school notice" on public.notice_c
 --     유일한 참조 테이블 document_files 도 0006:65 가 drop 했다. 코드 참조 0건.
 --     0006:91 주석이 스스로 "bucket 자체는 대시보드에서 수동으로 삭제할 것" 이라고
 --     적어 두고 석 달간 안 지워졌다.
+--
+--     ⚠️ SQL 로는 못 지운다. storage.buckets 에 BEFORE DELETE «문장» 트리거
+--     protect_buckets_delete 가 걸려 있어 storage.protect_delete() 가
+--     42501 을 던진다. 문장 단위라 매칭 0행이어도 발사된다 —
+--     `delete ... where id = ...` 를 어떤 가드로 감싸도 마이그레이션이 거기서 멈춘다.
+--     운영에서는 Storage API(DELETE /storage/v1/bucket/notice-originals)로 지웠다.
+--     새 환경을 세울 때도 같은 방법을 쓴다. 여기서는 남은 오브젝트만 확인해 둔다.
 do $$
 declare
   leftover integer;
@@ -34,8 +41,6 @@ begin
   where bucket_id = 'notice-originals';
 
   if leftover > 0 then
-    raise exception 'notice-originals 버킷에 오브젝트가 %개 남아 있어 삭제를 중단합니다', leftover;
+    raise exception 'notice-originals 버킷에 오브젝트가 %개 남아 있습니다. 먼저 비우세요.', leftover;
   end if;
-
-  delete from storage.buckets where id = 'notice-originals';
 end $$;

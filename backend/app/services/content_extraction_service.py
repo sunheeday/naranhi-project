@@ -684,6 +684,10 @@ def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
     return "\n\n".join(parts).strip()
 
 
+# 이어 붙인 PNG 의 최대 폭. 이보다 넓은 원본은 읽는 즉시 여기에 맞춰 줄인다.
+_STITCH_WIDTH = 1600
+
+
 def _stitch_images_vertically(images: list[bytes]) -> bytes | None:
     """여러 이미지 바이트를 같은 폭으로 맞춰 세로로 이어 붙인 PNG 1장(바이트)로 반환."""
     import io
@@ -712,12 +716,18 @@ def _stitch_images_vertically(images: list[bytes]) -> bytes | None:
                     pixels, max_pixels, probe.width, probe.height,
                 )
                 continue
-            pil.append(probe.convert("RGB"))
+            im = probe.convert("RGB")
+            # 곧바로 목표 폭으로 줄인 뒤 담는다. 아래에서 어차피 1600 으로 맞추므로
+            # 결과 PNG 는 동일하고(1600 초과분만 정확히 1600 이 된다), 큰 원본을
+            # 12장까지 동시에 들고 있는 구간이 사라진다 — 최악 12x가 1x로 줄어든다.
+            if im.width > _STITCH_WIDTH:
+                im = im.resize((_STITCH_WIDTH, max(1, round(im.height * _STITCH_WIDTH / im.width))))
+            pil.append(im)
         except Exception:  # noqa: BLE001 - 깨진 이미지는 건너뜀
             continue
     if not pil:
         return None
-    width = min(max(im.width for im in pil), 1600)  # 폭 통일 + 과대 방지
+    width = min(max(im.width for im in pil), _STITCH_WIDTH)  # 폭 통일 + 과대 방지
     resized = []
     for im in pil:
         if im.width != width:
