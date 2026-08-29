@@ -33,6 +33,27 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # 경고 전용이다. 이 잡은 아직 적용되지 않은 마이그레이션이 있는 PR 에서
+      # 반드시 실패하므로 차단하면 개발 흐름이 멈춘다. 적용 직후 시점의
+      # 차단 검사는 db-migrate 워크플로가 맡는다(Task 16).
+      - name: 타입 드리프트 검사 (경고)
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+          npm run gen:types
+          if ! git diff --exit-code -- types/database.generated.ts; then
+            echo "::warning file=types/database.generated.ts::스키마와 타입이 다릅니다. 'npm run gen:types' 를 돌리고 커밋하세요."
+            exit 1
+          fi
+          echo "타입 드리프트 없음"
+
   validate-api:
     name: Validate FastAPI app
     runs-on: ubuntu-latest
