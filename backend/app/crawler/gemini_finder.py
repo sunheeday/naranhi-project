@@ -38,7 +38,26 @@ def _get_vertex_client(timeout: float) -> Any:
 
 
 async def _vertex_generate_json_text(prompt: str, *, timeout: float, temperature: float) -> str:
-    """Shared Vertex text->JSON helper for the crawler (board finder + post resolver)."""
+    """크롤러의 text->JSON 공용 헬퍼(게시판 탐색 + 글 판별).
+
+    이름은 그대로 두되 «Bedrock 우선» 이다 — 사용자 지시로 GCP AI 지출을 0 으로 만든다.
+    DOCUMENT_BACKEND/TRANSLATION_BACKEND=bedrock 이고 AWS 자격증명이 있을 때만 그쪽으로 가고,
+    아니면 기존 Vertex 경로로 남는다(자격증명이 없을 때 크롤러가 죽지 않게).
+    """
+    from extractor.extractors.bedrock_document_extractor import (
+        BedrockDocumentExtractor,
+        bedrock_enabled,
+    )
+
+    if bedrock_enabled():
+        client = BedrockDocumentExtractor(timeout_seconds=timeout)
+        try:
+            import json as _json
+
+            return _json.dumps(await client.generate_json(prompt), ensure_ascii=False)
+        finally:
+            client.close()
+
     from google.genai import types
 
     from app.translation.gemini_client import call_with_quota_backoff
