@@ -157,7 +157,8 @@
     "period_suffix": "{period}교시",
     "timetable_error": "수업 정보를 불러오지 못했어요.",
     "timetable_unsupported": "학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요.",
-    "gcal_error": "구글 캘린더 연결에 실패했어요. 로그아웃 후 다시 로그인해 주세요."
+    "gcal_error": "구글 캘린더 연결에 실패했어요. 로그아웃 후 다시 로그인해 주세요.",
+    "dismissal": "하교 {time}쯤"
   },
   "camera": {
     "nav_title": "촬영",

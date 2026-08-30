@@ -153,7 +153,8 @@
     "period_suffix": "Tiết {period}",
     "timetable_error": "Không thể tải thông tin lớp học.",
     "timetable_unsupported": "Không thể hiển thị lớp học vì khối/lớp hoặc loại trường không khớp.",
-    "gcal_error": "Kết nối Google Calendar thất bại. Vui lòng đăng xuất và đăng nhập lại."
+    "gcal_error": "Kết nối Google Calendar thất bại. Vui lòng đăng xuất và đăng nhập lại.",
+    "dismissal": "Tan học khoảng {time}"
   },
   "settings": {
     "demo_school_select": "Chọn trường",

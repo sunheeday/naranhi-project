@@ -155,7 +155,8 @@
     "period_suffix": "Période {period}",
     "timetable_error": "Impossible de charger les informations de cours.",
     "timetable_unsupported": "Les cours ne peuvent pas être affichés car la classe ou le type d'école ne correspond pas.",
-    "gcal_error": "Échec de la connexion à Google Agenda. Veuillez vous déconnecter et vous reconnecter."
+    "gcal_error": "Échec de la connexion à Google Agenda. Veuillez vous déconnecter et vous reconnecter.",
+    "dismissal": "Sortie vers {time}"
   },
   "settings": {
     "demo_school_select": "Sélection de l'école",

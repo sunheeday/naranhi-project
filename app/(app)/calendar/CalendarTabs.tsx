@@ -28,6 +28,7 @@ interface TimetableLabels {
   noTimetable: string
   periodSuffix: string
   unsupported: string
+  dismissal: string
 }
 
 interface Props {

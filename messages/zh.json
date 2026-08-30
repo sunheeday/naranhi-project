@@ -151,7 +151,8 @@
     "period_suffix": "第{period}节",
     "timetable_error": "无法获取课程信息。",
     "timetable_unsupported": "年级/班级或学校类型不匹配，无法显示课程信息。",
-    "gcal_error": "Google日历连接失败，请退出后重新登录。"
+    "gcal_error": "Google日历连接失败，请退出后重新登录。",
+    "dismissal": "约 {time} 放学"
   },
   "settings": {
     "demo_school_select": "选择学校",

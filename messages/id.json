@@ -155,7 +155,8 @@
     "period_suffix": "Jam ke-{period}",
     "timetable_error": "Tidak dapat memuat informasi kelas.",
     "timetable_unsupported": "Informasi kelas tidak dapat ditampilkan karena tingkat/kelas atau jenis sekolah tidak cocok.",
-    "gcal_error": "Gagal terhubung ke Google Calendar. Silakan keluar dan masuk lagi."
+    "gcal_error": "Gagal terhubung ke Google Calendar. Silakan keluar dan masuk lagi.",
+    "dismissal": "Pulang sekitar {time}"
   },
   "settings": {
     "demo_school_select": "Pilih sekolah",

@@ -32,6 +32,8 @@ export interface CachedChildSummary {
   neis_office_code: string | null
   neis_school_code: string | null
   dietary_restrictions: DietaryRestrictionId[]
+  /** 자녀별 교시 시각 보정(분). 0048. 부모가 «우리 학교는 8시 50분» 하면 -10. */
+  bell_offset_minutes: number
 }
 
 export interface CachedSchoolSummary {
@@ -48,6 +50,7 @@ interface ChildRow {
   grade: number
   class_no: number | null
   dietary_restrictions?: unknown
+  bell_offset_minutes?: number | null
 }
 
 interface SchoolLookupRow {
@@ -68,6 +71,7 @@ function mergeChildSchoolFields(
     neis_office_code: school?.neis_office_code ?? null,
     neis_school_code: school?.neis_school_code ?? null,
     dietary_restrictions: parseDietaryRestrictions(child.dietary_restrictions),
+    bell_offset_minutes: child.bell_offset_minutes ?? 0,
   }
 }
 
@@ -93,7 +97,7 @@ export async function getLatestChildForUser(userId: string): Promise<CachedChild
       const serviceClient = createSupabaseServiceClient()
       const { data } = await serviceClient
         .from('children')
-        .select('id, school_id, name, grade, class_no, dietary_restrictions')
+        .select('id, school_id, name, grade, class_no, dietary_restrictions, bell_offset_minutes')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -115,7 +119,7 @@ export async function getChildrenForUser(userId: string): Promise<CachedChildSum
       const serviceClient = createSupabaseServiceClient()
       const { data } = await serviceClient
         .from('children')
-        .select('id, school_id, name, grade, class_no, dietary_restrictions')
+        .select('id, school_id, name, grade, class_no, dietary_restrictions, bell_offset_minutes')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
 

@@ -29,9 +29,18 @@ function todayKstIso(): string {
   return fmt.format(new Date())
 }
 
+/** NEIS 의 교시 정보에 학교별 시각표(0048)를 얹은 것. 시각을 모르는 학교는 null 이고,
+ *  그때는 기존 «N교시» 표시로 자연스럽게 되돌아간다. */
+export interface TimetablePeriodWithTime extends TimetablePeriod {
+  startTime?: string | null
+  endTime?: string | null
+}
+
 export interface TimetableDayEntry {
   isoDate: string
-  periods: TimetablePeriod[]
+  periods: TimetablePeriodWithTime[]
+  /** 그날 마지막 교시 끝 + 종례. 추정치라 화면에는 반드시 «쯤»을 붙여 쓴다. */
+  dismissalTime?: string | null
 }
 
 interface Labels {
@@ -43,6 +52,7 @@ interface Labels {
   noTimetable: string
   periodSuffix: string
   unsupported: string
+  dismissal: string
 }
 
 interface Props {
@@ -136,8 +146,9 @@ function TimetableDayCard({ day, labels, isToday }: { day: TimetableDayEntry; la
         <ol className="flex flex-col divide-y divide-hairline-soft">
           {day.periods.map(period => (
             <li key={`${day.isoDate}-${period.period}`} className="grid grid-cols-[52px_1fr] gap-3 py-2 first:pt-0 last:pb-0">
-              <span className="text-xs font-bold text-muted pt-0.5">
-                {labels.periodSuffix.replace('{period}', String(period.period))}
+              {/* 시각을 알면 시각을, 모르면 기존 «N교시» 로 되돌아간다 */}
+              <span className="text-xs font-bold text-muted pt-0.5 tabular-nums">
+                {period.startTime ?? labels.periodSuffix.replace('{period}', String(period.period))}
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-text-primary truncate">{period.subject}</span>
@@ -148,6 +159,12 @@ function TimetableDayCard({ day, labels, isToday }: { day: TimetableDayEntry; la
             </li>
           ))}
         </ol>
+      )}
+
+      {day.dismissalTime && (
+        <p className="mt-3 pt-3 border-t border-hairline-soft text-sm font-semibold text-text-secondary tabular-nums">
+          {labels.dismissal.replace('{time}', day.dismissalTime)}
+        </p>
       )}
     </article>
   )

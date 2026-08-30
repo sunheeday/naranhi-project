@@ -157,7 +157,8 @@
     "period_suffix": "Period {period}",
     "timetable_error": "Could not load class information.",
     "timetable_unsupported": "Class information cannot be shown because the grade/class or school type does not match.",
-    "gcal_error": "Google Calendar connection failed. Please log out and sign in again."
+    "gcal_error": "Google Calendar connection failed. Please log out and sign in again.",
+    "dismissal": "Home around {time}"
   },
   "camera": {
     "nav_title": "Camera",
