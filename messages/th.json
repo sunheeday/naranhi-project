@@ -52,7 +52,9 @@
     "inapp_open_external": "เปิดในเบราว์เซอร์ภายนอก",
     "inapp_manual_body": "เลือก 'เปิดในเบราว์เซอร์อื่น' จากเมนูมุมขวาบน หรือคัดลอก URL ด้านล่างแล้ววางใน Chrome/Safari",
     "inapp_copy_url": "คัดลอก URL",
-    "inapp_copied": "คัดลอกแล้ว"
+    "inapp_copied": "คัดลอกแล้ว",
+    "language_title": "เลือกภาษาที่คุณสะดวกก่อน",
+    "language_body": "หากเลือกภาษาก่อนสมัคร คำแนะนำและหน้าจอหลังเข้าสู่ระบบจะใช้ภาษาเดียวกันต่อไป"
   },
   "onboarding": {
     "step_of": "{current} / {total}",

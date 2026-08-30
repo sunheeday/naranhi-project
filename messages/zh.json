@@ -52,7 +52,9 @@
     "inapp_open_external": "用外部浏览器打开",
     "inapp_manual_body": "请在右上角菜单中选择\"在其他浏览器中打开\"，或复制下方网址粘贴到 Chrome/Safari。",
     "inapp_copy_url": "复制网址",
-    "inapp_copied": "已复制"
+    "inapp_copied": "已复制",
+    "language_title": "请先选择您方便的语言",
+    "language_body": "注册前先选好语言，登录后的说明和界面会以同一语言继续显示。"
   },
   "onboarding": {
     "step_of": "{current} / {total}",
@@ -98,7 +100,11 @@
     "meal_breakfast": "早餐",
     "meal_lunch": "午餐",
     "meal_dinner": "晚餐",
-    "meal_allergy_prefix": "⚠ 过敏:"
+    "meal_allergy_prefix": "⚠ 过敏:",
+    "delete": "删除",
+    "deleting": "删除中...",
+    "delete_confirm_title": "要删除这条通知吗？",
+    "delete_confirm_body": "删除后卡片、日程和问答记录也会一起消失。"
   },
   "notice_detail": {
     "summary_title": "摘要",

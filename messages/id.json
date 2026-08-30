@@ -52,7 +52,9 @@
     "inapp_open_external": "Buka di browser eksternal",
     "inapp_manual_body": "Pilih 'Buka di browser lain' dari menu kanan atas, atau salin alamat di bawah dan tempel di Chrome/Safari.",
     "inapp_copy_url": "Salin alamat",
-    "inapp_copied": "Tersalin"
+    "inapp_copied": "Tersalin",
+    "language_title": "Pilih bahasa yang Anda nyaman terlebih dahulu",
+    "language_body": "Jika Anda memilih bahasa sebelum mendaftar, panduan dan tampilan setelah masuk akan tetap dalam bahasa itu."
   },
   "onboarding": {
     "step_of": "{current} / {total}",

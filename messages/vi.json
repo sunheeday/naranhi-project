@@ -100,7 +100,11 @@
     "meal_breakfast": "Bữa sáng",
     "meal_lunch": "Bữa trưa",
     "meal_dinner": "Bữa tối",
-    "meal_allergy_prefix": "⚠ Dị ứng:"
+    "meal_allergy_prefix": "⚠ Dị ứng:",
+    "delete": "Xóa",
+    "deleting": "Đang xóa...",
+    "delete_confirm_title": "Xóa thông báo này?",
+    "delete_confirm_body": "Thẻ tin, lịch và lịch sử hỏi đáp cũng sẽ bị xóa."
   },
   "notice_detail": {
     "summary_title": "Tóm tắt",

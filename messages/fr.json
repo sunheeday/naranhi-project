@@ -52,7 +52,9 @@
     "inapp_open_external": "Ouvrir dans un navigateur externe",
     "inapp_manual_body": "Sélectionnez 'Ouvrir dans un autre navigateur' dans le menu en haut à droite, ou copiez l'adresse ci-dessous et collez-la dans Chrome/Safari.",
     "inapp_copy_url": "Copier l'adresse",
-    "inapp_copied": "Copié"
+    "inapp_copied": "Copié",
+    "language_title": "Choisissez d'abord votre langue",
+    "language_body": "Si vous choisissez une langue avant de vous inscrire, les écrans suivants resteront dans cette langue."
   },
   "onboarding": {
     "step_of": "{current} / {total}",

@@ -28,19 +28,11 @@ test('messages 디렉터리에 기대한 9개 언어가 모두 있다', () => {
   assert.deepEqual(found, [...LOCALES].sort())
 })
 
-/** 사업 G 이전부터 비어 있던 자리. 이 테스트를 처음 붙였을 때(2026-08-30) 발견했고,
- *  사업 G 와 무관하므로 이번 범위에서 채우지 않았다. 여기에 «잠가» 두면 새 누락은
- *  실패로 잡히고 기존 6개만 통과한다. 채우고 나면 이 목록을 지운다. */
-const KNOWN_GAPS: Record<string, string[]> = {
-  zh: ['home.delete', 'home.deleting', 'home.delete_confirm_title', 'home.delete_confirm_body',
-       'login.language_title', 'login.language_body'],
-  vi: ['home.delete', 'home.deleting', 'home.delete_confirm_title', 'home.delete_confirm_body'],
-  fr: ['login.language_title', 'login.language_body'],
-  id: ['login.language_title', 'login.language_body'],
-  th: ['login.language_title', 'login.language_body'],
-}
+/** 예외 목록. 비어 있는 것이 정상이다 — 어떤 언어에 키가 빠지면 그 언어 화면에
+ *  빈칸이 나가고 빌드도 타입검사도 잡아주지 않는다. 임시로 비워 둘 때만 채운다. */
+const KNOWN_GAPS: Record<string, string[]> = {}
 
-test('9개 언어의 키 집합이 ko 와 같다 (기존 누락 6개 제외)', () => {
+test('9개 언어의 키 집합이 ko 와 같다', () => {
   const base = keysOf('ko')
   for (const locale of LOCALES) {
     if (locale === 'ko') continue
