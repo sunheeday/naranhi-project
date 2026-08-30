@@ -291,27 +291,76 @@ text 필드에는 아래 형식의 줄만 담는다(설명 문장 금지):
 """.strip()
 
 
+async def _choose_page_with_bedrock(
+    *,
+    school_name: str,
+    homepage_url: str,
+    candidates: list[BellLink],
+) -> str | None:
+    """링크 목록에서 일과표 페이지를 고른다. 확실하지 않으면 None.
+
+    Bedrock 으로 부른다 — GCP 지출을 만들지 않는다. 못 찾는 것이 정상이므로
+    (실측 5곳 중 4곳) 억지로 고르게 만들지 않는다.
+    """
+    import json as _json
+
+    from app.core.config import get_settings
+    from app.translation.bedrock_client import BedrockJsonClient
+
+    allowed = {c.url for c in candidates}
+    listing = _json.dumps(
+        [{"text": c.text, "url": c.url} for c in candidates], ensure_ascii=False,
+    )
+    prompt = (
+        f"{BELL_PAGE_PROMPT}\n\n"
+        f"학교명: {school_name}\n학교 홈페이지: {homepage_url}\n\n"
+        f"후보 링크 JSON:\n{listing}\n\n"
+        '반드시 아래 JSON만 반환한다.\n'
+        '{"best_url": "https://... 또는 null", "reason": "판단 이유"}'
+    )
+
+    settings = get_settings()
+    client = BedrockJsonClient(
+        model=settings.bedrock_translation_model,
+        region=settings.bedrock_region,
+        timeout_seconds=settings.gemini_timeout_seconds,
+        max_workers=2,
+    )
+    payload = await client.generate_json(prompt=prompt, temperature=0.0)
+
+    best = payload.get("best_url")
+    if not isinstance(best, str) or not best.startswith("http"):
+        return None
+    # 모델이 후보에 없는 주소를 지어내면 버린다.
+    return best if best in allowed else None
+
+
 class BellScheduleNotFound(Exception):
     """일과표를 못 찾았다. 예외지만 «정상»에 가깝다 — 실측 5곳 중 4곳이 이렇다.
     호출부는 이걸 잡아 표준값을 그대로 쓰게 두어야 한다."""
 
 
 async def read_bell_image(data: bytes, *, mime_type: str = "image/png") -> list[dict]:
-    """일과표 그림에서 교시별 시각을 뽑는다. 검증까지 통과한 것만 돌려준다."""
+    """일과표 그림에서 교시별 시각을 뽑는다. 검증까지 통과한 것만 돌려준다.
+
+    AWS Bedrock 으로 읽는다 — GCP 지출을 만들지 않는다(사용자 지시).
+    실측(2026-08-30): 부천부흥중 실제 일과표에서 Haiku 가 7교시 전부를 정확히 읽었고
+    Gemini 판독·사람 판독과 완전히 일치했다. 응답 5.12초.
+    """
     from app.core.config import get_settings
-    from extractor.extractors.gemini_document_extractor import GeminiDocumentExtractor
+    from app.translation.bedrock_client import BedrockJsonClient
 
     settings = get_settings()
-    async with GeminiDocumentExtractor(
-        api_keys=settings.gemini_key_material,
-        ocr_models=[settings.gemini_ocr_model_primary, settings.gemini_ocr_model_fallback],
-        timeout=settings.gemini_timeout_seconds,
-        vertex_project=settings.vertex_ai_project_id,
-        vertex_location=settings.vertex_ai_location,
-    ) as extractor:
-        result = await extractor.extract_bytes(data, mime_type=mime_type, prompt=BELL_IMAGE_PROMPT)
-
-    return normalize_bell_periods(parse_bell_text(result.text))
+    client = BedrockJsonClient(
+        model=settings.bedrock_translation_model,
+        region=settings.bedrock_region,
+        timeout_seconds=settings.gemini_timeout_seconds,
+        max_workers=2,
+    )
+    payload = await client.generate_json_with_image(
+        data=data, mime_type=mime_type, prompt=BELL_IMAGE_PROMPT,
+    )
+    return normalize_bell_periods(parse_bell_text(str(payload.get("text") or "")))
 
 
 async def discover_bell_schedule(
@@ -325,10 +374,8 @@ async def discover_bell_schedule(
     결과는 confirmed_at=null 로 저장되어 사람 승인을 기다려야 한다. 여기서 자동 승인하지
     않는다 — 잘못 읽으면 틀린 하교 시각이 부모에게 알림으로 나간다.
     """
-    from app.crawler.gemini_finder import GeminiFinder
     from app.crawler.homepage_client import HomepageClient
     from app.crawler.http_client import make_async_client_for_url
-    from app.crawler.link_extractor import LinkCandidate
 
     client = HomepageClient(timeout=30.0)
     home = await client.fetch(homepage_url, follow_js_redirect=True)
@@ -340,27 +387,16 @@ async def discover_bell_schedule(
     how = "메뉴 이름"
 
     # 2) 없으면 AI 에게 훑게 한다. 못 찾는 것이 정상이므로 억지로 고르지 않는다.
+    #    Bedrock 으로 부른다 — GCP 지출을 만들지 않는다(사용자 지시).
     if target_url is None:
-        # GeminiFinder 기본 30초는 여기서 부족하다. google-genai 는 이 값을 서버에도
-        # X-Server-Timeout 으로 보내므로 «서버가» 504 DEADLINE_EXCEEDED 를 만든다 —
-        # 실측에서 학교 5곳 중 3곳이 30초로 이 오류를 냈다. 관리자가 학교당 1년에
-        # 한 번 누르는 버튼이라 느려도 무해하다.
-        finder = GeminiFinder(timeout=180.0)
-        if not finder.available:
-            raise BellScheduleNotFound("일과표 메뉴가 없고 Gemini 도 쓸 수 없습니다.")
-        decision = await finder.choose_bell_schedule_page(
+        target_url = await _choose_page_with_bedrock(
             school_name=school_name,
             homepage_url=home.final_url,
-            candidates=[
-                LinkCandidate(text=c.text, url=c.url, context="", score=0)
-                for c in candidates[:60]
-            ],
-            rules=BELL_PAGE_PROMPT,
+            candidates=candidates[:60],
         )
-        target_url = decision.best_url
         how = "AI 판단"
         if not target_url:
-            raise BellScheduleNotFound(decision.reason or "일과표 메뉴를 찾지 못했습니다.")
+            raise BellScheduleNotFound("일과표 메뉴를 찾지 못했습니다.")
 
     page = await client.fetch(target_url, follow_js_redirect=True)
 

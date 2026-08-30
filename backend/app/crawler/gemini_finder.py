@@ -115,58 +115,6 @@ class GeminiFinder:
             raw_text=text,
         )
 
-    async def choose_bell_schedule_page(
-        self,
-        *,
-        school_name: str,
-        homepage_url: str,
-        candidates: list[LinkCandidate],
-        rules: str,
-    ) -> GeminiDecision:
-        """홈페이지 링크 중 «일과표(시정표)» 페이지를 고른다.
-
-        choose_notice_board 와 같은 구조이고 프롬프트만 다르다. 못 찾는 것이 정상이므로
-        (실측 5곳 중 1곳) 억지로 고르지 않게 규칙에 못박아 둔다."""
-        if not self.available:
-            raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
-
-        compact = [
-            {"text": item.text, "url": item.url, "context": item.context[:200]}
-            for item in candidates[:60]
-        ]
-        prompt = f"""
-{rules}
-
-학교명: {school_name}
-학교 홈페이지: {homepage_url}
-
-후보 링크 JSON:
-{json.dumps(compact, ensure_ascii=False)}
-
-반드시 아래 JSON 스키마만 반환해라.
-{{
-  "best_url": "https://... 또는 null",
-  "confidence": 0.0,
-  "reason": "판단 이유",
-  "alternatives": [{{"url": "https://...", "reason": "대안 이유"}}],
-  "needs_human_check": true
-}}
-""".strip()
-
-        if self.use_vertex:
-            text = await _vertex_generate_json_text(prompt, timeout=self.timeout, temperature=0.1)
-        else:
-            text = await self._complete_httpx(prompt)
-        parsed = _parse_json(text)
-        return GeminiDecision(
-            best_url=parsed.get("best_url"),
-            confidence=float(parsed.get("confidence") or 0),
-            reason=str(parsed.get("reason") or ""),
-            alternatives=list(parsed.get("alternatives") or []),
-            needs_human_check=bool(parsed.get("needs_human_check", True)),
-            raw_text=text,
-        )
-
     async def _complete_httpx(self, prompt: str) -> str:
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],

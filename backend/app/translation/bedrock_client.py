@@ -33,6 +33,25 @@ BEDROCK_MAX_TOKENS = 8192
 JSON_PREFILL = "{"
 
 
+# Converse 가 받는 이미지 형식. 여기 없는 것을 넘기면 Bedrock 이 400 을 내므로
+# 호출 전에 막는다. PDF·HWP 는 이미지로 변환한 뒤 넘겨야 한다.
+_IMAGE_FORMATS: dict[str, str] = {
+    "image/png": "png",
+    "image/jpeg": "jpeg",
+    "image/jpg": "jpeg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+}
+
+
+def _image_format(mime_type: str) -> str:
+    fmt = _IMAGE_FORMATS.get((mime_type or "").split(";", 1)[0].strip().lower())
+    if not fmt:
+        supported = ", ".join(sorted(set(_IMAGE_FORMATS)))
+        raise ValueError(f"Bedrock Converse 가 지원하지 않는 이미지 형식입니다: {mime_type!r} (가능: {supported})")
+    return fmt
+
+
 def _extract_bedrock_text(response: dict[str, Any]) -> str:
     """Converse 응답에서 텍스트 블록을 꺼낸다. reasoningContent 블록은 건너뛴다."""
     message = (response.get("output") or {}).get("message") or {}
@@ -102,8 +121,22 @@ class BedrockJsonClient:
             )
         return self._client
 
-    def _build_request(self, *, prompt: str, temperature: float, model: str) -> dict[str, Any]:
-        messages: list[dict[str, Any]] = [{"role": "user", "content": [{"text": prompt}]}]
+    def _build_request(
+        self,
+        *,
+        prompt: str,
+        temperature: float,
+        model: str,
+        image: tuple[bytes, str] | None = None,
+    ) -> dict[str, Any]:
+        content: list[dict[str, Any]] = []
+        if image is not None:
+            data, mime_type = image
+            # 그림을 먼저, 지시를 뒤에 — Anthropic 권장 순서다.
+            content.append({"image": {"format": _image_format(mime_type), "source": {"bytes": data}}})
+        content.append({"text": prompt})
+
+        messages: list[dict[str, Any]] = [{"role": "user", "content": content}]
         if self.use_json_prefill:
             messages.append({"role": "assistant", "content": [{"text": JSON_PREFILL}]})
         return {
@@ -117,14 +150,56 @@ class BedrockJsonClient:
         }
 
     async def _converse_in_thread(
-        self, *, prompt: str, temperature: float, model: str
+        self,
+        *,
+        prompt: str,
+        temperature: float,
+        model: str,
+        image: tuple[bytes, str] | None = None,
     ) -> dict[str, Any]:
-        request = self._build_request(prompt=prompt, temperature=temperature, model=model)
+        request = self._build_request(
+            prompt=prompt, temperature=temperature, model=model, image=image,
+        )
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             self._executor,
             lambda: self._get_client().converse(**request),
         )
+
+    async def generate_json_with_image(
+        self,
+        *,
+        data: bytes,
+        mime_type: str,
+        prompt: str,
+        temperature: float = 0.1,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        """그림 한 장 + 지시 → JSON.
+
+        문서 판독을 GCP(Gemini)가 아니라 Bedrock 으로 돌리기 위한 경로다.
+        형식 검사는 호출 전에 한다 — Bedrock 은 지원하지 않는 형식에 400 을 낸다.
+        """
+        if not data:
+            raise ValueError("이미지가 비어 있습니다.")
+        _image_format(mime_type)  # 지원 형식인지 먼저 막는다
+
+        target_model = model or self.model
+        async with _get_call_semaphore():
+            response = await call_with_quota_backoff(
+                lambda: self._converse_in_thread(
+                    prompt=prompt,
+                    temperature=temperature,
+                    model=target_model,
+                    image=(data, mime_type),
+                ),
+                label=f"document:{target_model}",
+            )
+
+        text = _extract_bedrock_text(response)
+        if self.use_json_prefill and not text.startswith(JSON_PREFILL):
+            text = JSON_PREFILL + text
+        return _parse_json(text)
 
     async def generate_json(
         self,
