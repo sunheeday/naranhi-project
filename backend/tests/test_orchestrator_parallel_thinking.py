@@ -114,11 +114,12 @@ class OrchestratorThinkingBudgetTest(unittest.TestCase):
         self.assertEqual(budget_by_kind["source_hf"], MECHANICAL_THINKING_BUDGET)
         self.assertEqual(budget_by_kind["target_hf"], MECHANICAL_THINKING_BUDGET)
         self.assertEqual(budget_by_kind["back"], MECHANICAL_THINKING_BUDGET)
-        # 번역·검증·카드 단계(②③⑥⑦)는 설정값을 따른다 — 기본값 None = 모델 기본(동적 thinking)
-        self.assertIsNone(budget_by_kind["pivot"])
-        self.assertIsNone(budget_by_kind["target"])
-        self.assertIsNone(budget_by_kind["tone"])
-        self.assertIsNone(budget_by_kind["payload"])
+        # 번역·검증·카드 단계(②③⑥⑦)는 설정값을 따른다 — 기본값이 0 으로 바뀌었다
+        # (사용자 지시: thinking 미사용). 되돌리기는 TRANSLATION_THINKING_BUDGET 한 줄이다.
+        self.assertEqual(budget_by_kind["pivot"], 0)
+        self.assertEqual(budget_by_kind["target"], 0)
+        self.assertEqual(budget_by_kind["tone"], 0)
+        self.assertEqual(budget_by_kind["payload"], 0)
 
     def test_clean_pass_reuses_prestarted_back_translation_once(self) -> None:
         result, gemini = self._run_clean_high_risk()

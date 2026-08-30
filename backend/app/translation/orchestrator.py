@@ -21,7 +21,7 @@ from app.translation.prompts import (
     validate_context_tone_prompt,
     validate_hard_facts_prompt,
 )
-from app.translation.validators import validate_hard_facts_by_code
+from app.translation.validators import validate_hard_facts_by_code, validate_output_by_code
 
 LOGGER = logging.getLogger(__name__)
 
@@ -155,6 +155,25 @@ class TranslationPipeline:
             )
             hard_fact_attempts = 0
 
+            # 코드 검사가 먼저다(AI 호출 0회). 한글 잔존·잘림 같은 것은 정규식이
+            # 0원·0초로 100% 잡는다 — 여기서 걸리면 LLM 검증을 부르지 않고 바로 고친다.
+            output_check = validate_output_by_code(
+                source_text=payload.source_text,
+                translated_text=target_translation,
+                target_language=payload.target_language,
+            )
+            if output_check["status"] == "failed":
+                hard_fact_validation = _merge_validation(
+                    hard_fact_validation,
+                    {
+                        "verdict": "FAIL",
+                        "mismatches": [
+                            {"field": i["code"], "issue": i["detail"]}
+                            for i in output_check["issues"]
+                        ],
+                    },
+                )
+
             if hard_fact_validation["verdict"] == "FAIL":
                 llm_validation = await self.gemini.generate_json(
                     prompt=validate_hard_facts_prompt(
@@ -197,6 +216,22 @@ class TranslationPipeline:
                     target_hard_facts,
                     ingredient_map,
                 )
+                output_check = validate_output_by_code(
+                    source_text=payload.source_text,
+                    translated_text=target_translation,
+                    target_language=payload.target_language,
+                )
+                if output_check["status"] == "failed":
+                    hard_fact_validation = _merge_validation(
+                        hard_fact_validation,
+                        {
+                            "verdict": "FAIL",
+                            "mismatches": [
+                                {"field": i["code"], "issue": i["detail"]}
+                                for i in output_check["issues"]
+                            ],
+                        },
+                    )
         except BaseException:
             await _discard_task(back_translation_task)
             raise
