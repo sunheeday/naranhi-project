@@ -227,6 +227,79 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           review_reason?: string | null
         }
       }
+      // school_bell_schedules(0048_school_bell_schedules.sql)도 admin_* 셋과 같은 이유로
+      // 수기 보강한다 — 0048 이 운영에 아직 적용되지 않아 gen:types 가 못 본다.
+      // 0048 적용 후 gen:types 를 다시 돌리면 이 블록은 지운다.
+      school_bell_schedules: {
+        Row: {
+          id: string
+          school_id: string
+          period: number
+          start_time: string
+          end_time: string
+          source: BellScheduleSource
+          source_url: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          period: number
+          start_time: string
+          end_time: string
+          source?: BellScheduleSource
+          source_url?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          period?: number
+          start_time?: string
+          end_time?: string
+          source?: BellScheduleSource
+          source_url?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_bell_schedules_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_bell_schedules_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      // children 은 generated 쪽에 이미 있으므로 0048 이 더한 컬럼 하나만 얹는다
+      // (notice_ai_translations 와 같은 방식 — 교차 타입이 기존 필드와 합쳐준다).
+      children: {
+        Row: {
+          bell_offset_minutes: number
+        }
+        Insert: {
+          bell_offset_minutes?: number
+        }
+        Update: {
+          bell_offset_minutes?: number
+        }
+      }
     }
     Functions: GeneratedPublicSchema['Functions'] & {
       // outcome은 SQL에서 text로 선언돼 실제 gen types도 string을 낸다(리터럴
@@ -266,3 +339,6 @@ export type AppJobStatus = 'queued' | 'processing' | 'completed' | 'failed'
 /** crawl_run_history.outcome도 DB에서 text + CHECK라 gen types가 string을 낸다
  *  (0041_admin_console_observability.sql). 값 도메인만 좁혀 제공. */
 export type CrawlRunOutcome = 'ok' | 'idle' | 'alarm' | 'crashed'
+/** school_bell_schedules.source도 text + CHECK라 값 도메인만 좁혀 제공
+ *  (0048_school_bell_schedules.sql). 'homepage'는 confirmed_at 이 채워지기 전까지 쓰지 않는다. */
+export type BellScheduleSource = 'default' | 'homepage' | 'manual'
