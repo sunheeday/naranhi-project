@@ -173,9 +173,10 @@ test('초등 표준값은 1교시 09:00, 40분 수업', () => {
 })
 
 test('초등 표준값은 4교시 뒤 점심 50분', () => {
+  // 09:00 +40 → 09:40, +10 → 09:50 … 4교시 11:30–12:10, 점심 50분, 5교시 13:00
   const p = defaultBellSchedule('인천문남초등학교')
-  expect(p[3].endTime).toBe('12:20')   // 4교시 끝
-  expect(p[4].startTime).toBe('13:10') // 5교시 = 점심 50분 뒤
+  expect(p[3].endTime).toBe('12:10')   // 4교시 끝
+  expect(p[4].startTime).toBe('13:00') // 5교시 = 점심 50분 뒤
 })
 ```
 
