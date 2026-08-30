@@ -287,6 +287,57 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           },
         ]
       }
+      // child_personal_schedules(0049_child_personal_schedules.sql)도 같은 이유로 수기 보강.
+      // 0049 적용 후 gen:types 를 다시 돌리면 이 블록은 지운다.
+      child_personal_schedules: {
+        Row: {
+          id: string
+          child_id: string
+          title: string
+          day_of_week: number
+          start_time: string
+          end_time: string
+          location: string | null
+          memo: string | null
+          color: PersonalScheduleColor
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          child_id: string
+          title: string
+          day_of_week: number
+          start_time: string
+          end_time: string
+          location?: string | null
+          memo?: string | null
+          color?: PersonalScheduleColor
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          child_id?: string
+          title?: string
+          day_of_week?: number
+          start_time?: string
+          end_time?: string
+          location?: string | null
+          memo?: string | null
+          color?: PersonalScheduleColor
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_personal_schedules_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       // children 은 generated 쪽에 이미 있으므로 0048 이 더한 컬럼 하나만 얹는다
       // (notice_ai_translations 와 같은 방식 — 교차 타입이 기존 필드와 합쳐준다).
       children: {
@@ -342,3 +393,6 @@ export type CrawlRunOutcome = 'ok' | 'idle' | 'alarm' | 'crashed'
 /** school_bell_schedules.source도 text + CHECK라 값 도메인만 좁혀 제공
  *  (0048_school_bell_schedules.sql). 'homepage'는 confirmed_at 이 채워지기 전까지 쓰지 않는다. */
 export type BellScheduleSource = 'default' | 'homepage' | 'manual'
+/** child_personal_schedules.color 는 팔레트 키만 받는다(0049) — 자유 hex 를 허용하면
+ *  다크 모드에서 읽히지 않는 조합이 생긴다. */
+export type PersonalScheduleColor = 'blue' | 'green' | 'orange' | 'purple' | 'pink'

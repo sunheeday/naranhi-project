@@ -1,8 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatMonthDay } from '@/lib/i18n'
 import type { TimetablePeriod } from '@/lib/neis'
+import type { PersonalScheduleItem } from '@/lib/child-personal-schedules'
+import PersonalScheduleSheet, {
+  PERSONAL_COLOR_DOT,
+  type PersonalLabels,
+  type PersonalScheduleDraft,
+} from './PersonalScheduleSheet'
 
 function isoToParts(iso: string): { m: number; d: number; weekday: number } {
   const [y, m, d] = iso.split('-').map(Number)
@@ -41,6 +48,8 @@ export interface TimetableDayEntry {
   periods: TimetablePeriodWithTime[]
   /** 그날 마지막 교시 끝 + 종례. 추정치라 화면에는 반드시 «쯤»을 붙여 쓴다. */
   dismissalTime?: string | null
+  /** 부모가 등록한 방과후 일정. 제목은 번역하지 않는다. */
+  personalItems?: PersonalScheduleItem[]
 }
 
 interface Labels {
@@ -60,12 +69,30 @@ interface Props {
   days: TimetableDayEntry[]
   unsupported: boolean
   labels: Labels
+  /** 없으면(자녀 미등록) 개인 일정 UI 를 띄우지 않는다. */
+  childId: string | null
+  personalLabels: PersonalLabels
 }
 
-export default function TimetableWeekView({ weekStartIso, days, unsupported, labels }: Props) {
+function defaultDraft(dayOfWeek: number): PersonalScheduleDraft {
+  return {
+    title: '',
+    dayOfWeek,
+    startTime: '16:00',
+    endTime: '17:00',
+    location: null,
+    memo: null,
+    color: 'blue',
+  }
+}
+
+export default function TimetableWeekView({
+  weekStartIso, days, unsupported, labels, childId, personalLabels,
+}: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const todayIso = todayKstIso()
+  const [draft, setDraft] = useState<PersonalScheduleDraft | null>(null)
   const start = isoToParts(days[0].isoDate)
   const end = isoToParts(days[days.length - 1].isoDate)
   const rangeLabel = labels.range
@@ -103,22 +130,63 @@ export default function TimetableWeekView({ weekStartIso, days, unsupported, lab
       </div>
 
       <div className="flex flex-col gap-4 px-6 pt-4 pb-24">
-        {unsupported ? (
+        {/* 시간표 미지원 학교여도 개인 일정은 계속 보여 준다 — 학원은 학교와 무관하다. */}
+        {unsupported && (
           <div role="alert" className="rounded-card border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
             {labels.unsupported}
           </div>
-        ) : (
-          days.map(day => (
-            <TimetableDayCard key={day.isoDate} day={day} labels={labels} isToday={day.isoDate === todayIso} />
-          ))
+        )}
+
+        {days.map(day => (
+          <TimetableDayCard
+            key={day.isoDate}
+            day={day}
+            labels={labels}
+            personalLabels={personalLabels}
+            isToday={day.isoDate === todayIso}
+            hidePeriods={unsupported}
+            onEditPersonal={childId ? setDraft : undefined}
+          />
+        ))}
+
+        {childId && (
+          <button
+            type="button"
+            onClick={() => setDraft(defaultDraft(1))}
+            className="h-[52px] rounded-btn border border-dashed border-primary text-primary font-semibold"
+          >
+            + {personalLabels.add}
+          </button>
         )}
       </div>
+
+      {childId && draft && (
+        <PersonalScheduleSheet
+          childId={childId}
+          draft={draft}
+          labels={personalLabels}
+          onClose={() => setDraft(null)}
+        />
+      )}
     </div>
   )
 }
 
-function TimetableDayCard({ day, labels, isToday }: { day: TimetableDayEntry; labels: Labels; isToday: boolean }) {
+function TimetableDayCard({
+  day, labels, personalLabels, isToday, hidePeriods, onEditPersonal,
+}: {
+  day: TimetableDayEntry
+  labels: Labels
+  personalLabels: PersonalLabels
+  isToday: boolean
+  hidePeriods: boolean
+  onEditPersonal?: (draft: PersonalScheduleDraft) => void
+}) {
   const { m, d, weekday } = isoToParts(day.isoDate)
+  const personalItems = day.personalItems ?? []
+  const showPeriods = !hidePeriods && day.periods.length > 0
+  // 학교 수업도 개인 일정도 없을 때만 «수업 정보 없음»이다.
+  const empty = !showPeriods && personalItems.length === 0
   const dayColor = weekday === 0 ? 'text-red-400' : weekday === 6 ? 'text-blue-400' : 'text-text-primary'
   const md = formatMonthDay(m, d, labels.range)
 
@@ -140,9 +208,9 @@ function TimetableDayCard({ day, labels, isToday }: { day: TimetableDayEntry; la
         )}
       </div>
 
-      {day.periods.length === 0 ? (
-        <p className="text-sm text-text-secondary">{labels.noTimetable}</p>
-      ) : (
+      {empty && <p className="text-sm text-text-secondary">{labels.noTimetable}</p>}
+
+      {showPeriods && (
         <ol className="flex flex-col divide-y divide-hairline-soft">
           {day.periods.map(period => (
             <li key={`${day.isoDate}-${period.period}`} className="grid grid-cols-[52px_1fr] gap-3 py-2 first:pt-0 last:pb-0">
@@ -161,10 +229,43 @@ function TimetableDayCard({ day, labels, isToday }: { day: TimetableDayEntry; la
         </ol>
       )}
 
-      {day.dismissalTime && (
+      {!hidePeriods && day.dismissalTime && (
         <p className="mt-3 pt-3 border-t border-hairline-soft text-sm font-semibold text-text-secondary tabular-nums">
           {labels.dismissal.replace('{time}', day.dismissalTime)}
         </p>
+      )}
+
+      {personalItems.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-hairline-soft flex flex-col gap-2">
+          <p className="text-xs font-semibold text-text-secondary">{personalLabels.section}</p>
+          {personalItems.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              disabled={!onEditPersonal}
+              onClick={() => onEditPersonal?.({
+                id: item.id,
+                title: item.title,
+                dayOfWeek: item.dayOfWeek,
+                startTime: item.startTime,
+                endTime: item.endTime,
+                location: item.location,
+                memo: item.memo,
+                color: item.color,
+              })}
+              className="flex items-center gap-2 text-left disabled:cursor-default"
+            >
+              <span className={`h-2 w-2 shrink-0 rounded-full ${PERSONAL_COLOR_DOT[item.color] ?? PERSONAL_COLOR_DOT.blue}`} />
+              <span className="text-sm font-semibold text-text-primary truncate">{item.title}</span>
+              <span className="text-xs text-text-secondary tabular-nums shrink-0">
+                {item.startTime}–{item.endTime}
+              </span>
+              {item.location && (
+                <span className="text-xs text-text-secondary truncate">· {item.location}</span>
+              )}
+            </button>
+          ))}
+        </div>
       )}
     </article>
   )

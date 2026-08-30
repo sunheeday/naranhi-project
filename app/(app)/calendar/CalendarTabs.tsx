@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import CalendarView, { type ScheduleEvent } from './CalendarView'
 import TimetableWeekView, { type TimetableDayEntry } from './TimetableWeekView'
+import type { PersonalLabels } from './PersonalScheduleSheet'
 
 interface CalendarLabels {
   noEventsLabel: string
@@ -43,6 +44,8 @@ interface Props {
   timetableDays: TimetableDayEntry[]
   timetableUnsupported: boolean
   timetableLabels: TimetableLabels
+  childId: string | null
+  personalLabels: PersonalLabels
 }
 
 export default function CalendarTabs({
@@ -57,6 +60,8 @@ export default function CalendarTabs({
   timetableDays,
   timetableUnsupported,
   timetableLabels,
+  childId,
+  personalLabels,
 }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -123,6 +128,8 @@ export default function CalendarTabs({
           days={timetableDays}
           unsupported={timetableUnsupported}
           labels={timetableLabels}
+          childId={childId}
+          personalLabels={personalLabels}
         />
       )}
     </div>
