@@ -14,6 +14,7 @@ interface SchoolCrawlerStateRow {
   crawl_error_message: string | null
   crawl_result: Json
   crawl_last_checked_at: string | null
+  board_watermarks: Json
   created_at: string
   updated_at: string
 }
@@ -22,6 +23,7 @@ export interface SchoolCrawlerStateDetails extends SchoolCrawlerState {
   crawl_board_kind: SchoolCrawlBoardKind
   crawl_error_message: string | null
   crawl_result: Json
+  board_watermarks: Json
 }
 
 function mapStateRow(row: SchoolCrawlerStateRow | null, schoolId: string): SchoolCrawlerStateDetails | null {
@@ -34,6 +36,7 @@ function mapStateRow(row: SchoolCrawlerStateRow | null, schoolId: string): Schoo
     crawl_board_kind: row.crawl_board_kind,
     crawl_error_message: row.crawl_error_message,
     crawl_result: row.crawl_result,
+    board_watermarks: row.board_watermarks ?? {},
   }
 }
 
@@ -44,7 +47,7 @@ export async function getSchoolCrawlerState(
   const { data, error } = await serviceClient
     .from('school_crawl_state')
     .select(
-      'school_id,crawl_board_url,crawl_board_kind,crawl_status,crawl_error_message,crawl_result,crawl_last_checked_at,created_at,updated_at',
+      'school_id,crawl_board_url,crawl_board_kind,crawl_status,crawl_error_message,crawl_result,crawl_last_checked_at,board_watermarks,created_at,updated_at',
     )
     .eq('school_id', schoolId)
     .maybeSingle()
@@ -71,7 +74,7 @@ export async function ensureSchoolCrawlerState(
       crawl_status: 'pending',
     })
     .select(
-      'school_id,crawl_board_url,crawl_board_kind,crawl_status,crawl_error_message,crawl_result,crawl_last_checked_at,created_at,updated_at',
+      'school_id,crawl_board_url,crawl_board_kind,crawl_status,crawl_error_message,crawl_result,crawl_last_checked_at,board_watermarks,created_at,updated_at',
     )
     .maybeSingle()
 

@@ -16,6 +16,7 @@ env:
   CRAWLER_WORKER_JOB: ${{ vars.CLOUD_RUN_CRAWLER_WORKER_JOB }}
   SCHOOL_CRAWLER_JOB: ${{ vars.CLOUD_RUN_SCHOOL_CRAWLER_JOB }}
   CONTENT_EXTRACTOR_JOB: ${{ vars.CLOUD_RUN_CONTENT_EXTRACTOR_JOB }}
+  SCHEDULE_SYNC_JOB: ${{ vars.CLOUD_RUN_SCHEDULE_SYNC_JOB }}
   IMAGE_NAME: naranhi-api
 
 jobs:
@@ -91,6 +92,9 @@ jobs:
             GEMINI_API_KEY=gemini-api-key:latest
             CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest
             NEIS_API_KEY=neis-api-key:latest
+            AWS_ACCESS_KEY_ID=aws-bedrock-access-key-id:latest
+            AWS_SECRET_ACCESS_KEY=aws-bedrock-secret-access-key:latest
+            ADMIN_API_TOKEN=admin-api-token:latest
           flags: >-
             --allow-unauthenticated
             --port=8080
@@ -102,6 +106,10 @@ jobs:
       # 워커는 상시가동 Service(min-instances=1, $120/월 유휴)가 아니라 Cloud Run Job으로
       # 배포한다. enqueue 시 run.jobs.run 트리거(+백스톱 Scheduler)로만 깨운다.
       # 같은 이미지를 쓰고 command/args만 워커 모듈로 바꾼다. --max-jobs 0 = 큐가 빌 때까지 drain.
+      # task-timeout 은 잡 1건이 아니라 드레인 «전체» 예산이다(--max-jobs 0).
+      # 잡 1건의 최악 순차 콜은 12회이고 GEMINI_TIMEOUT_SECONDS=300 이라
+      # 12x300 = 3600 — 옛 3600 은 딱 걸쳤다. 넘기면 진행 중 잡이 processing 에
+      # 남아 stale 회수(180분)까지 「번역 준비중」이 된다. 그래서 7200.
       - name: Deploy translation worker Job to Cloud Run
         if: ${{ env.TRANSLATION_WORKER_JOB != '' }}
         run: |
@@ -110,12 +118,12 @@ jobs:
             --region="$REGION" \
             --command=python \
             --args="-m,app.jobs.translation_worker,--max-jobs,0,--idle-grace-seconds,3,--batch-size,10" \
-            --task-timeout=3600 \
+            --task-timeout=7200 \
             --max-retries=1 \
             --memory=512Mi \
             --cpu=1 \
             --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},GEMINI_MAX_CONCURRENCY=32,GEMINI_TIMEOUT_SECONDS=300" \
-            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest,AWS_ACCESS_KEY_ID=aws-bedrock-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-bedrock-secret-access-key:latest"
 
       - name: Deploy crawler worker Job to Cloud Run
         if: ${{ env.CRAWLER_WORKER_JOB != '' }}
@@ -124,7 +132,7 @@ jobs:
             --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
             --region="$REGION" \
             --command=python \
-            --args="-m,app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3" \
+            --args="-m,app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3,--batch-size,3" \
             --task-timeout=3600 \
             --max-retries=1 \
             --memory=512Mi \
@@ -149,6 +157,10 @@ jobs:
             --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},CRAWLER_SCHEDULE_NOTICE_COUNT=8" \
             --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
 
+      # EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN=0 = 런당 콜 상한 해제. _cap_reached 가 cap>0 일 때만
+      # 동작하고, 같은 조건이 batch_size=1 강제 직렬화도 켠다 → 0 이 상한 해제 + 동시성 3 복원.
+      # 폭주 방어는 --max-notices 30 / 공지당 8콜 / 26MB / 600초 / OCR 동시 6 이 남는다.
+      # 메모리 2Gi: 타일 24조각 + PIL 본문사진 합성 12장(_MAX_BODY_IMAGES)에 512Mi 는 OOM 위험.
       - name: Deploy scheduled content extractor Job to Cloud Run
         if: ${{ env.CONTENT_EXTRACTOR_JOB != '' }}
         run: |
@@ -159,7 +171,24 @@ jobs:
             --args="-m,app.jobs.scheduled_content_extractor,--max-notices,30" \
             --task-timeout=14400 \
             --max-retries=0 \
+            --memory=2Gi \
+            --cpu=1 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},GEMINI_MAX_CONCURRENCY=32,EXTRACTOR_MAX_GEMINI_CALLS_PER_RUN=0" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+
+      # 주 1회 배치: NEIS SchoolSchedule → school_events(source='neis').
+      # 학사일정은 거의 바뀌지 않으므로 주 1회면 충분하다(학교당 2~3페이지).
+      - name: Deploy school schedule sync Job to Cloud Run
+        if: ${{ env.SCHEDULE_SYNC_JOB != '' }}
+        run: |
+          gcloud run jobs deploy "$SCHEDULE_SYNC_JOB" \
+            --image="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$IMAGE_NAME:$GITHUB_SHA" \
+            --region="$REGION" \
+            --command=python \
+            --args="-m,app.jobs.sync_school_schedules" \
+            --task-timeout=1800 \
+            --max-retries=0 \
             --memory=512Mi \
             --cpu=1 \
-            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \
-            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest"
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}" \
+            --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,NEIS_API_KEY=neis-api-key:latest"

@@ -1,0 +1,7 @@
+{
+  "origin": "negative-control-v1",
+  "kind": "negative-control",
+  "issuer": "(합성 — 판독 실패 형태 재현)",
+  "notes": "OCR 이 깨져 뜻이 없다 / expected_behavior: 본문을 생성하지 않는다. 날짜·금액·인명·행사명을 만들어내지 않는다.",
+  "failure_mode": "ocr-garbage"
+}

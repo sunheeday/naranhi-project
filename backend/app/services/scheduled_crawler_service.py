@@ -49,6 +49,9 @@ class ScheduledSchoolResult:
     status: str
     success_count: int
     error_message: str | None
+    # 어느 게시판을 봤는가. announcement_fallback = 가정통신문 게시판을 못 찾아
+    # 공지사항 게시판으로 대체했다는 뜻이다. 글은 긁히므로 status 는 success 다.
+    board_kind: str = "unknown"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -66,6 +69,7 @@ class ScheduledCrawlerSummary:
     processed_count: int
     success_count: int
     failure_count: int
+    fallback_count: int
     success_rate: float
     alarm: bool
     targets: list[dict[str, Any]]
@@ -314,6 +318,7 @@ def _result_item(
         status=result.status,
         success_count=result.success_count,
         error_message=result.error_message,
+        board_kind=result.board_kind,
     )
 
 
@@ -334,6 +339,18 @@ def _build_summary(
     failure_count = processed - success_count
     success_rate = success_count / processed if processed else 1.0
     alarm = bool(processed and success_rate < fail_rate_threshold)
+
+    # 게시판 오선택은 실패가 아니다 — 그 학교는 공지를 실제로 받고 있다.
+    # 실패로 세면 fail_rate 알람이 오작동해 학부모가 아무것도 못 받게 된다.
+    # 성공률 정의를 바꾸지 않고 따로 센다. 학교가 8곳이라 숫자 하나면 눈으로 판정된다.
+    fallback_schools = [item.school_name for item in results if item.board_kind == "announcement_fallback"]
+    if fallback_schools:
+        LOGGER.warning(
+            "scheduled crawler board fallback: count=%s schools=%s",
+            len(fallback_schools),
+            ",".join(fallback_schools),
+        )
+
     return ScheduledCrawlerSummary(
         started_at=started_at.isoformat(),
         finished_at=finished_at.isoformat(),
@@ -345,6 +362,7 @@ def _build_summary(
         processed_count=processed,
         success_count=success_count,
         failure_count=failure_count,
+        fallback_count=len(fallback_schools),
         success_rate=round(success_rate, 4),
         alarm=alarm,
         targets=[target.to_dict() for target in selected],

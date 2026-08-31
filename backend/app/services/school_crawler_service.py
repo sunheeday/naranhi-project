@@ -14,6 +14,7 @@ from app.crawler.board_detector import NoticeBoardSearchResult, find_notice_boar
 from app.crawler.cms_patterns import CMS_NAMES, CmsDetection
 from app.crawler.neis_client import NeisClient, normalize_homepage_url
 from app.crawler.notice_post_extractor import NoticePostRefResult, extract_notice_post_refs
+from app.crawler.rss_feed import RssFeedState, probe_rss_feed, should_probe
 
 POST_SUCCESS_STATUSES = {"success", "success_with_derived_id", "success_file_only"}
 LOGGER = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ class SchoolBoardDiscoveryResult:
     board_source: str = "discovered"
     rediscovery_used: bool = False
     cached_board_failed_status: str | None = None
+    source_channel: str = "html"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -124,6 +126,7 @@ class SchoolCrawlerService:
         if result.status == "school_not_found":
             return result
         _save_school_discovery_result(result)
+        await _probe_and_save_rss_feed(result)
         _save_discovered_notice_candidates(result)
         return result
 
@@ -264,6 +267,11 @@ class SchoolCrawlerService:
                     gemini_enabled=gemini_enabled,
                     max_posts=post_limit,
                     timeout=settings.crawler_timeout_seconds,
+                    rss_feed=(
+                        _rss_feed_for_school(context.school_id)
+                        if settings.crawler_rss_collect_enabled
+                        else None
+                    ),
                 )
                 if cached_result.success_count > 0:
                     return cached_result
@@ -328,7 +336,7 @@ def _fetch_school_row(school_id: str) -> dict[str, Any] | None:
     supabase = get_supabase_client()
     result = (
         supabase.table("schools")
-        .select("*")
+        .select(_SCHOOL_ROW_COLUMNS)
         .eq("id", school_id)
         .limit(1)
         .execute()
@@ -494,6 +502,7 @@ def _build_result_from_detail(
         board_source=board.board_source,
         rediscovery_used=board.rediscovery_used,
         cached_board_failed_status=board.cached_board_failed_status,
+        source_channel=detail_result.source_channel,
     )
 
 
@@ -586,6 +595,7 @@ async def _extract_cached_board_posts(
     gemini_enabled: bool,
     max_posts: int,
     timeout: float,
+    rss_feed: RssFeedState | None = None,
 ) -> SchoolBoardDiscoveryResult:
     detail_result = await extract_notice_post_refs(
         board_url=cached_board.board_url,
@@ -594,6 +604,7 @@ async def _extract_cached_board_posts(
         gemini_enabled=gemini_enabled,
         max_posts=max_posts,
         timeout=timeout,
+        rss_feed=rss_feed,
     )
     return _result_from_cached_detail_result(
         context=context,
@@ -601,6 +612,21 @@ async def _extract_cached_board_posts(
         detail_result=detail_result,
         max_posts=max_posts,
     )
+
+
+_SCHOOL_ROW_COLUMNS = "id,name,address,homepage_url,neis_office_code,neis_school_code"
+
+
+def _school_backfill_payload(result: SchoolBoardDiscoveryResult) -> dict[str, Any]:
+    """schools 에 되돌려 쓰는 값. 크롤 상태의 정본은 school_crawl_state 다(0013).
+
+    homepage_url 만 남긴다 — 이 컬럼은 schools 에만 있고(0013 에 미포함),
+    _context_from_school_row 가 크롤 대상 URL 을 얻는 유일한 경로다.
+    """
+    payload: dict[str, Any] = {}
+    if result.homepage_url:
+        payload["homepage_url"] = result.homepage_url
+    return payload
 
 
 def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
@@ -621,22 +647,13 @@ def _save_school_discovery_result(result: SchoolBoardDiscoveryResult) -> None:
 
     try:
         supabase = get_supabase_client()
-        school_payload: dict[str, Any] = {
-            "crawl_status": result.status,
-            "crawl_error_message": result.error_message,
-            "crawl_result": result.to_dict(),
-            "crawl_last_checked_at": state_payload["crawl_last_checked_at"],
-        }
-        if result.homepage_url:
-            school_payload["homepage_url"] = result.homepage_url
-        if result.verified and result.board_url:
-            school_payload["crawl_board_url"] = state_payload.get("crawl_board_url")
-            school_payload["crawl_board_kind"] = state_payload.get("crawl_board_kind")
-
-        supabase.table("schools").update(school_payload).eq(
-            "id",
-            result.school_id,
-        ).execute()
+        school_payload = _school_backfill_payload(result)
+        # 빈 dict 로 update 를 치면 PostgREST 가 400 을 낸다.
+        if school_payload:
+            supabase.table("schools").update(school_payload).eq(
+                "id",
+                result.school_id,
+            ).execute()
         supabase.table("school_crawl_state").upsert(
             state_payload,
             on_conflict="school_id",
@@ -664,6 +681,21 @@ def _watermark_post_value(post: DiscoveredPostPreview) -> int | None:
     if not post_id.isdigit():
         return None
     return int(post_id)
+
+
+def compute_board_watermarks(posts: list[DiscoveredPostPreview]) -> dict[str, int]:
+    """게시판(board_key)별 최대 글번호. 재가동 컷오프 시딩(scripts/seed_watermarks.py)이 쓴다.
+
+    _apply_watermark_filter 안의 갱신 로직과 같은 계산이지만 '필터링 없이 최대값만'
+    필요한 경우가 있어 따로 뺐다. 워터마크 비대상(_watermark_post_value 가 None)은 무시한다.
+    """
+    watermarks: dict[str, int] = {}
+    for post in posts:
+        value = _watermark_post_value(post)
+        if value is None:
+            continue
+        watermarks[post.board_key] = max(watermarks.get(post.board_key, 0), value)
+    return watermarks
 
 
 def _apply_watermark_filter(
@@ -727,6 +759,109 @@ def _write_board_watermarks(school_id: str, watermarks: dict[str, int]) -> None:
         LOGGER.warning("Failed to write board watermarks: school_id=%s", school_id, exc_info=True)
 
 
+def _read_rss_feed(school_id: str) -> dict[str, Any]:
+    try:
+        rows = (
+            get_supabase_client()
+            .table("school_crawl_state")
+            .select("rss_feed")
+            .eq("school_id", school_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:  # noqa: BLE001 - 프로브는 best-effort.
+        LOGGER.warning("Failed to read rss_feed: school_id=%s", school_id, exc_info=True)
+        return {}
+    raw = rows[0].get("rss_feed") if rows else None
+    return raw if isinstance(raw, dict) else {}
+
+
+def _rss_feed_for_school(school_id: str) -> RssFeedState | None:
+    """수집에 쓸 수 있는 상태(ok)일 때만 돌려준다.
+
+    브리프 원안은 `_fetch_school_row`가 병합한 row에서 `rss_feed`를 읽는
+    `_rss_feed_from_row(row)`였다. 그러려면 `_fetch_school_row`의
+    `school_crawl_state` select(:341-350)에 `rss_feed`를 추가해야 하는데, 그
+    select에는 try/except가 없다. Task 10이 실측으로 확인했듯 `0040`
+    마이그레이션이 운영에 아직 적용되지 않은 상태에서(이번 Task에서 직접
+    재확인함 - 운영 PostgREST가 42703로 400을 반환) 거기에 `rss_feed`를 넣으면
+    그 select 자체가 예외를 던져 **모든 학교의 모든 크롤이 `internal_error`가
+    된다** - 수집 전면 중단이다.
+
+    그래서 이미 자체 try/except로 컬럼 부재를 흡수하도록 만들어진 별도 쿼리
+    `_read_rss_feed`(:753-769, Task 9/10이 작성)를 그대로 재사용한다.
+    `_fetch_school_row`의 select는 건드리지 않는다.
+    """
+    raw = _read_rss_feed(school_id)
+    if raw.get("status") != "ok":
+        return None
+    url = _optional_str(raw.get("url"))
+    flavor = _optional_str(raw.get("flavor"))
+    board_key = _optional_str(raw.get("board_key"))
+    if not url or not flavor or not board_key:
+        return None
+    return RssFeedState(
+        status="ok",
+        flavor=flavor,
+        url=url,
+        board_key=board_key,
+        item_count=int(raw.get("item_count") or 0),
+        checked_at=str(raw.get("checked_at") or ""),
+        error=None,
+    )
+
+
+def _write_rss_feed(school_id: str, payload: dict[str, Any]) -> None:
+    try:
+        get_supabase_client().table("school_crawl_state").update(
+            {"rss_feed": payload}
+        ).eq("school_id", school_id).execute()
+    except Exception:  # noqa: BLE001 - best-effort; 다음 크롤에서 다시 기록된다.
+        LOGGER.warning("Failed to write rss_feed: school_id=%s", school_id, exc_info=True)
+
+
+async def _probe_and_save_rss_feed(result: SchoolBoardDiscoveryResult) -> None:
+    """게시판 탐지 직후 학교당 1회. best-effort — 실패해도 크롤 결과에 손대지 않는다.
+
+    _write_board_watermarks 와 같은 방식이다. 이 시점에 프로브하는 이유는
+    게이트 4(제목 교차검증)에 쓸 sample_posts 가 손에 있기 때문이다.
+    """
+    settings = get_settings()
+    if not settings.crawler_rss_probe_enabled:
+        return
+    if not result.board_url or not result.parser_family:
+        return
+
+    valid_posts = [post for post in result.sample_posts if post.status in POST_SUCCESS_STATUSES]
+    if not valid_posts:
+        return
+    board_key = valid_posts[0].board_key
+
+    try:
+        if not should_probe(
+            _read_rss_feed(result.school_id),
+            board_key=board_key,
+            now=datetime.now(UTC),
+        ):
+            return
+        state = await probe_rss_feed(
+            board_url=result.board_url,
+            parser_family=result.parser_family,
+            board_key=board_key,
+            sample_titles=[post.title for post in valid_posts],
+            timeout=settings.crawler_timeout_seconds,
+        )
+        _write_rss_feed(result.school_id, state.to_dict())
+        LOGGER.info(
+            "rss probe: school_id=%s status=%s flavor=%s items=%s error=%s",
+            result.school_id, state.status, state.flavor, state.item_count, state.error,
+        )
+    except Exception:  # noqa: BLE001 - 프로브는 크롤을 절대 실패시키지 않는다.
+        LOGGER.warning("Failed to probe rss feed: school_id=%s", result.school_id, exc_info=True)
+
+
 def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> int:
     saved = 0
     valid_posts = [
@@ -755,6 +890,7 @@ def _save_discovered_notice_candidates(result: SchoolBoardDiscoveryResult) -> in
             "parser_family": post.parser_family or result.parser_family,
             "crawl_checked_at": crawl_checked_at,
             "post_rank": post_rank,
+            "source_channel": result.source_channel,
             "post": asdict(post),
         }
         payload = {
@@ -801,10 +937,16 @@ def _update_existing_notice_candidate(
     elif post.detail_url:
         select_query = select_query.eq("detail_url", post.detail_url)
     else:
+        # 제목을 찍지 않는다. 한국 학교 공지 제목에는 학생 개인이 드러난다 —
+        # 「3학년 2반 OOO 학생 전학 안내」 같은 것이 흔하다.
+        # 사업 F 가 로그를 구조화 JSON 으로 바꿔 검색이 쉬워졌으므로 위험이 더 커졌다.
+        # 진단에 필요한 것은 「어느 학교에서 몇 자짜리 제목이 식별자 없이 왔는가」이지
+        # 제목 자체가 아니다.
         LOGGER.warning(
-            "Skipped duplicate crawled notice update without post_uid/detail_url: school_id=%s title=%s",
+            "Skipped duplicate crawled notice update without post_uid/detail_url: "
+            "school_id=%s title_len=%s",
             result.school_id,
-            post.title,
+            len(post.title or ""),
         )
         return
 

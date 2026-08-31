@@ -5,7 +5,8 @@ from typing import Any
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
 from app.crawler.detail_content_extractor import fetch_notice_detail_content
-from app.translation.gemini_client import GeminiJsonClient
+from app.translation.gemini_client import is_quota_exhausted_error
+from app.translation.json_client import JsonModelClient, build_json_client
 from app.translation.orchestrator import TranslationPipeline, TranslationPipelineInput
 from app.translation.prompts import (
     build_supabase_payload_prompt,
@@ -13,6 +14,7 @@ from app.translation.prompts import (
     translate_meal_labels_prompt,
     translate_subject_labels_prompt,
 )
+from postgrest.exceptions import APIError
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_YEARLESS_NOTICE_YEAR = 2026
@@ -152,7 +154,7 @@ class NoticeService:
             if not resolved_source_text:
                 raise RuntimeError("번역할 원문이 없습니다.")
 
-            gemini = GeminiJsonClient.from_settings(settings)
+            gemini = build_json_client(settings)
             pipeline = TranslationPipeline(gemini)
             try:
                 result = await pipeline.run(
@@ -247,10 +249,13 @@ class NoticeService:
         if translation_kind in {"notice_summary", "notice_source"}:
             try:
                 fallback = await self._best_effort_translate_notice(
-                    gemini=GeminiJsonClient.from_settings(settings),
+                    gemini=build_json_client(settings),
                     notice={},
                     target_language=target_language,
                     source_text=source_text,
+                    # 호출부(content_extraction_service.py:946-947)가 translation 만 꺼내고
+                    # pipeline_result 를 버린다 — 카드 메타데이터 콜은 그대로 낭비다.
+                    with_card_metadata=False,
                 )
             except Exception as exc:
                 raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
@@ -266,7 +271,7 @@ class NoticeService:
         if translation_kind == "message_to_ko":
             try:
                 fallback = await self._translate_message_to_korean(
-                    gemini=GeminiJsonClient.from_settings(settings),
+                    gemini=build_json_client(settings),
                     source_text=source_text,
                 )
             except Exception as exc:
@@ -281,7 +286,7 @@ class NoticeService:
             }
 
         try:
-            gemini = GeminiJsonClient.from_settings(settings)
+            gemini = build_json_client(settings)
             pipeline = TranslationPipeline(gemini)
             result = await pipeline.run(
                 TranslationPipelineInput(
@@ -300,7 +305,7 @@ class NoticeService:
                 raise RuntimeError(f"{type(exc).__name__}: {exc}") from exc
 
             fallback = await self._best_effort_translate_notice(
-                gemini=GeminiJsonClient.from_settings(settings),
+                gemini=build_json_client(settings),
                 notice={},
                 target_language=target_language,
                 source_text=source_text,
@@ -433,7 +438,7 @@ class NoticeService:
                 "saved": {},
             }
 
-        gemini = GeminiJsonClient.from_settings(settings)
+        gemini = build_json_client(settings)
         pipeline_result = await self._build_korean_notice_artifacts(
             gemini=gemini,
             source_text=resolved_source_text,
@@ -462,7 +467,7 @@ class NoticeService:
     async def _build_korean_notice_artifacts(
         self,
         *,
-        gemini: GeminiJsonClient,
+        gemini: JsonModelClient,
         source_text: str,
     ) -> dict[str, Any]:
         source_hard_facts = await gemini.generate_json(
@@ -523,7 +528,7 @@ class NoticeService:
         target_language: str,
     ) -> dict[str, object]:
         settings = get_settings()
-        gemini = GeminiJsonClient.from_settings(settings)
+        gemini = build_json_client(settings)
         items = _parse_meal_label_source_text(source_text)
         if not items:
             return {
@@ -576,7 +581,7 @@ class NoticeService:
         target_language: str,
     ) -> dict[str, object]:
         settings = get_settings()
-        gemini = GeminiJsonClient.from_settings(settings)
+        gemini = build_json_client(settings)
         items = _parse_meal_label_source_text(source_text)
         if not items:
             return {
@@ -625,10 +630,11 @@ class NoticeService:
     async def _best_effort_translate_notice(
         self,
         *,
-        gemini: GeminiJsonClient,
+        gemini: JsonModelClient,
         notice: dict[str, Any],
         target_language: str,
         source_text: str,
+        with_card_metadata: bool = True,
     ) -> dict[str, Any]:
         prompt = _best_effort_translation_prompt(
             source_text=source_text,
@@ -664,25 +670,28 @@ class NoticeService:
             metadata["title_target_language"] = fallback_title
         # 폴백으로 끝나도 카드 메타데이터(요약·할일)는 만들어 둔다 — 카드가 비면
         # 앱이 번역을 미완성으로 보고 풀 파이프라인을 무한 재요청하기 때문.
-        try:
-            generated = await gemini.generate_json(
-                prompt=build_supabase_payload_prompt(
-                    source_text=source_text,
-                    final_target_translation=translated_text,
-                    source_hard_facts={},
-                    validation_results=validation_results,
-                    target_language=target_language,
-                ),
-                temperature=0.0,
-            )
-            if isinstance(generated, dict):
-                metadata = {**generated, **metadata}
-        except Exception as exc:  # noqa: BLE001 - 카드 메타데이터는 베스트에포트.
-            LOGGER.warning(
-                "best effort fallback metadata generation failed: target_language=%s error=%s",
-                target_language,
-                exc,
-            )
+        # 다만 호출부가 pipeline_result 를 버리는 경로(translate_text 의
+        # notice_summary/notice_source)에서는 이 콜이 그대로 낭비라 끈다.
+        if with_card_metadata:
+            try:
+                generated = await gemini.generate_json(
+                    prompt=build_supabase_payload_prompt(
+                        source_text=source_text,
+                        final_target_translation=translated_text,
+                        source_hard_facts={},
+                        validation_results=validation_results,
+                        target_language=target_language,
+                    ),
+                    temperature=0.0,
+                )
+                if isinstance(generated, dict):
+                    metadata = {**generated, **metadata}
+            except Exception as exc:  # noqa: BLE001 - 카드 메타데이터는 베스트에포트.
+                LOGGER.warning(
+                    "best effort fallback metadata generation failed: target_language=%s error=%s",
+                    target_language,
+                    exc,
+                )
 
         return {
             "status": "ready_to_save",
@@ -708,7 +717,7 @@ class NoticeService:
     async def _translate_message_to_korean(
         self,
         *,
-        gemini: GeminiJsonClient,
+        gemini: JsonModelClient,
         source_text: str,
     ) -> dict[str, Any]:
         prompt = _message_to_korean_prompt(source_text=source_text)
@@ -775,15 +784,21 @@ class NoticeService:
             or metadata.get("validation_status")
             or ("passed" if status == "ready_to_save" else "failed")
         )
+        needs_review, review_reason = _needs_review_from_pipeline(pipeline_result, metadata)
         if _optional_str(pipeline_result.get("final_translation")):
             validation_status = "passed"
             metadata["validation_status"] = validation_status
-            if metadata.get("validation_failure_reason"):
+            if review_reason:
                 LOGGER.warning(
                     "notice translation saved with validation warning: notice_id=%s target_language=%s reason=%s",
                     notice_id,
                     target_language,
-                    metadata.get("validation_failure_reason"),
+                    review_reason,
+                    extra={
+                        "notice_id": notice_id,
+                        "target_language": target_language,
+                        "review_reason": review_reason,
+                    },
                 )
         _log_translation_pipeline_summary(
             notice_id=notice_id,
@@ -807,11 +822,15 @@ class NoticeService:
             ),
             "translated_text": pipeline_result.get("final_translation"),
             "validation_status": validation_status,
+            # 번역문은 그대로 사용자에게 나간다. needs_review 는 «표시» 만 바꾼다.
+            "needs_review": needs_review,
+            "review_reason": review_reason,
         }
-        upsert = (
-            supabase.table("notice_ai_translations")
-            .upsert(row, on_conflict="notice_id,target_language")
-            .execute()
+        upsert = _upsert_translation_row(
+            supabase=supabase,
+            row=row,
+            notice_id=notice_id,
+            target_language=target_language,
         )
         cards: list[dict[str, Any]] = []
         school_events: list[dict[str, Any]] = []
@@ -1362,19 +1381,101 @@ def _log_translation_pipeline_summary(
     )
 
 
-def _is_gemini_quota_error(error: Exception) -> bool:
-    message = str(error).lower()
-    return any(
-        token in message
-        for token in (
-            "429",
-            "too many requests",
-            "quota",
-            "resource_exhausted",
-            "rate limit",
-            "rate_limit",
+REVIEW_REASON_MAX_LENGTH = 1000
+
+
+def _needs_review_from_pipeline(
+    pipeline_result: dict[str, Any],
+    metadata: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """검토 큐에 올릴지와 그 사유.
+
+    번역문이 있으면 validation_status 는 무조건 'passed' 가 된다(위 저장 블록).
+    사용자에게는 그대로 내보내되, 사유가 있으면 검토 큐에도 함께 올린다.
+
+    근거 두 갈래:
+      ① metadata.validation_failure_reason — 살아 있는 신호.
+         orchestrator.py:504 와 이 파일의 베스트에포트 폴백이 실제 값을 넣는다.
+      ② pipeline_result.admin_review.required — 지금은 모든 자리에서 리터럴 False 라
+         죽어 있지만, 통로는 이미 있다. 살아나면 코드 변경 없이 큐에 오른다.
+    """
+    if not _optional_str(pipeline_result.get("final_translation")):
+        return False, None
+
+    reason = _optional_str(metadata.get("validation_failure_reason"))
+    if not reason:
+        admin_review = pipeline_result.get("admin_review") or {}
+        if isinstance(admin_review, dict) and admin_review.get("required"):
+            reason = _optional_str(admin_review.get("reason")) or "admin_review_required"
+
+    if not reason:
+        return False, None
+    return True, reason[:REVIEW_REASON_MAX_LENGTH]
+
+
+def _upsert_translation_row(
+    *,
+    supabase: Any,
+    row: dict[str, Any],
+    notice_id: str,
+    target_language: str,
+) -> Any:
+    """0041(needs_review/review_reason)이 운영에 아직 적용되지 않았어도 번역
+    저장 자체는 깨지면 안 된다.
+
+    PostgREST 는 스키마 캐시에 없는 컬럼으로 upsert 하면 PGRST204 로 거부한다
+    (content_extraction_service.py 의 _is_missing_claim_rpc_error 가 같은 계열인
+    PGRST202/RPC 미존재를 다루는 것과 대칭). 그 경우 needs_review/review_reason 을
+    빼고 한 번 더 시도한다 — 검토 신호만 유실되고 translated_text/validation_status
+    저장은 그대로 성공해야 한다(크롤·번역이 지금도 돌고 있다).
+    """
+    try:
+        return (
+            supabase.table("notice_ai_translations")
+            .upsert(row, on_conflict="notice_id,target_language")
+            .execute()
         )
+    except APIError as exc:
+        if not _is_missing_review_columns_error(exc):
+            raise
+        LOGGER.warning(
+            "notice_ai_translations.needs_review/review_reason column missing "
+            "(migration 0041 not applied yet); saving translation without review signal: "
+            "notice_id=%s target_language=%s",
+            notice_id,
+            target_language,
+        )
+        fallback_row = {
+            key: value
+            for key, value in row.items()
+            if key not in {"needs_review", "review_reason"}
+        }
+        return (
+            supabase.table("notice_ai_translations")
+            .upsert(fallback_row, on_conflict="notice_id,target_language")
+            .execute()
+        )
+
+
+def _is_missing_review_columns_error(exc: APIError) -> bool:
+    message = str(exc)
+    return getattr(exc, "code", "") == "PGRST204" and (
+        "needs_review" in message or "review_reason" in message
     )
+
+
+def _is_gemini_quota_error(error: Exception) -> bool:
+    """스로틀 판정은 `is_quota_exhausted_error` 하나로 모은다.
+
+    원래는 이 함수가 자기 낱말 목록을 따로 들고 있었다. 그 결과 Task 8 이
+    `is_quota_exhausted_error` 에 Bedrock 마커(`throttling`·`serviceunavailable`·
+    `modelnotready`)를 넣었을 때 **이쪽만 뒤처져** 같은 예외에 다른 답을 냈다.
+    목록이 둘이면 또 갈라진다 — 그래서 위임한다.
+
+    이 함수는 `:171`·`:302` 에서 「스로틀이면 폴백, 아니면 재전파」를 가른다.
+    Bedrock 의 일시적 예외를 못 알아보면 폴백 없이 잡이 실패한다.
+    """
+    return is_quota_exhausted_error(error)
 
 
 def _best_effort_translation_prompt(

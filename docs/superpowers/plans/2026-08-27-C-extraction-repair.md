@@ -2839,21 +2839,37 @@ PYTHONPATH=backend backend/venv/Scripts/python.exe -m unittest backend.tests.tes
 ## 판독 환각 판정 (Task 4 Step 13 실행 후 채운다)
 
 ```
-판정: H-PASS | H-FAIL
-negative 결과:  qr=___  blank=___  noise=___
-positive 결과:  ___
-선택 Task 13 착수 조건 충족 여부: ___
+판정: H-PASS
+negative 결과:  qr=PASS(empty)  blank=PASS(empty)  noise=PASS(empty)
+positive 결과:  PASS(read) — 47자, 원본 문자열이 head 에 그대로 보임
+선택 Task 13 착수 조건 충족 여부: 미충족 (착수 근거는 비용뿐이며 스펙 §19.6 기준 월 $1 미만이라 약함)
 ```
+
+2026-08-27 실행: `scripts/probe_extraction_hallucination.py` 로 로컬 생성 negative
+3종(QR/백지/사선노이즈) + positive 1종(합성 텍스트 이미지)을 현행 Gemini(Vertex AI) 판독
+경로에 직접 통과시켰다. negative 3종 모두 빈 텍스트를 반환했다(`empty_or_unreadable` 아님,
+`chars=0`) — 「학교」·「교장」 등 지어냄 마커가 전혀 나타나지 않았다. positive 는 합성
+문구를 정확히 읽어 원문이 그대로 복원됐다. 즉 **현행 Gemini 판독은 이번 negative
+control 표본에서 지어내지 않았다** — 2026-08-27 Bedrock Nova Lite/Pro 시험에서 관찰된
+환각과 다른 결과다. 운영 DB 는 읽지 않았고(로컬 합성 이미지만 사용), 실제 판독 API
+호출은 총 8회(Gemini) 발생했다 — 자세한 사유는 Task 4 보고서 참조.
 
 ---
 
 ## 진단 결과 (Task 9 실행 후 채운다)
 
 ```
-판정:
-근거 수치:
-Task 6 실행 여부:
-남은 미확인:
+판정: D2 (고장 아님 — 회수율 분모가 틀렸다)
+근거 수치: extracted_content 보유 35건 전부가 기능 도입 창(2026-06-04) 안(창 밖 0건,
+  extraction_started_at 범위 2026-06-08~06-15, 전부 status='done') → H1(D1) 은 조건도
+  미달(창 안 보유율 31% < 80%)이고 애초에 전제(도입 전 공지 혼입)도 성립하지 않아 기각.
+  H2 재분모: 미보유 24건 전부 sources[] 에 inline_image 타입 소스가 0개
+  (미보유·사진없음 24 vs 손실 후보 0). 즉 미보유 24건은 예외 없이 '본문에 사진이
+  애초에 없는' 정상 공지였다. 사진이 있는 공지만 분모로 다시 세면 11/11 = 100% 회수.
+Task 6 실행 여부: 건너뜀 (D3 아님 — 손실 후보 0건이라 D3/D4 판정 자체가 성립하지 않음)
+남은 미확인: 없음. 재현 데이터(35건 전량)로 손실 후보가 0건임을 직접 확인했으므로
+  Step 5(Cloud Logging 대조)는 대상이 없어 수행하지 않았다. 스케줄러 재가동 후
+  신규 공지가 쌓이면(사진 포함 신규 공지가 유입되는 시점) 같은 스크립트로 재검증 권장.
 ```
 
 ---

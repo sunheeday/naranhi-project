@@ -13,8 +13,10 @@ def _classify(prompt: str) -> str:
     """프롬프트 본문에서 파이프라인 단계 종류를 식별한다 (마커는 고유성 검증됨)."""
     if "Extract and normalize verifiable hard facts" in prompt:
         return "source_hf"
-    if "corrected_target_translation" in prompt:
-        return "hf_fix"
+    if "MEAL_TEXT" in prompt:
+        return "ingredient"
+    if "corrected_target_translation" in prompt and "FAIL_FIXABLE" not in prompt:
+        return "hf_fix" if "mismatches" in prompt else "tone_fix"
     if "translated_hard_facts" in prompt:
         return "hf_validate"
     if "FAIL_FIXABLE" in prompt:
@@ -112,7 +114,7 @@ class OrchestratorThinkingBudgetTest(unittest.TestCase):
         self.assertEqual(budget_by_kind["source_hf"], MECHANICAL_THINKING_BUDGET)
         self.assertEqual(budget_by_kind["target_hf"], MECHANICAL_THINKING_BUDGET)
         self.assertEqual(budget_by_kind["back"], MECHANICAL_THINKING_BUDGET)
-        # 번역·검증·카드 단계(②③⑥⑦)는 기본(동적 thinking) 유지
+        # 번역·검증·카드 단계(②③⑥⑦)는 설정값을 따른다 — 기본값 None = 모델 기본(동적 thinking)
         self.assertIsNone(budget_by_kind["pivot"])
         self.assertIsNone(budget_by_kind["target"])
         self.assertIsNone(budget_by_kind["tone"])

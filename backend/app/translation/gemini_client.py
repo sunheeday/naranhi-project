@@ -3,9 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import random
 import re
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -18,44 +16,24 @@ LOGGER = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-# Vertex AI Gemini는 dynamic shared quota라 일시 혼잡 시 429를 돌려준다.
-# 같은 호출을 잠깐 기다렸다 재시도하면 대부분 통과하므로, 파이프라인 전체를
-# 폴백으로 포기하기 전에 콜 단위로 지수 백오프 재시도한다.
-QUOTA_BACKOFF_DELAYS_SECONDS: tuple[float, ...] = (5.0, 10.0, 20.0, 40.0)
+# 429 백오프는 추출 경로와 공유한다. extractor 는 app 을 임포트하지 않는 단방향
+# 경계이므로 구현이 extractor/gemini_backoff.py 에 있고 여기서 재임포트한다.
+# 기존 임포트 경로(app.translation.gemini_client.call_with_quota_backoff)는 그대로 산다.
+# QUOTA_ERROR_MARKERS(Bedrock 스로틀 마커 확장 포함)도 함께 옮겼다 — is_quota_exhausted_error
+# 의 동작이 바뀌면 안 되므로 마커 목록은 그대로 가져간다.
+from extractor.gemini_backoff import (  # noqa: E402
+    QUOTA_BACKOFF_DELAYS_SECONDS,
+    call_with_quota_backoff,
+    is_quota_exhausted_error,
+)
 
-
-def is_quota_exhausted_error(error: Exception) -> bool:
-    message = f"{type(error).__name__}: {error}".lower()
-    return any(
-        marker in message
-        for marker in ("429", "resource_exhausted", "rate limit", "rate_limit", "quota")
-    )
-
-
-async def call_with_quota_backoff(
-    factory: Callable[[], Awaitable[Any]],
-    *,
-    delays_seconds: tuple[float, ...] = QUOTA_BACKOFF_DELAYS_SECONDS,
-    label: str = "gemini",
-) -> Any:
-    for attempt, delay in enumerate(delays_seconds, start=1):
-        try:
-            return await factory()
-        except Exception as exc:  # noqa: BLE001 - 429만 흡수, 나머지는 즉시 전파.
-            if not is_quota_exhausted_error(exc):
-                raise
-            # full-ish jitter: 공유풀(DSQ)에서 여러 콜이 동시에 같은 간격으로 재시도해
-            # 다시 몰리는 thundering herd를 깬다.
-            jittered = delay * (0.5 + random.random())
-            LOGGER.warning(
-                "Gemini quota(429) hit; retrying call in %.1fs: label=%s attempt=%s/%s",
-                jittered,
-                label,
-                attempt,
-                len(delays_seconds) + 1,
-            )
-            await asyncio.sleep(jittered)
-    return await factory()
+__all__ = [
+    "GEMINI_API_BASE",
+    "GeminiJsonClient",
+    "QUOTA_BACKOFF_DELAYS_SECONDS",
+    "call_with_quota_backoff",
+    "is_quota_exhausted_error",
+]
 
 
 _CALL_SEMAPHORE: "asyncio.Semaphore | None" = None
@@ -149,8 +127,19 @@ class GeminiJsonClient:
 
     def _get_vertex_client(self) -> Any:
         if self._vertex_client is None:
+            import socket
+
             from google import genai
             from google.genai import types
+
+            # googleapis/python-genai #2705: 기본 httpx transport 가 SO_KEEPALIVE 를
+            # 켜지 않아, 콜당 20~30초 무응답이 정상인 이 워크로드에서 NAT 가 연결을 끊는다.
+            # TCP_KEEPIDLE 계열은 리눅스에만 있으므로 있는 것만 넣는다.
+            socket_options = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+            for name, value in (("TCP_KEEPIDLE", 15), ("TCP_KEEPINTVL", 5), ("TCP_KEEPCNT", 6)):
+                option = getattr(socket, name, None)
+                if option is not None:
+                    socket_options.append((socket.IPPROTO_TCP, option, value))
 
             self._vertex_client = genai.Client(
                 vertexai=True,
@@ -159,6 +148,12 @@ class GeminiJsonClient:
                 http_options=types.HttpOptions(
                     api_version="v1",
                     timeout=int(self.timeout_seconds * 1000),
+                    # #1875: SDK 내부 재시도(고정 백오프 5회)가 앱 백오프 4회와 중첩돼
+                    # 최악 ~20회 시도가 된다. SDK 쪽을 1회로 묶고 앱 백오프만 남긴다.
+                    retry_options=types.HttpRetryOptions(attempts=1),
+                    async_client_args={
+                        "transport": httpx.AsyncHTTPTransport(socket_options=socket_options),
+                    },
                 ),
             )
         return self._vertex_client

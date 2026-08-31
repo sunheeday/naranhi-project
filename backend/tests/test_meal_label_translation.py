@@ -67,7 +67,7 @@ class MealLabelTranslationServiceTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch("app.services.notice_service.build_json_client", return_value=gemini),
         ):
             result = await service.translate_text(
                 source_text="# 급식 번역 항목\n[[M001]] 기장밥\n[[M002]] *오쭈낙볶음\n",
@@ -103,7 +103,7 @@ class MealLabelTranslationServiceTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch("app.services.notice_service.build_json_client", return_value=gemini),
         ):
             result = await service.translate_text(
                 source_text="# 급식 번역 항목\n[[M001]] 깍두기 (9)\n[[M002]] 한방닭곰탕\n",

@@ -49,14 +49,12 @@ export async function POST(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('locale,native_language,email,display_name')
+      .select('locale,native_language')
       .eq('id', user.id)
       .maybeSingle()
 
     const nextProfile = {
       id: user.id,
-      email: profile?.email || user.email || null,
-      display_name: profile?.display_name || null,
       locale: isValidLocale(profile?.locale) ? profile.locale : 'ko',
       native_language: isValidLocale(profile?.native_language) ? profile.native_language : 'ko',
     }

@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 
+from extractor.gemini_backoff import call_with_quota_backoff, is_quota_exhausted_error
 from extractor.http_security import sanitize_error
 
 
@@ -243,13 +244,16 @@ class GeminiDocumentExtractor:
         for model in _dedupe(models):
             for attempt in range(3):
                 try:
-                    response = await client.aio.models.generate_content(
-                        model=model,
-                        contents=contents,
-                        config=types.GenerateContentConfig(
-                            temperature=0.0,
-                            response_mime_type="application/json",
+                    response = await call_with_quota_backoff(
+                        lambda: client.aio.models.generate_content(
+                            model=model,
+                            contents=contents,
+                            config=types.GenerateContentConfig(
+                                temperature=0.0,
+                                response_mime_type="application/json",
+                            ),
                         ),
+                        label=f"extract:{model}",
                     )
                     text = (response.text or "").strip()
                     if text:
@@ -258,15 +262,12 @@ class GeminiDocumentExtractor:
                     break  # empty response -> try next model
                 except Exception as exc:  # noqa: BLE001 - surface the real Vertex error.
                     last_error = exc
+                    if is_quota_exhausted_error(exc):
+                        break  # 429는 call_with_quota_backoff 가 이미 다 기다렸다 -> 다음 모델로
                     message = str(exc).lower()
-                    retryable_tokens = (
-                        "429",
-                        "resource_exhausted",
-                        "503",
-                        "unavailable",
-                        "504",
-                        "deadline",
-                    )
+                    # 429/resource_exhausted 는 위에서 처리했다. 여기 남기면 긴 백오프가
+                    # 3배로 겹친다. 나머지 일시 오류만 짧은 지수 재시도.
+                    retryable_tokens = ("503", "unavailable", "504", "deadline")
                     if any(token in message for token in retryable_tokens):
                         await asyncio.sleep(2**attempt)
                         continue
@@ -288,10 +289,13 @@ class GeminiDocumentExtractor:
         for model in _dedupe(models):
             for attempt in range(3):
                 try:
-                    response = await client.aio.models.generate_content(
-                        model=model,
-                        contents=[prompt],
-                        config=text_config,
+                    response = await call_with_quota_backoff(
+                        lambda: client.aio.models.generate_content(
+                            model=model,
+                            contents=[prompt],
+                            config=text_config,
+                        ),
+                        label=f"refine:{model}",
                     )
                     text = (response.text or "").strip()
                     if text:
@@ -300,8 +304,10 @@ class GeminiDocumentExtractor:
                     break  # empty response -> try next model
                 except Exception as exc:  # noqa: BLE001 - surface the real Vertex error.
                     last_error = exc
+                    if is_quota_exhausted_error(exc):
+                        break
                     message = str(exc).lower()
-                    retryable_tokens = ("429", "resource_exhausted", "503", "unavailable", "504", "deadline")
+                    retryable_tokens = ("503", "unavailable", "504", "deadline")
                     if any(token in message for token in retryable_tokens):
                         await asyncio.sleep(2**attempt)
                         continue

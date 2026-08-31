@@ -50,8 +50,53 @@ class Settings(BaseSettings):
         le=64,
         alias="GEMINI_MAX_CONCURRENCY",
     )
+    # 번역 파이프라인의 비기계 단계(피벗·타겟·검증·자동수정·카드)에 적용할 thinking 예산.
+    # None = 모델 기본값(Gemini 2.5 Flash 는 Auto, 최대 8,192). 0 = 끔.
+    # 실측상 파이프라인 지연의 75~78% 가 thinking 토큰이다. 0 으로 두면 134.7s → 33.5s.
+    # 기계적 추출·역번역 5콜은 이 값과 무관하게 항상 0이다(MECHANICAL_THINKING_BUDGET).
+    translation_thinking_budget: int | None = Field(
+        default=None,
+        ge=0,
+        alias="TRANSLATION_THINKING_BUDGET",
+    )
+    # 문맥·어조 검증 단계만 thinking을 기본(동적)으로 되돌리는 부분 적용 스위치(arm-b2,
+    # 계획서 §6.2). thinking 전면 off(arm-b) 실측에서 hard_fact 보존이 무너졌다
+    # (학년 오기재·없는 날짜 생성·이메일을 전화번호로 지어냄). True면 검증 단계만
+    # thinking_budget=None, 나머지 비기계 단계는 translation_thinking_budget 그대로.
+    translation_context_tone_thinking_override: bool = Field(
+        default=False,
+        alias="TRANSLATION_CONTEXT_TONE_THINKING_OVERRIDE",
+    )
     vertex_ai_project_id: str | None = Field(default=None, alias="VERTEX_AI_PROJECT_ID")
     vertex_ai_location: str = Field(default="global", alias="VERTEX_AI_LOCATION")
+    # 번역 파이프라인이 쓸 JSON 모델 백엔드. gemini | bedrock.
+    # 문서판독(GeminiDocumentExtractor)과 크롤러는 이 값과 무관하게 Gemini 를 계속 쓴다.
+    # 되돌리기는 이 한 줄이다 — 코드 revert 가 필요 없다.
+    translation_backend: str = Field(default="gemini", alias="TRANSLATION_BACKEND")
+    # global. 라우팅은 사용자 승인됨(스펙 §16 해결됨 Q1). 다만 학교 공지에는
+    # 학생 이름·학년반·보호자 연락처가 섞이므로 호출한 프로필을 로그에 남긴다.
+    bedrock_region: str = Field(default="ap-northeast-2", alias="BEDROCK_REGION")
+    # 기본은 Haiku 다(스펙 §5.10.1). 2026-08-27 실측에서 PDF·이미지 판독 정확도가
+    # Sonnet 과 동급이고 텍스트 지연은 더 짧았다(920ms vs 1,303ms).
+    # 게이트를 못 넘을 때만 Sonnet 으로 승급한다 — env 한 줄이다.
+    # Opus 는 쓰지 않는다(비용, 사용자 지시). Nova 는 한국어 본문 생성 경로에서 제외한다
+    # (읽지 못한 문서의 본문을 지어냈다 — 스펙 §5.9.2).
+    bedrock_translation_model: str = Field(
+        default="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        alias="BEDROCK_TRANSLATION_MODEL",
+    )
+    # 원문 하드팩트 추출 단계만 다른 모델로 돌리고 싶을 때 쓴다.
+    # None 이면 bedrock_translation_model 을 그대로 쓴다.
+    # 여기에도 Nova 를 넣지 않는다 — 하드팩트는 «지어내면 코드가 못 잡는» 자리다.
+    bedrock_mechanical_model: str | None = Field(default=None, alias="BEDROCK_MECHANICAL_MODEL")
+    # Bedrock Converse 는 boto3 동기 호출이라 전용 스레드풀에서 돈다.
+    # asyncio 기본 executor 는 min(32, cpu+4) = 워커(--cpu=1)에서 5라 조용히 직렬화된다.
+    bedrock_max_workers: int = Field(
+        default=32,
+        ge=1,
+        le=64,
+        alias="BEDROCK_MAX_WORKERS",
+    )
     google_calendar_credentials_json: str | None = Field(
         default=None,
         alias="GOOGLE_CALENDAR_CREDENTIALS_JSON",
@@ -85,6 +130,18 @@ class Settings(BaseSettings):
     crawler_watermark_enabled: bool = Field(
         default=True,
         alias="CRAWLER_WATERMARK_ENABLED",
+    )
+    # RSS 프로브: 게시판 탐지 성공 직후 학교당 1회, 결과만 school_crawl_state.rss_feed 에
+    # 기록한다(수집에는 쓰지 않는다). 실패는 크롤 결과에 영향을 주지 않는 best-effort.
+    crawler_rss_probe_enabled: bool = Field(
+        default=True,
+        alias="CRAWLER_RSS_PROBE_ENABLED",
+    )
+    # RSS 수집 경로: rss_feed.status='ok' 인 학교의 목록만 RSS 로 대체한다.
+    # 문제가 생기면 false 로 즉시 전 학교가 기존 HTML 경로로 돌아간다.
+    crawler_rss_collect_enabled: bool = Field(
+        default=False,
+        alias="CRAWLER_RSS_COLLECT_ENABLED",
     )
     crawler_schedule_concurrency: int = Field(
         default=3,
@@ -187,6 +244,14 @@ class Settings(BaseSettings):
     gcp_region: str = Field(default="", alias="GCP_REGION")
     translation_worker_job_name: str = Field(default="", alias="TRANSLATION_WORKER_JOB_NAME")
     crawler_worker_job_name: str = Field(default="", alias="CRAWLER_WORKER_JOB_NAME")
+
+    # 관리자 콘솔 전용 토큰. crawler_internal_token 과 분리한다 —
+    # 그쪽은 토큰 미설정 + local 이면 통과하는 fail-open 분기가 있다(crawler.py:24-26).
+    admin_api_token: str | None = Field(default=None, alias="ADMIN_API_TOKEN")
+    # Cloud Scheduler 잡의 location. Cloud Run region 과 같은지 미확인이었으나
+    # 읽기 전용 gcloud 로 asia-northeast3 로 동일함을 확인했다(Task 12 보고 참고).
+    # 비어 있으면 gcp_region 으로 폴백한다.
+    scheduler_location: str = Field(default="", alias="SCHEDULER_LOCATION")
 
     @property
     def cors_origins(self) -> list[str]:

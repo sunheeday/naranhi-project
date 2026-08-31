@@ -1,449 +1,268 @@
-export type Json = string | number | boolean | null | { [key: string]: Json } | Json[]
+// 테이블·컬럼 정의의 정본은 types/database.generated.ts 이며, 그 파일은
+// `npm run gen:types` 로만 갱신한다 — 손으로 고치지 않는다.
+//
+// 아래 5개 유니언은 이 파일에 남긴다. NoticeStatus/CardType은 실측 결과
+// notices.status/notice_cards.type이 실제 Postgres enum(notice_status,
+// notice_card_type)이라 gen types도 동일한 리터럴 유니언을 내지만, DTO 경계에서
+// 쓰는 이름을 이 파일 하나로 모아두기 위해 재선언한다. SupportedLocale·
+// SchoolCrawlBoardKind·NoticeAiValidationStatus는 DB가 text + CHECK라 gen
+// types가 string을 내므로 여기서 값 도메인을 좁혀 제공한다.
+// 전 저장소가 '@/types/database'를 import하므로 경로는 그대로 둔다.
+import type { Database as GeneratedDatabase } from './database.generated'
+
+export type { Json } from './database.generated'
+import type { Json } from './database.generated'
+
+// admin_users/admin_sessions/admin_audit_log 테이블과 admin_verify_password/
+// admin_set_password 함수(0038_admin_console_auth.sql)는 운영 DB에 아직
+// 적용되지 않아 `npm run gen:types`가 이 스키마를 못 본다(linked 대상이 운영이고,
+// 로컬 인프라 기동·운영 마이그레이션 적용은 이 작업 범위 밖). 0038이 운영에
+// 적용되고 gen:types를 다시 돌리면 database.generated.ts가 이 셋을 직접 내므로
+// 이 보강 블록은 지우고 위 import에서 그대로 재수출하면 된다.
+//
+// 필드 타입은 0038_admin_console_auth.sql의 실제 컬럼 정의에서 그대로 옮겼다.
+// Relationships는 Postgres 기본 FK 이름 규칙(<table>_<column>_fkey)을 따른다.
+type GeneratedPublicSchema = GeneratedDatabase['public']
+
+export type Database = Omit<GeneratedDatabase, 'public'> & {
+  public: Omit<GeneratedPublicSchema, 'Tables' | 'Functions'> & {
+    Tables: GeneratedPublicSchema['Tables'] & {
+      admin_users: {
+        Row: {
+          id: string
+          username: string
+          password_hash: string
+          display_name: string | null
+          is_active: boolean
+          totp_secret: string | null
+          failed_attempts: number
+          locked_until: string | null
+          last_login_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          username: string
+          password_hash: string
+          display_name?: string | null
+          is_active?: boolean
+          totp_secret?: string | null
+          failed_attempts?: number
+          locked_until?: string | null
+          last_login_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          username?: string
+          password_hash?: string
+          display_name?: string | null
+          is_active?: boolean
+          totp_secret?: string | null
+          failed_attempts?: number
+          locked_until?: string | null
+          last_login_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      admin_sessions: {
+        Row: {
+          id: string
+          admin_user_id: string
+          token_hash: string
+          expires_at: string
+          revoked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id: string
+          token_hash: string
+          expires_at: string
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string
+          token_hash?: string
+          expires_at?: string
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sessions_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_audit_log: {
+        Row: {
+          id: string
+          admin_user_id: string | null
+          action: string
+          target: string | null
+          detail: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id?: string | null
+          action: string
+          target?: string | null
+          detail?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string | null
+          action?: string
+          target?: string | null
+          detail?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      // crawl_run_history(0041_admin_console_observability.sql)도 admin_* 셋과 같은 이유로
+      // 여기 수기 보강한다 — 0041 이 운영에 아직 적용되지 않아 gen:types 가 못 본다.
+      // 필드는 ScheduledCrawlerSummary(scheduled_crawler_service.py:61-76) + outcome +
+      // error_message. 0041 이 적용되고 gen:types 를 다시 돌리면 이 블록은 지운다.
+      crawl_run_history: {
+        Row: {
+          id: string
+          started_at: string
+          finished_at: string
+          outcome: CrawlRunOutcome
+          dry_run: boolean
+          force: boolean
+          total_registered: number
+          selected_count: number
+          skipped_count: number
+          processed_count: number
+          success_count: number
+          failure_count: number
+          fallback_count: number
+          success_rate: number
+          alarm: boolean
+          targets: Json
+          results: Json
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          started_at: string
+          finished_at: string
+          outcome: CrawlRunOutcome
+          dry_run?: boolean
+          force?: boolean
+          total_registered?: number
+          selected_count?: number
+          skipped_count?: number
+          processed_count?: number
+          success_count?: number
+          failure_count?: number
+          fallback_count?: number
+          success_rate?: number
+          alarm?: boolean
+          targets?: Json
+          results?: Json
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          started_at?: string
+          finished_at?: string
+          outcome?: CrawlRunOutcome
+          dry_run?: boolean
+          force?: boolean
+          total_registered?: number
+          selected_count?: number
+          skipped_count?: number
+          processed_count?: number
+          success_count?: number
+          failure_count?: number
+          fallback_count?: number
+          success_rate?: number
+          alarm?: boolean
+          targets?: Json
+          results?: Json
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      // needs_review/review_reason(0041_admin_console_observability.sql)도 같은 이유로
+      // 수기 보강한다. notice_ai_translations 는 generated 쪽에 이미 있는 테이블이라
+      // 여기서는 두 신규 컬럼만 얹는다 — 교차 타입이 기존 필드(validation_status 등)와
+      // 새 필드를 합쳐준다. 0041 적용 후 gen:types 를 다시 돌리면 이 블록은 지운다.
+      notice_ai_translations: {
+        Row: {
+          needs_review: boolean
+          review_reason: string | null
+        }
+        Insert: {
+          needs_review?: boolean
+          review_reason?: string | null
+        }
+        Update: {
+          needs_review?: boolean
+          review_reason?: string | null
+        }
+      }
+    }
+    Functions: GeneratedPublicSchema['Functions'] & {
+      // outcome은 SQL에서 text로 선언돼 실제 gen types도 string을 낸다(리터럴
+      // 유니언이 아니다) — 값 도메인은 0038_admin_console_auth.sql 주석 참고.
+      admin_verify_password: {
+        Args: {
+          p_password: string
+          p_username: string
+        }
+        Returns: {
+          admin_user_id: string | null
+          display_name: string | null
+          outcome: string
+        }[]
+      }
+      admin_set_password: {
+        Args: {
+          p_display_name?: string | null
+          p_password: string
+          p_username: string
+        }
+        Returns: string
+      }
+    }
+  }
+}
 
 export type SupportedLocale = 'ko' | 'en' | 'zh' | 'vi' | 'ru' | 'ar' | 'fr' | 'id' | 'th'
 export type NoticeStatus = 'pending' | 'processing' | 'done' | 'error'
 export type CardType = 'supplies' | 'action' | 'schedule'
 export type SchoolCrawlBoardKind = 'family_notice' | 'announcement_fallback' | 'unknown'
+/** 0005:14-15 의 CHECK 는 세 값이지만 코드가 쓰는 것은 둘뿐이고, 운영 155행이 전부 'passed' 다.
+ *  Task 13 이 DB CHECK 를 이 둘로 좁힌다. */
 export type NoticeAiValidationStatus = 'passed' | 'failed'
-
-export interface Database {
-  public: {
-    Tables: {
-      profiles: {
-        Row: {
-          id: string
-          email: string | null
-          display_name: string | null
-          avatar_url: string | null
-          locale: SupportedLocale
-          native_language: SupportedLocale
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          email?: string | null
-          display_name?: string | null
-          avatar_url?: string | null
-          locale?: SupportedLocale
-          native_language?: SupportedLocale
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          email?: string | null
-          display_name?: string | null
-          avatar_url?: string | null
-          locale?: SupportedLocale
-          native_language?: SupportedLocale
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      schools: {
-        Row: {
-          id: string
-          name: string
-          neis_office_code: string | null
-          neis_school_code: string | null
-          address: string | null
-          homepage_url: string | null
-          crawl_board_url: string | null
-          crawl_board_kind: SchoolCrawlBoardKind
-          crawl_status: string
-          crawl_error_message: string | null
-          crawl_result: Json
-          crawl_last_checked_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          neis_office_code?: string | null
-          neis_school_code?: string | null
-          address?: string | null
-          homepage_url?: string | null
-          crawl_board_url?: string | null
-          crawl_board_kind?: SchoolCrawlBoardKind
-          crawl_status?: string
-          crawl_error_message?: string | null
-          crawl_result?: Json
-          crawl_last_checked_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          name?: string
-          neis_office_code?: string | null
-          neis_school_code?: string | null
-          address?: string | null
-          homepage_url?: string | null
-          crawl_board_url?: string | null
-          crawl_board_kind?: SchoolCrawlBoardKind
-          crawl_status?: string
-          crawl_error_message?: string | null
-          crawl_result?: Json
-          crawl_last_checked_at?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      school_crawl_state: {
-        Row: {
-          school_id: string
-          crawl_board_url: string | null
-          crawl_board_kind: SchoolCrawlBoardKind
-          crawl_status: string
-          crawl_error_message: string | null
-          crawl_result: Json
-          crawl_last_checked_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          school_id: string
-          crawl_board_url?: string | null
-          crawl_board_kind?: SchoolCrawlBoardKind
-          crawl_status?: string
-          crawl_error_message?: string | null
-          crawl_result?: Json
-          crawl_last_checked_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          crawl_board_url?: string | null
-          crawl_board_kind?: SchoolCrawlBoardKind
-          crawl_status?: string
-          crawl_error_message?: string | null
-          crawl_result?: Json
-          crawl_last_checked_at?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      children: {
-        Row: {
-          id: string
-          user_id: string
-          school_id: string | null
-          name: string
-          grade: number
-          class_no: number | null
-          dietary_restrictions: string[]
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          school_id?: string | null
-          name: string
-          grade: number
-          class_no?: number | null
-          dietary_restrictions?: string[]
-          created_at?: string
-        }
-        Update: {
-          school_id?: string | null
-          name?: string
-          grade?: number
-          class_no?: number | null
-          dietary_restrictions?: string[]
-        }
-        Relationships: []
-      }
-      notices: {
-        Row: {
-          id: string
-          school_id: string
-          title: string | null
-          original_text: string | null
-          source_post_uid: string | null
-          detail_url: string | null
-          crawl_result: Json
-          extracted_content: Json | null
-          status: NoticeStatus
-          error_message: string | null
-          /** 제출/행동 마감일 (YYYY-MM-DD). LLM이 추출한 가장 이른 deadline. 없으면 null */
-          due_date: string | null
-          /** 공지에서 추출된 행사/마감 관련 날짜 목록(YYYY-MM-DD 배열) */
-          event_dates: Json
-          /** 공지에서 추출된 대표 장소 */
-          event_location: string | null
-          /** 한국어 기준 canonical hard facts */
-          source_hard_facts: Json
-          extraction_attempts: number
-          extraction_started_at: string | null
-          extraction_next_run_at: string | null
-          extraction_error_code: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          school_id: string
-          title?: string | null
-          original_text?: string | null
-          source_post_uid?: string | null
-          detail_url?: string | null
-          crawl_result?: Json
-          extracted_content?: Json | null
-          status?: NoticeStatus
-          error_message?: string | null
-          due_date?: string | null
-          event_dates?: Json
-          event_location?: string | null
-          source_hard_facts?: Json
-          extraction_attempts?: number
-          extraction_started_at?: string | null
-          extraction_next_run_at?: string | null
-          extraction_error_code?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          school_id?: string
-          title?: string | null
-          original_text?: string | null
-          source_post_uid?: string | null
-          detail_url?: string | null
-          crawl_result?: Json
-          extracted_content?: Json | null
-          status?: NoticeStatus
-          error_message?: string | null
-          due_date?: string | null
-          event_dates?: Json
-          event_location?: string | null
-          source_hard_facts?: Json
-          extraction_attempts?: number
-          extraction_started_at?: string | null
-          extraction_next_run_at?: string | null
-          extraction_error_code?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      notice_ai_translations: {
-        Row: {
-          id: string
-          notice_id: string
-          target_language: string
-          source_language: string
-          translated_title: string | null
-          translated_location: string | null
-          translated_text: string
-          validation_status: NoticeAiValidationStatus
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          notice_id: string
-          target_language: string
-          source_language?: string
-          translated_title?: string | null
-          translated_location?: string | null
-          translated_text: string
-          validation_status?: NoticeAiValidationStatus
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          target_language?: string
-          source_language?: string
-          translated_title?: string | null
-          translated_location?: string | null
-          translated_text?: string
-          validation_status?: NoticeAiValidationStatus
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      notice_hides: {
-        Row: {
-          user_id: string
-          notice_id: string
-          hidden_at: string
-        }
-        Insert: {
-          user_id: string
-          notice_id: string
-          hidden_at?: string
-        }
-        Update: {
-          hidden_at?: string
-        }
-        Relationships: []
-      }
-      notice_cards: {
-        Row: {
-          id: string
-          notice_id: string
-          type: CardType
-          content: Json
-          order: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          notice_id: string
-          type: CardType
-          content: Json
-          order?: number
-          created_at?: string
-        }
-        Update: {
-          content?: Json
-          order?: number
-        }
-        Relationships: []
-      }
-      notice_card_translations: {
-        Row: {
-          id: string
-          notice_card_id: string
-          target_language: string
-          translated_content: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          notice_card_id: string
-          target_language: string
-          translated_content?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          notice_card_id?: string
-          target_language?: string
-          translated_content?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      school_events: {
-        Row: {
-          id: string
-          school_id: string
-          notice_id: string
-          title: string
-          event_date: string
-          end_date: string | null
-          event_kinds: Json
-          location: string | null
-          description: string | null
-          source_language: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          school_id: string
-          notice_id: string
-          title: string
-          event_date: string
-          end_date?: string | null
-          event_kinds?: Json
-          location?: string | null
-          description?: string | null
-          source_language?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          school_id?: string
-          notice_id?: string
-          title?: string
-          event_date?: string
-          end_date?: string | null
-          event_kinds?: Json
-          location?: string | null
-          description?: string | null
-          source_language?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      meals: {
-        Row: {
-          id: string
-          office_code: string
-          school_code: string
-          meal_date: string
-          meal_type: number
-          meal_type_name: string
-          dishes: Json
-          calories: string | null
-          nutrients: Json | null
-          origins: Json | null
-          fetched_at: string
-        }
-        Insert: {
-          id?: string
-          office_code: string
-          school_code: string
-          meal_date: string
-          meal_type: number
-          meal_type_name: string
-          dishes: Json
-          calories?: string | null
-          nutrients?: Json | null
-          origins?: Json | null
-          fetched_at?: string
-        }
-        Update: {
-          dishes?: Json
-          calories?: string | null
-          nutrients?: Json | null
-          origins?: Json | null
-          fetched_at?: string
-        }
-        Relationships: []
-      }
-      subject_translations: {
-        Row: {
-          ko_subject: string
-          locale: string
-          translated: string
-          created_at: string
-        }
-        Insert: {
-          ko_subject: string
-          locale: string
-          translated: string
-          created_at?: string
-        }
-        Update: {
-          ko_subject?: string
-          locale?: string
-          translated?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      claim_notice_extractions: {
-        Args: {
-          p_limit?: number
-          p_stale_minutes?: number
-          p_notice_id?: string | null
-          p_force?: boolean
-        }
-        Returns: Database['public']['Tables']['notices']['Row'][]
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+/** app_jobs.status는 DB에서 text라 gen types가 string을 낸다 — 실제 값 도메인만 좁혀 제공. */
+export type AppJobStatus = 'queued' | 'processing' | 'completed' | 'failed'
+/** crawl_run_history.outcome도 DB에서 text + CHECK라 gen types가 string을 낸다
+ *  (0041_admin_console_observability.sql). 값 도메인만 좁혀 제공. */
+export type CrawlRunOutcome = 'ok' | 'idle' | 'alarm' | 'crashed'

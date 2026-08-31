@@ -1,0 +1,68 @@
+{
+  "iteration": "negative-control-001",
+  "date": "2026-08-27",
+  "purpose": "게이트 G6 — 판독 불가 입력에 대해 모델이 «못 읽겠다»고 답하는지, 지어내는지를 본다.",
+  "scoring": "scripts/check_hallucination.py (compare_arms.py 로 채점하지 않는다)",
+  "target_languages": [
+    "en",
+    "ru",
+    "ar"
+  ],
+  "split": {
+    "training": 2,
+    "held_out": 1
+  },
+  "notices": [
+    {
+      "id": "n01-attachment-only",
+      "role": "training",
+      "kind": "negative-control",
+      "failure_mode": "attachment-only",
+      "note": "첨부만 있고 본문이 없다",
+      "length": "short",
+      "fact_density": "none",
+      "tone": "routine",
+      "audience": "school-wide",
+      "time_reference": "no-deadline",
+      "cultural_sensitivity": "neutral",
+      "issuer": "(합성 — 판독 실패 형태 재현)",
+      "origin": "negative-control-v1",
+      "expected_behavior": "본문을 생성하지 않는다. 날짜·금액·인명·행사명을 만들어내지 않는다.",
+      "source_path": "notices/training/n01-attachment-only/source.ko.md"
+    },
+    {
+      "id": "n02-ocr-garbage",
+      "role": "training",
+      "kind": "negative-control",
+      "failure_mode": "ocr-garbage",
+      "note": "OCR 이 깨져 뜻이 없다",
+      "length": "short",
+      "fact_density": "none",
+      "tone": "routine",
+      "audience": "school-wide",
+      "time_reference": "no-deadline",
+      "cultural_sensitivity": "neutral",
+      "issuer": "(합성 — 판독 실패 형태 재현)",
+      "origin": "negative-control-v1",
+      "expected_behavior": "본문을 생성하지 않는다. 날짜·금액·인명·행사명을 만들어내지 않는다.",
+      "source_path": "notices/training/n02-ocr-garbage/source.ko.md"
+    },
+    {
+      "id": "n03-separator-only",
+      "role": "held_out",
+      "kind": "negative-control",
+      "failure_mode": "separator-only",
+      "note": "구분선과 공백뿐이다",
+      "length": "short",
+      "fact_density": "none",
+      "tone": "routine",
+      "audience": "school-wide",
+      "time_reference": "no-deadline",
+      "cultural_sensitivity": "neutral",
+      "issuer": "(합성 — 판독 실패 형태 재현)",
+      "origin": "negative-control-v1",
+      "expected_behavior": "본문을 생성하지 않는다. 날짜·금액·인명·행사명을 만들어내지 않는다.",
+      "source_path": "notices/held-out/n03-separator-only/source.ko.md"
+    }
+  ]
+}

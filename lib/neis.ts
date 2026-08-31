@@ -95,7 +95,58 @@ interface NeisListEnvelope<R> {
   > | undefined
 }
 
+export class NeisApiError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(`NEIS ${code}: ${message}`)
+    this.name = 'NeisApiError'
+    this.code = code
+  }
+}
+
+/** 일일 호출 한도 초과. 한도 값은 공식적으로 미공개다. */
+export class NeisQuotaExceededError extends NeisApiError {
+  constructor(message: string) {
+    super('ERROR-337', message)
+    this.name = 'NeisQuotaExceededError'
+  }
+}
+
+const NEIS_BENIGN_CODES = new Set(['INFO-000', 'INFO-200'])
+
+function readNeisResult(envelope: unknown, key: string): { CODE?: string; MESSAGE?: string } | null {
+  if (!envelope || typeof envelope !== 'object') return null
+  const top = (envelope as Record<string, unknown>).RESULT
+  if (top && typeof top === 'object') return top as { CODE?: string; MESSAGE?: string }
+
+  const blocks = (envelope as Record<string, unknown>)[key]
+  if (!Array.isArray(blocks)) return null
+  for (const block of blocks) {
+    if (!block || typeof block !== 'object') continue
+    const head = (block as Record<string, unknown>).head
+    if (!Array.isArray(head)) continue
+    for (const item of head) {
+      const result = item && typeof item === 'object' ? (item as Record<string, unknown>).RESULT : null
+      if (result && typeof result === 'object') return result as { CODE?: string; MESSAGE?: string }
+    }
+  }
+  return null
+}
+
+/** 행 추출 앞단의 RESULT.CODE 판정. 백엔드 neis_client.check_result_code 와 같은 규칙.
+ *  이 판정이 없으면 ERROR-337(한도 초과)이 빈 배열이 되어 '급식 정보 없음'으로 보인다. */
+export function assertNeisResult(envelope: unknown, key: string): void {
+  const result = readNeisResult(envelope, key)
+  const code = (result?.CODE ?? '').trim()
+  if (!code || NEIS_BENIGN_CODES.has(code)) return
+  const message = result?.MESSAGE ?? ''
+  if (code === 'ERROR-337') throw new NeisQuotaExceededError(message)
+  throw new NeisApiError(code, message)
+}
+
 function extractRows<R>(envelope: NeisListEnvelope<R>, key: string): R[] {
+  assertNeisResult(envelope, key)
   const arr = envelope[key]
   if (!Array.isArray(arr)) return []
   for (const block of arr) {
@@ -134,11 +185,31 @@ export async function searchSchools(query: string): Promise<SchoolSearchResult[]
   }))
 }
 
-function normalizeHomepageUrl(value: string | null | undefined): string {
+/** 백엔드 neis_client.normalize_homepage_url(:96-123) 과 같은 규칙.
+ *
+ *  부산(C10)·충북(M10)의 HMPG_ADRES 는 "http://" 한 문자열로만 채워져 사실상 누락이다.
+ *  이걸 통과시키면 온보딩이 그 값을 schools.homepage_url 에 저장하고, 크롤은 다시
+ *  None 으로 떨어뜨려 NEIS 를 재조회하고, 같은 값이 돌아와 homepage_missing 이 반복된다.
+ *  추정으로 채우지 않는다 — 틀린 URL 은 다른 학교의 공지를 학부모에게 보낸다.
+ *  export 하는 이유: 프론트 테스트 러너가 없어 Node 타입 스트리핑으로 직접 검증한다. */
+export function normalizeHomepageUrl(value: string | null | undefined): string {
   const trimmed = (value ?? '').trim()
   if (!trimmed) return ''
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  return `https://${trimmed}`
+  if (['http:', 'https:', 'http://', 'https://'].includes(trimmed.toLowerCase())) return ''
+  if (trimmed.startsWith('//')) return `https:${trimmed}`.replace(/\/+$/, '')
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    let host = ''
+    try {
+      host = new URL(trimmed).host
+    } catch {
+      return ''
+    }
+    if (!host) return ''
+    return trimmed.replace(/\/+$/, '')
+  }
+
+  return `https://${trimmed}`.replace(/\/+$/, '')
 }
 
 // ─── 시간표 ───────────────────────────────────────────────

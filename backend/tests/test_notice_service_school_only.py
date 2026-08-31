@@ -433,7 +433,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings") as gemini_factory,
+            patch("app.services.notice_service.build_json_client") as gemini_factory,
         ):
             result = await NoticeService().translate_notice(
                 notice_id="notice-1",
@@ -488,7 +488,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch("app.services.notice_service.build_json_client", return_value=gemini),
             patch.object(
                 NoticeService,
                 "_translate_message_to_korean",
@@ -558,7 +558,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=gemini),
+            patch("app.services.notice_service.build_json_client", return_value=gemini),
         ):
             result = await NoticeService().refresh_notice_canonical_artifacts(
                 notice_id="notice-1",
@@ -615,7 +615,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings") as gemini_factory,
+            patch("app.services.notice_service.build_json_client") as gemini_factory,
         ):
             result = await NoticeService().translate_notice(
                 notice_id="notice-1",
@@ -671,7 +671,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=object()),
+            patch("app.services.notice_service.build_json_client", return_value=object()),
             patch("app.services.notice_service.TranslationPipeline", return_value=pipeline_instance),
         ):
             result = await NoticeService().translate_notice(
@@ -737,7 +737,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=object()) as gemini_factory,
+            patch("app.services.notice_service.build_json_client", return_value=object()) as gemini_factory,
             patch("app.services.notice_service.TranslationPipeline", return_value=pipeline_instance),
         ):
             result = await NoticeService().translate_notice(
@@ -791,7 +791,7 @@ class NoticeServiceSchoolOnlyTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings") as gemini_factory,
+            patch("app.services.notice_service.build_json_client") as gemini_factory,
         ):
             result = await NoticeService().translate_notice(
                 notice_id="notice-1",
@@ -1157,7 +1157,7 @@ class OptionalSingleCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.notice_service.get_settings", return_value=settings),
             patch("app.services.notice_service.get_supabase_client", return_value=supabase),
-            patch("app.services.notice_service.GeminiJsonClient.from_settings", return_value=object()),
+            patch("app.services.notice_service.build_json_client", return_value=object()),
             patch("app.services.notice_service.TranslationPipeline", return_value=pipeline_instance),
         ):
             result = await NoticeService().translate_notice(

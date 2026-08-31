@@ -10,6 +10,57 @@ import httpx
 NEIS_BASE_URL = "https://open.neis.go.kr/hub"
 ALLOWED_LEVELS = {"초등학교", "중학교"}
 
+QUOTA_EXCEEDED_CODE = "ERROR-337"
+BENIGN_RESULT_CODES = {"INFO-000", "INFO-200"}
+
+
+class NeisApiError(RuntimeError):
+    """NEIS가 HTTP 200 본문에 담아 보낸 오류."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"NEIS {code}: {message}")
+        self.code = code
+        self.message = message
+
+
+class NeisQuotaExceeded(NeisApiError):
+    """일일 호출 한도 초과(ERROR-337). 한도 값은 공식적으로 미공개다."""
+
+
+def check_result_code(payload: dict[str, Any], key: str) -> None:
+    """행 추출 **앞단**에서 RESULT.CODE를 판정한다.
+
+    NEIS는 오류를 HTTP 상태가 아니라 200 본문의 RESULT 블록으로 돌려준다.
+    이 판정이 없으면 ERROR-337(한도 초과)이 빈 배열이 되어 화면에는
+    '급식 정보 없음'으로 표시된다.
+    """
+    code, message = _result_code(payload, key)
+    if not code or code in BENIGN_RESULT_CODES:
+        return
+    if code == QUOTA_EXCEEDED_CODE:
+        raise NeisQuotaExceeded(code, message)
+    raise NeisApiError(code, message)
+
+
+def _result_code(payload: dict[str, Any], key: str) -> tuple[str, str]:
+    top = payload.get("RESULT")
+    if isinstance(top, dict):
+        return str(top.get("CODE") or "").strip(), str(top.get("MESSAGE") or "")
+
+    blocks = payload.get(key)
+    if isinstance(blocks, list):
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            head = block.get("head")
+            if not isinstance(head, list):
+                continue
+            for item in head:
+                if isinstance(item, dict) and isinstance(item.get("RESULT"), dict):
+                    result = item["RESULT"]
+                    return str(result.get("CODE") or "").strip(), str(result.get("MESSAGE") or "")
+    return "", ""
+
 
 @dataclass(frozen=True)
 class School:
@@ -19,6 +70,32 @@ class School:
     school_code: str
     address: str
     homepage_url: str
+
+
+SCHOOL_SCHEDULE_PAGE_SIZE = 100
+SCHOOL_SCHEDULE_MAX_PAGES = 10
+
+
+@dataclass(frozen=True)
+class SchoolScheduleEntry:
+    """NEIS SchoolSchedule 한 행. NEIS는 기간 일정도 하루 1행으로 준다."""
+
+    event_date: str  # ISO YYYY-MM-DD
+    title: str
+    description: str | None
+
+
+def _schedule_entry_from_row(row: dict[str, Any]) -> SchoolScheduleEntry | None:
+    ymd = str(row.get("AA_YMD") or "").strip()
+    title = str(row.get("EVENT_NM") or "").strip()
+    if len(ymd) != 8 or not ymd.isdigit() or not title:
+        return None
+    description = str(row.get("EVENT_CNTNT") or "").strip() or None
+    return SchoolScheduleEntry(
+        event_date=f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:8]}",
+        title=title,
+        description=description,
+    )
 
 
 def expand_school_query(query: str) -> list[str]:
@@ -73,6 +150,7 @@ def normalize_homepage_url(raw_url: str | None) -> str:
 
 
 def _extract_rows(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    check_result_code(payload, key)
     blocks = payload.get(key)
     if not isinstance(blocks, list):
         return []
@@ -145,6 +223,52 @@ class NeisClient:
                     found[(school.office_code, school.school_code)] = school
 
         return _rank_schools(query, list(found.values()))
+
+    async def fetch_school_schedule(
+        self,
+        office_code: str,
+        school_code: str,
+        from_ymd: str,
+        to_ymd: str,
+    ) -> list[SchoolScheduleEntry]:
+        """학사일정. 학년도 범위를 pSize=100으로 페이징한다.
+
+        RESULT.CODE 판정은 _extract_rows가 한다 — ERROR-337은 NeisQuotaExceeded로,
+        데이터 없음(INFO-200)은 빈 리스트로 올라온다.
+
+        ⚠️ 연속 일정을 end_date로 병합하지 않는다. 0030_school_events_end_date.sql이
+        '캘린더는 더 이상 근접 날짜를 추측 병합하지 않는다'고 명시했다 — 그 결정과
+        충돌하는 설계를 새로 들이지 않는다.
+        """
+        if not self.api_key:
+            raise RuntimeError("NEIS_API_KEY 환경변수가 필요합니다.")
+
+        entries: dict[tuple[str, str], SchoolScheduleEntry] = {}
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+            for page in range(1, SCHOOL_SCHEDULE_MAX_PAGES + 1):
+                response = await client.get(
+                    f"{NEIS_BASE_URL}/SchoolSchedule",
+                    params={
+                        "KEY": self.api_key,
+                        "Type": "json",
+                        "pIndex": str(page),
+                        "pSize": str(SCHOOL_SCHEDULE_PAGE_SIZE),
+                        "ATPT_OFCDC_SC_CODE": office_code,
+                        "SD_SCHUL_CODE": school_code,
+                        "AA_FROM_YMD": from_ymd,
+                        "AA_TO_YMD": to_ymd,
+                    },
+                )
+                response.raise_for_status()
+                rows = _extract_rows(response.json(), "SchoolSchedule")
+                for row in rows:
+                    entry = _schedule_entry_from_row(row)
+                    if entry:
+                        entries[(entry.event_date, entry.title)] = entry
+                if len(rows) < SCHOOL_SCHEDULE_PAGE_SIZE:
+                    break
+
+        return sorted(entries.values(), key=lambda item: (item.event_date, item.title))
 
 
 def _school_from_row(row: dict[str, Any]) -> School | None:

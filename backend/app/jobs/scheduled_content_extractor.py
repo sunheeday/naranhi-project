@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 
+from app.core.logging_setup import setup_logging
 from app.services.content_extraction_service import ContentExtractionService
 
 
@@ -50,10 +51,7 @@ async def run_async(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    setup_logging(job_type="scheduled_content_extractor")
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.force and not args.notice_id:

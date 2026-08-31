@@ -684,21 +684,50 @@ def _full_body_text(result: Any, refinements: dict[str, dict[str, Any]]) -> str:
     return "\n\n".join(parts).strip()
 
 
+# 이어 붙인 PNG 의 최대 폭. 이보다 넓은 원본은 읽는 즉시 여기에 맞춰 줄인다.
+_STITCH_WIDTH = 1600
+
+
 def _stitch_images_vertically(images: list[bytes]) -> bytes | None:
     """여러 이미지 바이트를 같은 폭으로 맞춰 세로로 이어 붙인 PNG 1장(바이트)로 반환."""
     import io
+    import os
 
     from PIL import Image
+
+    # 디코드 «전에» 크기를 본다. `Image.open` 은 지연 로딩이라 헤더만 읽는다.
+    #
+    # 2026-08-27 운영에서 5230만 픽셀 PNG 한 장이 추출 Job(2Gi)을 OOM 으로 죽였다.
+    # RGB 로 펼치면 한 장에 약 150MB 이고 `.convert()` 가 사본을 하나 더 만든다.
+    # 컨테이너가 OS 에 죽는 것이라 `except Exception` 으로는 못 잡는다 — 그래서 사전 차단이다.
+    #
+    # 어차피 아래에서 폭을 1600 으로 줄인다. 거대한 원본을 살릴 이유가 없다.
+    # 한 장을 버리는 것이 그 런의 모든 공지를 잃는 것보다 낫다.
+    max_pixels = int(os.getenv("MAX_BODY_IMAGE_PIXELS", "40000000"))
 
     pil: list[Any] = []
     for data in images:
         try:
-            pil.append(Image.open(io.BytesIO(data)).convert("RGB"))
+            probe = Image.open(io.BytesIO(data))
+            pixels = probe.width * probe.height
+            if pixels > max_pixels:
+                LOGGER.warning(
+                    "body image skipped: too_large pixels=%s limit=%s size=%sx%s",
+                    pixels, max_pixels, probe.width, probe.height,
+                )
+                continue
+            im = probe.convert("RGB")
+            # 곧바로 목표 폭으로 줄인 뒤 담는다. 아래에서 어차피 1600 으로 맞추므로
+            # 결과 PNG 는 동일하고(1600 초과분만 정확히 1600 이 된다), 큰 원본을
+            # 12장까지 동시에 들고 있는 구간이 사라진다 — 최악 12x가 1x로 줄어든다.
+            if im.width > _STITCH_WIDTH:
+                im = im.resize((_STITCH_WIDTH, max(1, round(im.height * _STITCH_WIDTH / im.width))))
+            pil.append(im)
         except Exception:  # noqa: BLE001 - 깨진 이미지는 건너뜀
             continue
     if not pil:
         return None
-    width = min(max(im.width for im in pil), 1600)  # 폭 통일 + 과대 방지
+    width = min(max(im.width for im in pil), _STITCH_WIDTH)  # 폭 통일 + 과대 방지
     resized = []
     for im in pil:
         if im.width != width:
@@ -739,11 +768,23 @@ async def _combine_and_upload_body_images(notice_id: str, inline_images: list[tu
     ordered = [data for _, data in ordered_items]
     combined = await asyncio.to_thread(_stitch_images_vertically, ordered)
     if not combined:
+        LOGGER.info(
+            "body images: notice_id=%s collected=%s stitched=0 upload=skip",
+            notice_id,
+            len(ordered),
+        )
         return ""
     from app.services.attachment_storage import upload_bytes
 
     info = await upload_bytes(
         notice_id=notice_id, name="body-images", data=combined, content_type="image/png", ext=".png"
+    )
+    LOGGER.info(
+        "body images: notice_id=%s collected=%s stitched=1 bytes=%s upload=%s",
+        notice_id,
+        len(ordered),
+        len(combined),
+        "ok" if info else "fail",
     )
     return info["storage_path"] if info else ""
 

@@ -36,7 +36,7 @@ if ENV_FILE.is_file():
         os.environ.setdefault(key.strip(), value.strip())
 
 from app.core.config import get_settings  # noqa: E402
-from app.translation.gemini_client import GeminiJsonClient  # noqa: E402
+from app.translation.json_client import build_json_client  # noqa: E402
 from app.translation.orchestrator import (  # noqa: E402
     TranslationPipeline,
     TranslationPipelineInput,
@@ -112,13 +112,18 @@ async def main() -> int:
         )
         return 2
 
-    gemini = GeminiJsonClient.from_settings(settings)
+    gemini = build_json_client(settings)
     pipeline = TranslationPipeline(gemini)
 
+    if settings.translation_backend == "bedrock":
+        backend = f"Bedrock {settings.bedrock_region}"
+        model_name = settings.bedrock_translation_model
+    else:
+        backend = "Vertex AI" if settings.use_vertex else "AI Studio API key"
+        model_name = settings.gemini_translation_model or settings.gemini_model
     print(
         f"Running pipeline for {len(langs)} language(s): {', '.join(langs)} "
-        f"using model={settings.gemini_model} "
-        f"({'Vertex AI' if settings.use_vertex else 'AI Studio API key'})"
+        f"using model={model_name} ({backend})"
     )
 
     results: dict[str, dict] = {}

@@ -20,9 +20,51 @@ class IsQuotaExhaustedErrorTest(unittest.TestCase):
     def test_detects_quota_keyword(self) -> None:
         self.assertTrue(is_quota_exhausted_error(RuntimeError("Quota exceeded for model")))
 
+    def test_detects_bedrock_throttling_exception(self) -> None:
+        """Bedrock 스로틀 메시지에는 429·quota·rate limit 이 하나도 없다.
+
+        그대로 두면 백오프가 한 번도 동작하지 않고 잡이 실패로 직행한다.
+        """
+        error = RuntimeError(
+            "ClientError: An error occurred (ThrottlingException) when calling the "
+            "Converse operation: Too many requests, please wait before trying again."
+        )
+        self.assertTrue(is_quota_exhausted_error(error))
+
+    def test_detects_bedrock_service_unavailable(self) -> None:
+        error = RuntimeError(
+            "ClientError: An error occurred (ServiceUnavailableException) when calling "
+            "the Converse operation: The model is temporarily unavailable."
+        )
+        self.assertTrue(is_quota_exhausted_error(error))
+
+    def test_detects_bedrock_model_not_ready(self) -> None:
+        error = RuntimeError(
+            "ClientError: An error occurred (ModelNotReadyException) when calling "
+            "the Converse operation: Model is not ready."
+        )
+        self.assertTrue(is_quota_exhausted_error(error))
+
     def test_ignores_unrelated_errors(self) -> None:
         self.assertFalse(is_quota_exhausted_error(ValueError("invalid json")))
         self.assertFalse(is_quota_exhausted_error(RuntimeError("500 internal error")))
+        # 마커를 넓혔지만 Bedrock 의 비스로틀 예외는 여전히 즉시 전파돼야 한다.
+        self.assertFalse(
+            is_quota_exhausted_error(
+                RuntimeError(
+                    "ClientError: An error occurred (ValidationException) when calling "
+                    "the Converse operation: Malformed input request."
+                )
+            )
+        )
+        self.assertFalse(
+            is_quota_exhausted_error(
+                RuntimeError(
+                    "ClientError: An error occurred (AccessDeniedException) when calling "
+                    "the Converse operation."
+                )
+            )
+        )
 
 
 class CallWithQuotaBackoffTest(unittest.IsolatedAsyncioTestCase):

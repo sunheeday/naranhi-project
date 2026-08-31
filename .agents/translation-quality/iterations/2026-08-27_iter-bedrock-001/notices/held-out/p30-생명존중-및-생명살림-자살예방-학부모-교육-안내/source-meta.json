@@ -1,0 +1,7 @@
+{
+  "origin": "prod-notice",
+  "kind": "general-notice",
+  "issuer": "(운영 공지 — 검토 시 기입)",
+  "notes": "운영 공지 원문(prod_notice_id=3bd7da01-4e1e-476e-a591-8801c338ac81). 자동 추출 — 사람 검토 전.",
+  "prod_notice_id": "3bd7da01-4e1e-476e-a591-8801c338ac81"
+}
