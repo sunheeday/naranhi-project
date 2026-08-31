@@ -140,5 +140,73 @@ class SeverityTest(unittest.TestCase):
         self.assertTrue(out["issues"])
 
 
+
+
+class NumberPreservationTest(unittest.TestCase):
+    """실측(2026-08-31): LLM 사실검증이 표 셀의 계산식을 오추출해
+    «번역은 맞는데 검증이 실패» 하는 오탐을 냈다(20,000원*112명= 2,240,000 → 2240000112).
+    숫자가 살아있는지는 코드가 훨씬 정확하다."""
+
+    LONG = ("행사 안내입니다. " * 10) + "\n\n시설이용료 20,000원 * 112명 = 2,240,000원, 총 2,300,000원 환불 60,000원"
+
+    def test_thousands_separator_style_change_is_not_a_loss(self):
+        """2,240,000 → 2.240.000 은 표기만 다르다."""
+        out = validate_output_by_code(
+            source_text=self.LONG,
+            translated_text=("Thong bao su kien. " * 10)
+            + "\n\nPhi 20.000 * 112 = 2.240.000, tong 2.300.000, hoan 60.000",
+            target_language="vi",
+        )
+        self.assertNotIn("numbers_lost", [i["code"] for i in out["issues"]], out["issues"])
+
+    def test_flags_a_dropped_amount(self):
+        out = validate_output_by_code(
+            source_text=self.LONG,
+            translated_text=("Thong bao su kien. " * 10)
+            + "\n\nPhi 20.000 * 112 = 2.240.000, hoan 60.000",
+            target_language="vi",
+        )
+        issue = next((i for i in out["issues"] if i["code"] == "numbers_lost"), None)
+        self.assertIsNotNone(issue, out["issues"])
+        self.assertIn("2300000", issue["detail"])
+
+    def test_dropped_amount_is_blocking(self):
+        out = validate_output_by_code(
+            source_text=self.LONG,
+            translated_text=("Thong bao su kien. " * 10) + "\n\nPhi 20.000",
+            target_language="vi",
+        )
+        self.assertEqual(out["status"], "failed")
+
+    def test_date_reformatting_is_not_a_loss(self):
+        """2026. 5. 14. → 14/5/2026 은 정상이다. 연도만 4자리라 그것만 본다."""
+        src = ("공지 본문입니다. " * 12) + "\n\n2026. 5. 14. 시행"
+        out = validate_output_by_code(
+            source_text=src,
+            translated_text=("Noi dung thong bao. " * 12) + "\n\nNgay 14/5/2026",
+            target_language="vi",
+        )
+        self.assertNotIn("numbers_lost", [i["code"] for i in out["issues"]], out["issues"])
+
+    def test_short_numbers_are_ignored(self):
+        """인원수·학년 같은 3자리 이하는 문장에 녹아 사라질 수 있어 보지 않는다."""
+        src = ("안내드립니다. " * 12) + "\n\n3학년 115명 참가"
+        out = validate_output_by_code(
+            source_text=src,
+            translated_text=("Xin thong bao. " * 12) + "\n\nHoc sinh khoi 3 tham gia",
+            target_language="vi",
+        )
+        self.assertNotIn("numbers_lost", [i["code"] for i in out["issues"]])
+
+    def test_phone_number_loss_is_flagged(self):
+        src = ("안내 말씀 드립니다. " * 12) + "\n\n문의 070-7099-0890"
+        out = validate_output_by_code(
+            source_text=src,
+            translated_text=("Xin thong bao den quy vi. " * 12) + "\n\nLien he van phong",
+            target_language="vi",
+        )
+        self.assertIn("numbers_lost", [i["code"] for i in out["issues"]])
+
+
 if __name__ == "__main__":
     unittest.main()

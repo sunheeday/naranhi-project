@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 
@@ -520,7 +521,43 @@ _MAX_LINE_REPEAT = 3
 # 짧은 줄의 반복은 목록에서 정상이라 길이 기준을 둔다.
 _REPEAT_MIN_LINE_LENGTH = 20
 
-BLOCKING_CODES = frozenset({"empty_output", "hangul_leftover", "too_short"})
+# 천단위 구분자가 붙은 수, 또는 맨 숫자. 구분자는 «뒤에 정확히 3자리» 일 때만 인정한다 —
+# 그래야 "2026. 5. 14." 를 2026514 로 붙이지 않는다.
+_NUMBER = re.compile(r"\d{1,3}(?:[,.  ]\d{3})+|\d+")
+# 4자리 미만은 보지 않는다. 인원수·학년·교시는 문장에 녹아 사라지는 것이 정상이다.
+_MIN_NUMBER_DIGITS = 4
+
+BLOCKING_CODES = frozenset(
+    {"empty_output", "hangul_leftover", "too_short", "numbers_lost"}
+)
+
+
+def _to_ascii_digits(text: str) -> str:
+    """아랍어(٢٠٢٦)·태국어(๒๐๒๖) 숫자를 ASCII 로 맞춘다.
+    지원 언어에 아랍어·태국어가 있어 이걸 안 하면 «숫자가 사라졌다» 는 오탐이 난다."""
+    if not text:
+        return ""
+    out = []
+    for ch in text:
+        if ch.isdigit() and not ("0" <= ch <= "9"):
+            try:
+                out.append(str(unicodedata.digit(ch)))
+                continue
+            except (TypeError, ValueError):
+                pass
+        out.append(ch)
+    return "".join(out)
+
+
+def _significant_numbers(text: str) -> set[str]:
+    """금액·전화번호처럼 «틀리면 안 되는» 수만 뽑아 표기를 지운다.
+    2,240,000 과 2.240.000 과 2 240 000 과 ٢٬٢٤٠٬٠٠٠ 은 같은 값으로 본다."""
+    out: set[str] = set()
+    for raw in _NUMBER.findall(_to_ascii_digits(text)):
+        digits = re.sub(r"\D", "", raw)
+        if len(digits) >= _MIN_NUMBER_DIGITS:
+            out.add(digits.lstrip("0") or "0")
+    return out
 
 
 def validate_output_by_code(
@@ -577,7 +614,20 @@ def validate_output_by_code(
                 "detail": f"{label}가 원문 {src_n}개 → 번역본 {out_n}개로 줄었습니다.",
             })
 
-    # ④ 반복 — 모델이 같은 줄을 되풀이하며 돌았는가.
+    # ④ 숫자 보존 — 금액·전화번호가 사라졌는가.
+    #    실측(2026-08-31): LLM 사실검증이 표 셀의 계산식을 오추출해
+    #    「번역은 맞는데 검증 실패」 오탐을 냈다. 원문/번역본의 숫자를 직접 대조하는
+    #    이 검사가 그보다 정확하고, 0원·0초다.
+    src_numbers = _significant_numbers(source)
+    if src_numbers:
+        missing = sorted(src_numbers - _significant_numbers(out))
+        if missing:
+            issues.append({
+                "code": "numbers_lost",
+                "detail": f"원문의 수 {len(missing)}개가 번역본에 없습니다: {', '.join(missing[:8])}",
+            })
+
+    # ⑤ 반복 — 모델이 같은 줄을 되풀이하며 돌았는가.
     counts: dict[str, int] = {}
     for line in out.splitlines():
         stripped = line.strip()
