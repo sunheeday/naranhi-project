@@ -1,8 +1,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
+import { applyOffset } from '@/lib/bell-schedule'
+import { ensureBellSchedule } from '@/lib/bell-schedule-store'
+import BellOffsetForm from './BellOffsetForm'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
@@ -46,6 +49,20 @@ export default async function SettingsPage() {
     ? `${child.grade}-${child.class_no ?? ''}`
     : ''
 
+  // 지금 이 자녀에게 적용된 1교시 시작 시각. 학교가 연결되지 않았으면 칸을 띄우지 않는다.
+  let firstPeriodStart: string | null = null
+  if (latestChild?.school_id) {
+    const bell = applyOffset(
+      await ensureBellSchedule(
+        createSupabaseServiceClient(),
+        latestChild.school_id,
+        latestChild.school_name,
+      ),
+      latestChild.bell_offset_minutes ?? 0,
+    )
+    firstPeriodStart = bell[0]?.startTime ?? null
+  }
+
   return (
     <main className="flex flex-col min-h-screen pb-20">
       <BrandHeader title={messages.settings.title} />
@@ -79,6 +96,25 @@ export default async function SettingsPage() {
               childId={child.id}
               initialValue={child.dietary_restrictions}
               locale={locale}
+            />
+            <hr className="border-border" />
+          </>
+        )}
+
+        {child && firstPeriodStart && (
+          <>
+            <BellOffsetForm
+              childId={child.id}
+              currentStart={firstPeriodStart}
+              labels={{
+                title: messages.settings.bell_title ?? '학교 시간',
+                help: messages.settings.bell_help ?? '우리 학교 1교시가 몇 시에 시작하나요? 나머지 시간은 자동으로 맞춰집니다.',
+                label: messages.settings.bell_label ?? '1교시 시작',
+                save: messages.common.save,
+                saving: messages.settings.school_saving ?? '저장 중...',
+                saved: messages.settings.school_saved ?? '저장되었어요.',
+                error: messages.settings.bell_error ?? '시간을 저장하지 못했어요.',
+              }}
             />
             <hr className="border-border" />
           </>

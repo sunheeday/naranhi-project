@@ -126,3 +126,54 @@ class FromSettingsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ImageRequestTest(unittest.IsolatedAsyncioTestCase):
+    """이미지 판독을 GCP(Gemini)가 아니라 Bedrock 으로 돌리기 위한 경로.
+    사용자 지시: GCP 지출 0. Converse 는 image 블록을 그대로 받는다."""
+
+    async def test_image_block_precedes_prompt(self) -> None:
+        fake = _FakeBedrock('"text": "1|09:10|09:55"}')
+        result = await _client(fake).generate_json_with_image(
+            data=b"\x89PNG_fake", mime_type="image/png", prompt="P",
+        )
+        self.assertEqual(result, {"text": "1|09:10|09:55"})
+        content = fake.requests[0]["messages"][0]["content"]
+        # 그림을 먼저 보여주고 지시를 뒤에 둔다 — Anthropic 권장 순서다.
+        self.assertEqual(content[0], {"image": {"format": "png", "source": {"bytes": b"\x89PNG_fake"}}})
+        self.assertEqual(content[1], {"text": "P"})
+
+    async def test_jpeg_mime_maps_to_jpeg_format(self) -> None:
+        fake = _FakeBedrock('"text": ""}')
+        await _client(fake).generate_json_with_image(
+            data=b"x", mime_type="image/jpeg", prompt="P",
+        )
+        self.assertEqual(fake.requests[0]["messages"][0]["content"][0]["image"]["format"], "jpeg")
+
+    async def test_jpg_alias_is_normalized(self) -> None:
+        fake = _FakeBedrock('"text": ""}')
+        await _client(fake).generate_json_with_image(
+            data=b"x", mime_type="image/jpg", prompt="P",
+        )
+        self.assertEqual(fake.requests[0]["messages"][0]["content"][0]["image"]["format"], "jpeg")
+
+    async def test_unsupported_mime_raises(self) -> None:
+        """Converse 가 받는 것은 png/jpeg/gif/webp 뿐이다. PDF 를 넘기면 조용히
+        실패하는 대신 여기서 막는다."""
+        with self.assertRaises(ValueError):
+            await _client(_FakeBedrock()).generate_json_with_image(
+                data=b"%PDF", mime_type="application/pdf", prompt="P",
+            )
+
+    async def test_prefill_still_applies(self) -> None:
+        fake = _FakeBedrock('"text": "x"}')
+        await _client(fake).generate_json_with_image(
+            data=b"x", mime_type="image/png", prompt="P",
+        )
+        self.assertEqual(fake.requests[0]["messages"][1], {"role": "assistant", "content": [{"text": "{"}]})
+
+    async def test_empty_image_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            await _client(_FakeBedrock()).generate_json_with_image(
+                data=b"", mime_type="image/png", prompt="P",
+            )

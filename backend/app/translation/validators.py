@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 
@@ -493,3 +494,154 @@ def _extract_grade_tokens(value: str) -> set[str]:
         tokens.add(f"grade:{normalized}")
 
     return tokens
+
+
+# ---------------------------------------------------------------------------
+# 산출물 코드 검사 — AI 를 부르지 않는다.
+#
+# 왜 있는가: 2026-08-30 실측에서 베트남어 번역본에 「일회용」이 한글 그대로 남았다.
+# 이런 결함에 AI 검증자를 붙이는 것은 낭비다 — 정규식이면 0원·0초이고 절대 안 놓친다.
+# LLM 검증자는 «코드가 원리상 못 하는 것»(의미·어조·문화적 적절성)만 맡는다.
+#
+# 무게가 다르다: 사실·가독성 위반은 재시도(failed), 구조·반복은 경고(warned)다.
+# 사소한 지적으로 재번역을 돌리면 돈만 나가고 하드팩트가 깨질 수 있다.
+# ---------------------------------------------------------------------------
+
+_HANGUL_RUN = re.compile(r"[가-힣]{2,}")
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+\S", re.MULTILINE)
+_LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\S", re.MULTILINE)
+
+# 원문 대비 이 비율보다 짧으면 잘린 것으로 본다. 언어별 길이 차이를 감안해 넉넉히 잡는다
+# (한국어는 압축적이라 번역본이 보통 «길어진다» — 40% 미만은 정상 범위가 아니다).
+_MIN_LENGTH_RATIO = 0.40
+# 목록·제목이 이 비율 미만으로 남으면 항목이 빠진 것으로 본다.
+_MIN_STRUCTURE_RATIO = 0.60
+# 같은 줄이 이 횟수 이상 반복되면 모델이 루프를 돈 것이다.
+_MAX_LINE_REPEAT = 3
+# 짧은 줄의 반복은 목록에서 정상이라 길이 기준을 둔다.
+_REPEAT_MIN_LINE_LENGTH = 20
+
+# 천단위 구분자가 붙은 수, 또는 맨 숫자. 구분자는 «뒤에 정확히 3자리» 일 때만 인정한다 —
+# 그래야 "2026. 5. 14." 를 2026514 로 붙이지 않는다.
+_NUMBER = re.compile(r"\d{1,3}(?:[,.  ]\d{3})+|\d+")
+# 4자리 미만은 보지 않는다. 인원수·학년·교시는 문장에 녹아 사라지는 것이 정상이다.
+_MIN_NUMBER_DIGITS = 4
+
+BLOCKING_CODES = frozenset(
+    {"empty_output", "hangul_leftover", "too_short", "numbers_lost"}
+)
+
+
+def _to_ascii_digits(text: str) -> str:
+    """아랍어(٢٠٢٦)·태국어(๒๐๒๖) 숫자를 ASCII 로 맞춘다.
+    지원 언어에 아랍어·태국어가 있어 이걸 안 하면 «숫자가 사라졌다» 는 오탐이 난다."""
+    if not text:
+        return ""
+    out = []
+    for ch in text:
+        if ch.isdigit() and not ("0" <= ch <= "9"):
+            try:
+                out.append(str(unicodedata.digit(ch)))
+                continue
+            except (TypeError, ValueError):
+                pass
+        out.append(ch)
+    return "".join(out)
+
+
+def _significant_numbers(text: str) -> set[str]:
+    """금액·전화번호처럼 «틀리면 안 되는» 수만 뽑아 표기를 지운다.
+    2,240,000 과 2.240.000 과 2 240 000 과 ٢٬٢٤٠٬٠٠٠ 은 같은 값으로 본다."""
+    out: set[str] = set()
+    for raw in _NUMBER.findall(_to_ascii_digits(text)):
+        digits = re.sub(r"\D", "", raw)
+        if len(digits) >= _MIN_NUMBER_DIGITS:
+            out.add(digits.lstrip("0") or "0")
+    return out
+
+
+def validate_output_by_code(
+    *,
+    source_text: str,
+    translated_text: str,
+    target_language: str,
+) -> dict[str, Any]:
+    """번역 산출물을 코드로만 검사한다. AI 호출 0회.
+
+    status: passed | warned | failed
+      failed  — 재시도해야 한다(학부모가 읽을 수 없거나 내용이 잘렸다)
+      warned  — 기록만 한다(구조가 달라졌지만 읽는 데 지장 없다)
+    """
+    issues: list[dict[str, str]] = []
+    source = source_text or ""
+    out = translated_text or ""
+
+    if not out.strip():
+        return {
+            "status": "failed",
+            "issues": [{"code": "empty_output", "detail": "번역 결과가 비어 있습니다."}],
+        }
+
+    # ① 한글 잔존 — 대상 언어가 한국어가 아닌데 한글 덩어리가 남았다.
+    if (target_language or "").strip().lower() != "ko":
+        leftovers = _HANGUL_RUN.findall(out)
+        if leftovers:
+            uniq = sorted(set(leftovers))[:8]
+            issues.append({
+                "code": "hangul_leftover",
+                "detail": f"번역본에 한글이 {len(leftovers)}곳 남았습니다: {', '.join(uniq)}",
+            })
+
+    # ② 길이 — 잘렸는가.
+    if len(source.strip()) >= 200:
+        ratio = len(out.strip()) / max(1, len(source.strip()))
+        if ratio < _MIN_LENGTH_RATIO:
+            issues.append({
+                "code": "too_short",
+                "detail": f"번역본이 원문의 {ratio:.0%}뿐입니다(기준 {_MIN_LENGTH_RATIO:.0%}).",
+            })
+
+    # ③ 구조 — 제목·목록 항목이 사라졌는가.
+    for code, pattern, label in (
+        ("headings_lost", _HEADING, "제목"),
+        ("list_items_lost", _LIST_ITEM, "목록 항목"),
+    ):
+        src_n = len(pattern.findall(source))
+        out_n = len(pattern.findall(out))
+        if src_n >= 2 and out_n < src_n * _MIN_STRUCTURE_RATIO:
+            issues.append({
+                "code": code,
+                "detail": f"{label}가 원문 {src_n}개 → 번역본 {out_n}개로 줄었습니다.",
+            })
+
+    # ④ 숫자 보존 — 금액·전화번호가 사라졌는가.
+    #    실측(2026-08-31): LLM 사실검증이 표 셀의 계산식을 오추출해
+    #    「번역은 맞는데 검증 실패」 오탐을 냈다. 원문/번역본의 숫자를 직접 대조하는
+    #    이 검사가 그보다 정확하고, 0원·0초다.
+    src_numbers = _significant_numbers(source)
+    if src_numbers:
+        missing = sorted(src_numbers - _significant_numbers(out))
+        if missing:
+            issues.append({
+                "code": "numbers_lost",
+                "detail": f"원문의 수 {len(missing)}개가 번역본에 없습니다: {', '.join(missing[:8])}",
+            })
+
+    # ⑤ 반복 — 모델이 같은 줄을 되풀이하며 돌았는가.
+    counts: dict[str, int] = {}
+    for line in out.splitlines():
+        stripped = line.strip()
+        if len(stripped) >= _REPEAT_MIN_LINE_LENGTH:
+            counts[stripped] = counts.get(stripped, 0) + 1
+    worst = max(counts.values(), default=0)
+    if worst >= _MAX_LINE_REPEAT:
+        repeated = next(k for k, v in counts.items() if v == worst)
+        issues.append({
+            "code": "repeated_line",
+            "detail": f"같은 줄이 {worst}번 반복됩니다: {repeated[:60]}",
+        })
+
+    if not issues:
+        return {"status": "passed", "issues": []}
+    blocking = any(i["code"] in BLOCKING_CODES for i in issues)
+    return {"status": "failed" if blocking else "warned", "issues": issues}

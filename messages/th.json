@@ -52,7 +52,9 @@
     "inapp_open_external": "เปิดในเบราว์เซอร์ภายนอก",
     "inapp_manual_body": "เลือก 'เปิดในเบราว์เซอร์อื่น' จากเมนูมุมขวาบน หรือคัดลอก URL ด้านล่างแล้ววางใน Chrome/Safari",
     "inapp_copy_url": "คัดลอก URL",
-    "inapp_copied": "คัดลอกแล้ว"
+    "inapp_copied": "คัดลอกแล้ว",
+    "language_title": "เลือกภาษาที่คุณสะดวกก่อน",
+    "language_body": "หากเลือกภาษาก่อนสมัคร คำแนะนำและหน้าจอหลังเข้าสู่ระบบจะใช้ภาษาเดียวกันต่อไป"
   },
   "onboarding": {
     "step_of": "{current} / {total}",
@@ -155,7 +157,25 @@
     "period_suffix": "คาบ {period}",
     "timetable_error": "ไม่สามารถโหลดข้อมูลชั้นเรียนได้",
     "timetable_unsupported": "ไม่สามารถแสดงข้อมูลชั้นเรียนได้ เพราะชั้น/ห้องหรือประเภทโรงเรียนไม่ตรงกัน",
-    "gcal_error": "เชื่อมต่อ Google Calendar ล้มเหลว กรุณาออกจากระบบและเข้าสู่ระบบอีกครั้ง"
+    "gcal_error": "เชื่อมต่อ Google Calendar ล้มเหลว กรุณาออกจากระบบและเข้าสู่ระบบอีกครั้ง",
+    "personal_section": "ตารางส่วนตัว",
+    "personal_add": "เพิ่มตาราง",
+    "personal_edit": "แก้ไขตาราง",
+    "personal_title_label": "ชื่อ",
+    "personal_title_placeholder": "เช่น เทควันโด",
+    "personal_weekday_label": "วัน",
+    "personal_start_label": "เวลาเริ่ม",
+    "personal_end_label": "เวลาสิ้นสุด",
+    "personal_location_label": "สถานที่",
+    "personal_location_placeholder": "เช่น โรงยิม ○○",
+    "personal_memo_label": "บันทึกช่วยจำ",
+    "personal_color_label": "สี",
+    "personal_saving": "กำลังบันทึก...",
+    "personal_delete": "ลบ",
+    "personal_delete_confirm_title": "ลบตารางนี้หรือไม่?",
+    "personal_delete_confirm_body": "ลบแล้วกู้คืนไม่ได้",
+    "personal_err_time_order": "เวลาสิ้นสุดเร็วกว่าเวลาเริ่ม",
+    "dismissal": "เลิกเรียนประมาณ {time}"
   },
   "settings": {
     "demo_school_select": "เลือกโรงเรียน",
@@ -170,6 +190,10 @@
     "child_grade": "ชั้น",
     "logout": "ออกจากระบบ",
     "logout_confirm": "ออกจากระบบ?",
+    "bell_title": "เวลาเรียน",
+    "bell_help": "คาบ 1 ที่โรงเรียนของคุณเริ่มกี่โมง? เวลาที่เหลือจะปรับให้อัตโนมัติ",
+    "bell_label": "คาบ 1 เริ่ม",
+    "bell_error": "บันทึกเวลาไม่สำเร็จ",
     "version": "เวอร์ชัน {version}",
     "school_section_title": "ข้อมูลโรงเรียน",
     "school_code_set": "เชื่อมต่อข้อมูลอาหารแล้ว",

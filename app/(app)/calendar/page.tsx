@@ -10,6 +10,12 @@ import {
   type TimetablePeriod,
 } from '@/lib/neis'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
+import { applyOffset, resolveDismissal, type BellPeriod } from '@/lib/bell-schedule'
+import { ensureBellSchedule } from '@/lib/bell-schedule-store'
+import {
+  fetchPersonalSchedulesForChild,
+  type PersonalScheduleItem,
+} from '@/lib/child-personal-schedules'
 import BrandHeader from '@/components/brand/BrandHeader'
 import NoticeTranslationKickoff from '../NoticeTranslationKickoff'
 import CalendarTabs from './CalendarTabs'
@@ -85,6 +91,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   let timetableUnsupported = false
   let timetableErrorMessage: string | null = null
   let childLabel = ''
+  let childId: string | null = null
   let pendingTranslationNoticeIds: string[] = []
 
   const supabase = await createSupabaseServerClient()
@@ -213,11 +220,27 @@ export default async function CalendarPage({ searchParams }: Props) {
           monday.replace(/-/g, ''),
           friday.replace(/-/g, ''),
         )
-        timetableDays = await translateTimetableDays(
+        const translated = await translateTimetableDays(
           buildTimetableDays(monday, periods),
           locale,
           createSupabaseServiceClient(),
         )
+
+        // 교시 시각은 NEIS 에 없다(날짜·교시·과목만 준다). 학교별 시각표를 따로 붙인다.
+        // 학교가 연결되지 않은 자녀는 시각 없이 기존 «N교시» 표시로 남는다.
+        if (child.school_id) {
+          const bell = applyOffset(
+            await ensureBellSchedule(
+              createSupabaseServiceClient(),
+              child.school_id,
+              child.school_name,
+            ),
+            child.bell_offset_minutes ?? 0,
+          )
+          timetableDays = attachBellTimes(translated, bell)
+        } else {
+          timetableDays = translated
+        }
       } catch (e) {
         if (e instanceof UnsupportedTimetableError) {
           timetableUnsupported = true
@@ -226,6 +249,15 @@ export default async function CalendarPage({ searchParams }: Props) {
           timetableErrorMessage = messages.calendar.timetable_error ?? messages.meals?.timetable_error ?? '수업 정보를 불러오지 못했어요.'
         }
       }
+    }
+
+    // 개인 일정은 시간표 지원 여부와 무관하게 붙인다 — 미지원 학교에서도 학원은 보여야 한다.
+    // 그리고 번역(translateTimetableDays) «뒤에» 붙인다: 제목은 부모가 직접 쓴 표현이라
+    // 번역 경로를 타면 안 된다.
+    if (child?.id) {
+      childId = child.id
+      const personalItems = await fetchPersonalSchedulesForChild(supabase, child.id)
+      timetableDays = attachPersonalItems(timetableDays, personalItems)
     }
   } catch (e) {
     console.error('[calendar] schedule fetch failed:', e instanceof Error ? e.message : e)
@@ -282,6 +314,30 @@ export default async function CalendarPage({ searchParams }: Props) {
           noTimetable: messages.calendar.no_timetable ?? messages.meals?.no_timetable ?? '수업 정보 없음',
           periodSuffix: messages.calendar.period_suffix ?? messages.meals?.period_suffix ?? '{period}교시',
           unsupported: messages.calendar.timetable_unsupported ?? messages.meals?.timetable_unsupported ?? '학년/반 또는 학교 종류가 맞지 않아 수업 정보를 표시할 수 없어요.',
+          dismissal: messages.calendar.dismissal ?? '하교 {time}쯤',
+        }}
+        childId={childId}
+        personalLabels={{
+          section: messages.calendar.personal_section ?? '개인 일정',
+          add: messages.calendar.personal_add ?? '개인 일정 추가',
+          edit: messages.calendar.personal_edit ?? '일정 수정',
+          titleLabel: messages.calendar.personal_title_label ?? '제목',
+          titlePlaceholder: messages.calendar.personal_title_placeholder ?? '예: 태권도',
+          weekdayLabel: messages.calendar.personal_weekday_label ?? '요일',
+          startLabel: messages.calendar.personal_start_label ?? '시작 시간',
+          endLabel: messages.calendar.personal_end_label ?? '종료 시간',
+          locationLabel: messages.calendar.personal_location_label ?? '장소',
+          locationPlaceholder: messages.calendar.personal_location_placeholder ?? '예: ○○체육관',
+          memoLabel: messages.calendar.personal_memo_label ?? '메모',
+          colorLabel: messages.calendar.personal_color_label ?? '색상',
+          save: messages.common.save,
+          saving: messages.calendar.personal_saving ?? '저장 중...',
+          cancel: messages.common.cancel,
+          delete: messages.calendar.personal_delete ?? '삭제',
+          deleteConfirmTitle: messages.calendar.personal_delete_confirm_title ?? '이 일정을 삭제할까요?',
+          deleteConfirmBody: messages.calendar.personal_delete_confirm_body ?? '삭제하면 복구할 수 없어요.',
+          errTimeOrder: messages.calendar.personal_err_time_order ?? '종료 시간이 시작 시간보다 빨라요.',
+          weekdays: messages.calendar.weekdays,
         }}
       />
     </main>
@@ -305,6 +361,45 @@ function buildTimetableDays(monday: string, periods: TimetablePeriod[]): Timetab
     })
   }
   return days
+}
+
+/** 각 교시에 시각을 붙이고, 그날 마지막 교시로 하교 시각을 계산해 카드에 얹는다.
+ *
+ *  bell 은 이미 applyOffset 을 거친 값이므로 resolveDismissal 에는 0 을 넘긴다 —
+ *  여기서 다시 더하면 보정이 두 번 먹는다. */
+function attachBellTimes(days: TimetableDayEntry[], bell: BellPeriod[]): TimetableDayEntry[] {
+  const byPeriod = new Map(bell.map(p => [p.period, p]))
+  return days.map(day => {
+    const lastPeriod = day.periods.length
+      ? Math.max(...day.periods.map(p => p.period))
+      : 0
+    return {
+      ...day,
+      periods: day.periods.map(p => ({
+        ...p,
+        startTime: byPeriod.get(p.period)?.startTime ?? null,
+        endTime: byPeriod.get(p.period)?.endTime ?? null,
+      })),
+      dismissalTime: lastPeriod ? resolveDismissal(bell, lastPeriod, 0) : null,
+    }
+  })
+}
+
+/** 요일이 맞는 개인 일정을 각 날짜 카드에 붙인다. 시작 시각 순으로 정렬한다. */
+function attachPersonalItems(
+  days: TimetableDayEntry[],
+  items: PersonalScheduleItem[],
+): TimetableDayEntry[] {
+  if (items.length === 0) return days
+  return days.map(day => {
+    const weekday = new Date(`${day.isoDate}T00:00:00Z`).getUTCDay()
+    return {
+      ...day,
+      personalItems: items
+        .filter(item => item.dayOfWeek === weekday)
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    }
+  })
 }
 
 function parseEventKinds(value: unknown): ('event' | 'deadline')[] {

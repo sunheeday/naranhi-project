@@ -54,8 +54,12 @@ class Settings(BaseSettings):
     # None = 모델 기본값(Gemini 2.5 Flash 는 Auto, 최대 8,192). 0 = 끔.
     # 실측상 파이프라인 지연의 75~78% 가 thinking 토큰이다. 0 으로 두면 134.7s → 33.5s.
     # 기계적 추출·역번역 5콜은 이 값과 무관하게 항상 0이다(MECHANICAL_THINKING_BUDGET).
+    # 기본을 0(끔) 으로 둔다. Bedrock 경로는 thinking 을 «애초에 보내지 않으므로»
+    # (temperature=1 강제 회피, bedrock_client) 이 값은 Gemini 폴백에만 영향을 준다.
+    # 전면 off 로 hard_fact 가 무너졌던 arm-b 실측은 Gemini + 코드검사 없음 조건이었다.
+    # 지금은 validate_output_by_code 가 한글잔존·잘림·구조·반복을 AI 없이 먼저 잡는다.
     translation_thinking_budget: int | None = Field(
-        default=None,
+        default=0,
         ge=0,
         alias="TRANSLATION_THINKING_BUDGET",
     )
