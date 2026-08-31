@@ -11,6 +11,9 @@ const PUBLIC_PATHS = [
   '/api/health',
   '/api/supabase/health',
   '/api/locale',
+  // 학교(선생님) 어드민 데모: 서버 연결 없이 로컬에서 화면을 확인하기 위한 공개 경로
+  '/admin',
+  '/api/admin',
 ]
 
 export async function middleware(request: NextRequest) {
