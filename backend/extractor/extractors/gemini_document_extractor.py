@@ -11,6 +11,10 @@ from typing import Any
 
 import httpx
 
+from extractor.extractors.bedrock_document_extractor import (
+    BedrockDocumentExtractor,
+    bedrock_enabled,
+)
 from extractor.gemini_backoff import call_with_quota_backoff, is_quota_exhausted_error
 from extractor.http_security import sanitize_error
 
@@ -55,11 +59,18 @@ class GeminiDocumentExtractor:
         self.vertex_location = (vertex_location or os.getenv("VERTEX_AI_LOCATION") or "global").strip() or "global"
         self.use_vertex = bool(self.vertex_project)
         self._vertex_client: Any = None
+        # 문서 판독을 AWS Bedrock 으로 돌린다(사용자 지시: GCP 지출 0).
+        # 클래스 이름과 호출부 12곳을 건드리지 않으려고 «안에서» 위임한다.
+        # DOCUMENT_BACKEND/TRANSLATION_BACKEND=bedrock 이고 AWS 자격증명이 있을 때만 켜진다 —
+        # 자격증명이 없으면 조용히 Vertex 로 남아 서비스가 죽지 않는다.
+        self._bedrock: Any = None
+        if bedrock_enabled():
+            self._bedrock = BedrockDocumentExtractor(timeout_seconds=self.timeout)
 
     @property
     def available(self) -> bool:
-        """True when OCR can run via Vertex (ADC) or an API key."""
-        return self.use_vertex or bool(self.api_keys)
+        """True when OCR can run via Bedrock, Vertex (ADC), or an API key."""
+        return self._bedrock is not None or self.use_vertex or bool(self.api_keys)
 
     async def __aenter__(self) -> GeminiDocumentExtractor:
         self._get_client()
@@ -74,12 +85,27 @@ class GeminiDocumentExtractor:
         if self._owns_client:
             self._client = None
         self._vertex_client = None
+        if self._bedrock is not None:
+            self._bedrock.close()
+            self._bedrock = None
 
     async def extract_path(self, path: Path, *, mime_type: str, prompt: str) -> GeminiExtractResult:
         data = path.read_bytes()
         return await self.extract_bytes(data, mime_type=mime_type, prompt=prompt)
 
     async def extract_bytes(self, data: bytes, *, mime_type: str, prompt: str) -> GeminiExtractResult:
+        if self._bedrock is not None:
+            parsed = await self._bedrock.extract_bytes(
+                data, mime_type=mime_type, prompt=prompt,
+            )
+            return GeminiExtractResult(
+                text=str(parsed.get("text") or ""),
+                confidence=_optional_float(parsed.get("confidence")),
+                is_readable=bool(parsed.get("is_readable", bool(parsed.get("text")))),
+                warnings=[str(item) for item in parsed.get("warnings") or []],
+                detected_layout=str(parsed.get("detected_layout") or "unknown"),
+                source_pages=[int(i) for i in parsed.get("source_pages") or [] if str(i).isdigit()],
+            )
         if not self.available:
             raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
         if len(data) > self.max_inline_mb * 1024 * 1024:
@@ -126,6 +152,8 @@ class GeminiDocumentExtractor:
         return await self._generate_json_payload(payload, models=self.models, retry_empty_text=True)
 
     async def generate_json(self, prompt: str, *, model: str | None = None) -> dict[str, Any]:
+        if self._bedrock is not None:
+            return await self._bedrock.generate_json(prompt)
         if not self.available:
             raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
         struct_model = model or os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash")
@@ -150,6 +178,8 @@ class GeminiDocumentExtractor:
         그대로 재사용하도록 둔다. JSON 파싱·mime 강제 없이 모델의 텍스트 출력을 그대로 돌려준다.
         (정제 프롬프트가 마스킹 토큰을 보존해야 하므로 temperature·thinking 등은 모델 기본값 유지.)
         """
+        if self._bedrock is not None:
+            return await self._bedrock.generate_text(prompt)
         if not self.available:
             raise RuntimeError("VERTEX_AI_PROJECT_ID 또는 GEMINI_API_KEY(S) 환경변수가 필요합니다.")
         text_model = model or os.getenv("GEMINI_REFINE_MODEL") or os.getenv("GEMINI_STRUCT_MODEL", "gemini-2.5-flash")

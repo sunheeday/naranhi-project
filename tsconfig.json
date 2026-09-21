@@ -21,6 +21,10 @@
     },
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // lib/__tests__/*.test.ts 는 Node 22 내장 러너(--experimental-strip-types)로 돌리는데
+    // 그쪽은 import 에 .ts 확장자를 요구한다. noEmit 이라 켜도 안전하고,
+    // 앱 코드는 확장자 없는 import 를 계속 쓰므로 영향이 없다.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [

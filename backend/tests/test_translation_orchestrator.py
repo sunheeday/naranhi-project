@@ -94,6 +94,13 @@ class TranslationOrchestratorTest(unittest.TestCase):
                         {"back_translation_ko": "안내문"},
                         {"verdict": "PASS", "issues": []},
                         {"title": "안내문", "validation_status": "passed"},
+                        # 스텁 번역문("Notice")이 원문의 연도 2026 을 잃어 코드 검사
+                        # (numbers_lost)가 수정 1회를 유발한다 — 그 몫의 응답이다.
+                        {"corrected_target_translation": "Notice 2026.05.22 2026.05.30"},
+                        {"hard_facts": {}},
+                        {"back_translation_ko": "안내문"},
+                        {"verdict": "PASS", "issues": []},
+                        {"title": "안내문", "validation_status": "passed"},
                     ]
                 ),
             },

@@ -5,6 +5,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/s
 import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import { serverCacheTags } from '@/lib/server-cache'
+import { ensureBellSchedule } from '@/lib/bell-schedule-store'
 import {
   schoolNeedsInitialCrawl,
   triggerInitialSchoolCrawl,
@@ -171,6 +172,81 @@ export async function updateChildDietaryRestrictions(input: {
   revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
   revalidatePath('/meals')
   revalidatePath('/settings')
+}
+
+/** 부모가 «우리 아이 학교 시간»을 고친다 — 1교시 시작·쉬는 시간·점심시간 세 칸.
+ *
+ *  교시별로 다 채우게 하면 아무도 채우지 않으므로 세 칸만 받는다. 세 칸 모두 선택이고,
+ *  비워 두면 그 항목은 원래 표(홈페이지 판독본 또는 학교급 표준값)를 그대로 쓴다.
+ *
+ *  school_bell_schedules 는 건드리지 않는다 — 학교 공용 데이터라 한 부모의 수정이
+ *  같은 학교 다른 부모에게 번지면 안 된다. 세 값 모두 children 에만 담긴다. */
+export async function updateBellTimes(input: {
+  childId: string
+  firstPeriodStart: string
+  breakMinutes: number | null
+  lunchMinutes: number | null
+}): Promise<void> {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.firstPeriodStart)) {
+    throw new Error('시간 형식이 올바르지 않아요.')
+  }
+  // 0050 의 check 제약과 같은 범위. DB 까지 가기 전에 사람이 읽을 말로 막는다.
+  if (input.breakMinutes !== null && !(Number.isInteger(input.breakMinutes) && input.breakMinutes >= 0 && input.breakMinutes <= 60)) {
+    throw new Error('쉬는 시간은 0분에서 60분 사이로 넣어주세요.')
+  }
+  if (input.lunchMinutes !== null && !(Number.isInteger(input.lunchMinutes) && input.lunchMinutes >= 0 && input.lunchMinutes <= 120)) {
+    throw new Error('점심시간은 0분에서 120분 사이로 넣어주세요.')
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('로그인이 필요합니다.')
+
+  const { data: child, error: childError } = await supabase
+    .from('children')
+    .select('id, school_id')
+    .eq('id', input.childId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (childError) throw new Error(`자녀 조회 실패: ${childError.message}`)
+  if (!child?.school_id) throw new Error('학교가 연결되지 않은 자녀예요.')
+
+  const service = createSupabaseServiceClient()
+  const { data: school } = await service
+    .from('schools')
+    .select('name')
+    .eq('id', child.school_id)
+    .maybeSingle()
+
+  const base = await ensureBellSchedule(service, child.school_id, school?.name ?? '')
+  const baseStart = base[0]?.startTime
+  if (!baseStart) throw new Error('학교 시간표를 아직 만들지 못했어요.')
+
+  const offset = toMinutes(input.firstPeriodStart) - toMinutes(baseStart)
+  if (offset < -120 || offset > 120) throw new Error('시간이 너무 많이 차이나요.')
+
+  const { error } = await supabase
+    .from('children')
+    .update({
+      bell_offset_minutes: offset,
+      bell_break_minutes: input.breakMinutes,
+      bell_lunch_minutes: input.lunchMinutes,
+    })
+    .eq('id', input.childId)
+    .eq('user_id', user.id)
+  if (error) throw new Error(`시간 저장 실패: ${error.message}`)
+
+  // 경로만 revalidate 하면 자녀 요약 캐시(30초 TTL)가 남아 옛 시각이 한 번 더 나온다.
+  // 실측으로 확인했다 — 태그까지 함께 무효화한다.
+  revalidateTag(serverCacheTags.latestChildTag(user.id), 'max')
+  revalidateTag(serverCacheTags.childrenForUserTag(user.id), 'max')
+  revalidatePath('/calendar')
+  revalidatePath('/settings')
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
 }
 
 function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {

@@ -33,9 +33,21 @@ def _clean_run(**settings_kwargs) -> _RecordingGemini:
 
 
 class ThinkingBudgetSettingTest(unittest.TestCase):
-    def test_default_keeps_current_behaviour(self) -> None:
-        """기본값 None 이면 비기계 단계는 모델 기본값(thinking Auto)을 그대로 쓴다."""
+    def test_default_is_thinking_off(self) -> None:
+        """기본값 0 — thinking 은 쓰지 않는다(사용자 지시).
+
+        Bedrock 경로는 thinking 을 애초에 보내지 않으므로 이 값은 Gemini 폴백에만
+        영향을 준다. 전면 off 로 hard_fact 가 무너졌던 arm-b 실측은 코드 검사가
+        없던 조건이었고, 지금은 validate_output_by_code 가 한글잔존·잘림·구조·반복을
+        AI 없이 먼저 잡는다."""
         gemini = _clean_run()
+        self.assertTrue(gemini.calls)
+        for call in gemini.calls:
+            self.assertEqual(call["thinking_budget"], 0, call["kind"])
+
+    def test_explicit_none_restores_model_default(self) -> None:
+        """되돌리려면 env 한 줄이다 — 코드 revert 가 필요 없다."""
+        gemini = _clean_run(TRANSLATION_THINKING_BUDGET=None)
         self.assertTrue(gemini.calls)
         for call in gemini.calls:
             if call["kind"] in _NON_MECHANICAL:

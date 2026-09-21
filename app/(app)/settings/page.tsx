@@ -1,8 +1,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getLatestChildForUser } from '@/lib/server-cache'
+import { applyBellOverrides } from '@/lib/bell-schedule'
+import { ensureBellSchedule } from '@/lib/bell-schedule-store'
+import BellOffsetForm from './BellOffsetForm'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
@@ -46,6 +49,24 @@ export default async function SettingsPage() {
     ? `${child.grade}-${child.class_no ?? ''}`
     : ''
 
+  // 지금 이 자녀에게 적용된 1교시 시작 시각. 학교가 연결되지 않았으면 칸을 띄우지 않는다.
+  let firstPeriodStart: string | null = null
+  if (latestChild?.school_id) {
+    const bell = applyBellOverrides(
+      await ensureBellSchedule(
+        createSupabaseServiceClient(),
+        latestChild.school_id,
+        latestChild.school_name,
+      ),
+      {
+        offsetMinutes: latestChild.bell_offset_minutes ?? 0,
+        breakMinutes: latestChild.bell_break_minutes,
+        lunchMinutes: latestChild.bell_lunch_minutes,
+      },
+    )
+    firstPeriodStart = bell[0]?.startTime ?? null
+  }
+
   return (
     <main className="flex flex-col min-h-screen pb-20">
       <BrandHeader title={messages.settings.title} />
@@ -79,6 +100,32 @@ export default async function SettingsPage() {
               childId={child.id}
               initialValue={child.dietary_restrictions}
               locale={locale}
+            />
+            <hr className="border-border" />
+          </>
+        )}
+
+        {child && firstPeriodStart && (
+          <>
+            <BellOffsetForm
+              childId={child.id}
+              currentStart={firstPeriodStart}
+              currentBreak={latestChild?.bell_break_minutes ?? null}
+              currentLunch={latestChild?.bell_lunch_minutes ?? null}
+              labels={{
+                title: messages.settings.bell_title ?? '학교 시간',
+                help: messages.settings.bell_help ?? '우리 학교 1교시가 몇 시에 시작하나요? 나머지 시간은 자동으로 맞춰집니다.',
+                label: messages.settings.bell_label ?? '1교시 시작',
+                breakLabel: messages.settings.bell_break_label ?? '쉬는 시간(분)',
+                lunchLabel: messages.settings.bell_lunch_label ?? '점심시간(분)',
+                blankHint: messages.settings.bell_blank_hint ?? '비워 두면 기본값을 씁니다.',
+                breakRangeError: messages.settings.bell_break_range_error ?? '쉬는 시간은 0분에서 60분 사이로 넣어주세요.',
+                lunchRangeError: messages.settings.bell_lunch_range_error ?? '점심시간은 0분에서 120분 사이로 넣어주세요.',
+                save: messages.common.save,
+                saving: messages.settings.school_saving ?? '저장 중...',
+                saved: messages.settings.school_saved ?? '저장되었어요.',
+                error: messages.settings.bell_error ?? '시간을 저장하지 못했어요.',
+              }}
             />
             <hr className="border-border" />
           </>

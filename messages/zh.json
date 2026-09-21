@@ -52,7 +52,9 @@
     "inapp_open_external": "用外部浏览器打开",
     "inapp_manual_body": "请在右上角菜单中选择\"在其他浏览器中打开\"，或复制下方网址粘贴到 Chrome/Safari。",
     "inapp_copy_url": "复制网址",
-    "inapp_copied": "已复制"
+    "inapp_copied": "已复制",
+    "language_title": "请先选择您方便的语言",
+    "language_body": "注册前先选好语言，登录后的说明和界面会以同一语言继续显示。"
   },
   "onboarding": {
     "step_of": "{current} / {total}",
@@ -98,7 +100,11 @@
     "meal_breakfast": "早餐",
     "meal_lunch": "午餐",
     "meal_dinner": "晚餐",
-    "meal_allergy_prefix": "⚠ 过敏:"
+    "meal_allergy_prefix": "⚠ 过敏:",
+    "delete": "删除",
+    "deleting": "删除中...",
+    "delete_confirm_title": "要删除这条通知吗？",
+    "delete_confirm_body": "删除后卡片、日程和问答记录也会一起消失。"
   },
   "notice_detail": {
     "summary_title": "摘要",
@@ -151,7 +157,25 @@
     "period_suffix": "第{period}节",
     "timetable_error": "无法获取课程信息。",
     "timetable_unsupported": "年级/班级或学校类型不匹配，无法显示课程信息。",
-    "gcal_error": "Google日历连接失败，请退出后重新登录。"
+    "gcal_error": "Google日历连接失败，请退出后重新登录。",
+    "personal_section": "个人日程",
+    "personal_add": "添加日程",
+    "personal_edit": "编辑日程",
+    "personal_title_label": "名称",
+    "personal_title_placeholder": "例：跆拳道",
+    "personal_weekday_label": "星期",
+    "personal_start_label": "开始时间",
+    "personal_end_label": "结束时间",
+    "personal_location_label": "地点",
+    "personal_location_placeholder": "例：○○体育馆",
+    "personal_memo_label": "备注",
+    "personal_color_label": "颜色",
+    "personal_saving": "保存中...",
+    "personal_delete": "删除",
+    "personal_delete_confirm_title": "要删除这个日程吗？",
+    "personal_delete_confirm_body": "删除后无法恢复。",
+    "personal_err_time_order": "结束时间早于开始时间。",
+    "dismissal": "约 {time} 放学"
   },
   "settings": {
     "demo_school_select": "选择学校",
@@ -166,6 +190,15 @@
     "child_grade": "年级",
     "logout": "退出登录",
     "logout_confirm": "确定要退出登录吗？",
+    "bell_title": "上课时间",
+    "bell_help": "贵校第一节课几点开始？其余时间会自动调整。",
+    "bell_label": "第一节课开始",
+    "bell_break_label": "课间休息（分钟）",
+    "bell_lunch_label": "午餐时间（分钟）",
+    "bell_blank_hint": "留空则使用默认值。",
+    "bell_break_range_error": "课间休息请填写 0 到 60 分钟之间。",
+    "bell_lunch_range_error": "午餐时间请填写 0 到 120 分钟之间。",
+    "bell_error": "无法保存时间。",
     "version": "版本 {version}",
     "school_section_title": "学校信息",
     "school_code_set": "已联动午餐信息",
