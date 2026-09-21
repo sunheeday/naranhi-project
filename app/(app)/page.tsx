@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getHiddenNoticeIds, getLatestChildForUser, getSchoolSummary } from '@/lib/server-cache'
+import { getViewer } from '@/lib/viewer'
+import { readDemoHiddenNoticeIds } from '@/lib/test-entry-bypass'
+import { getHiddenNoticeIds, getSchoolSummary } from '@/lib/server-cache'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
@@ -178,13 +179,13 @@ export default async function HomePage() {
   let schoolCrawlerState: SchoolCrawlerState | null = null
   let hasProcessingNotices = false
 
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const viewer = await getViewer()
+  if (!viewer) {
     redirect('/login')
   }
+  const supabase = viewer.supabase
 
-  const child = await getLatestChildForUser(user.id)
+  const child = await viewer.latestChild()
 
   if (!child) {
     redirect('/onboarding')
@@ -192,11 +193,14 @@ export default async function HomePage() {
 
   childInfo = `${child.name} · ${child.school_name} ${child.grade}-${child.class_no ?? ''}`
 
-  const schoolPromise = child.school_id
-    ? getSchoolSummary(user.id, child.school_id)
+  // 시연 방문자는 자녀 행이 DB 에 없어 «내 자녀 학교» 조회가 성립하지 않는다 — 수집 상태 배너는 생략한다.
+  const schoolPromise = child.school_id && viewer.userId
+    ? getSchoolSummary(viewer.userId, child.school_id)
     : Promise.resolve(null)
 
-  const hiddenRowsPromise = getHiddenNoticeIds(user.id)
+  const hiddenRowsPromise = viewer.userId
+    ? getHiddenNoticeIds(viewer.userId)
+    : readDemoHiddenNoticeIds()
 
   const schoolRowsQuery = child.school_id
     ? supabase
@@ -342,7 +346,9 @@ export default async function HomePage() {
         ),
         status: row.status,
         arrivedAt: relativeTime(row.created_at, homeMsg),
-        needsTranslation: locale !== 'ko'
+        // 시연 방문자는 번역을 새로 시키지 않는다(로그인이 없어 서버가 요청을 거절하고,
+        // 사람마다 번역 비용이 생긴다). 미리 만들어 둔 번역만 보여준다.
+        needsTranslation: !viewer.demo && locale !== 'ko'
           && (
             !translationsByNotice[row.id]?.[locale]
             || (noticeCards.length > 0 && (translatedCardCountByNotice[row.id] ?? 0) < noticeCards.length)
@@ -355,7 +361,9 @@ export default async function HomePage() {
   }
 
   const shouldCollectSchoolNotices = schoolCrawlerState ? schoolNeedsInitialCrawl(schoolCrawlerState) : false
-  const isPreparingSchoolNotices = shouldCollectSchoolNotices || hasProcessingNotices
+  // 시연에서는 5초마다 화면을 새로 고치지 않는다 — 밀린 공지가 있는 학교(동인천중 2건)를 고른
+  // 모든 방문자가 계속 새로 고치게 된다.
+  const isPreparingSchoolNotices = !viewer.demo && (shouldCollectSchoolNotices || hasProcessingNotices)
 
   const actionNotices = notices.filter(n => n.actionRequired)
   const infoNotices = notices.filter(n => !n.actionRequired)
@@ -395,7 +403,7 @@ export default async function HomePage() {
       />
       <NoticeTranslationKickoff
         locale={locale}
-        noticeIds={notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
+        noticeIds={viewer.demo ? [] : notices.filter(notice => notice.needsTranslation).map(notice => notice.id)}
       />
       <BrandHeader
         title={messages.common.app_name}

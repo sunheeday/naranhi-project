@@ -3,6 +3,12 @@
 import { revalidatePath } from 'next/cache'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import {
+  isTestEntryBypassEnabled,
+  readDemoPersonalSchedules,
+  saveDemoPersonalSchedules,
+} from '@/lib/test-entry-bypass'
+import type { PersonalScheduleItem } from '@/lib/child-personal-schedules'
 import type { PersonalScheduleColor } from '@/types/database'
 
 const COLORS: readonly PersonalScheduleColor[] = ['blue', 'green', 'orange', 'purple', 'pink']
@@ -53,16 +59,39 @@ function normalize(input: PersonalScheduleInput): Normalized {
   }
 }
 
-async function requireUser() {
+/** 진짜 로그인이 먼저다. 로그인이 없고 시연 스위치가 켜져 있을 때만 «시연 방문자»로 본다.
+ *  시연 방문자의 일정은 DB 가 아니라 그 사람 브라우저 쿠키에만 저장된다. */
+async function getActor() {
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) throw new Error('로그인이 필요합니다.')
-  return { supabase, user }
+  if (!error && user) return { demo: false as const, supabase, user }
+  if (isTestEntryBypassEnabled()) return { demo: true as const }
+  throw new Error('로그인이 필요합니다.')
+}
+
+function toItem(id: string, row: Normalized): PersonalScheduleItem {
+  return {
+    id,
+    title: row.title,
+    dayOfWeek: row.day_of_week,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    location: row.location,
+    memo: row.memo,
+    color: row.color,
+  }
 }
 
 export async function createPersonalSchedule(input: PersonalScheduleInput): Promise<void> {
   const row = normalize(input)
-  const { supabase, user } = await requireUser()
+  const actor = await getActor()
+  if (actor.demo) {
+    const items = await readDemoPersonalSchedules()
+    await saveDemoPersonalSchedules([...items, toItem(crypto.randomUUID(), row)])
+    revalidatePath('/calendar')
+    return
+  }
+  const { supabase, user } = actor
 
   // create 는 child_id 를 클라이언트에서 받으므로 RLS(with check) 에 더해 여기서도
   // 소유권을 명시적으로 확인한다 — 위조된 child_id 가 오면 여기서 먼저 걸린다.
@@ -87,7 +116,15 @@ export async function updatePersonalSchedule(
   input: PersonalScheduleInput & { id: string },
 ): Promise<void> {
   const row = normalize(input)
-  const { supabase } = await requireUser()
+  const actor = await getActor()
+  if (actor.demo) {
+    const items = await readDemoPersonalSchedules()
+    if (!items.some(item => item.id === input.id)) throw new Error('권한이 없어요.')
+    await saveDemoPersonalSchedules(items.map(item => (item.id === input.id ? toItem(input.id, row) : item)))
+    revalidatePath('/calendar')
+    return
+  }
+  const { supabase } = actor
 
   // 소유권은 RLS using 절이 보장한다 — 남의 자녀 일정이면 0행이 갱신된다.
   const { data, error } = await supabase
@@ -102,7 +139,14 @@ export async function updatePersonalSchedule(
 }
 
 export async function deletePersonalSchedule(id: string): Promise<void> {
-  const { supabase } = await requireUser()
+  const actor = await getActor()
+  if (actor.demo) {
+    const items = await readDemoPersonalSchedules()
+    await saveDemoPersonalSchedules(items.filter(item => item.id !== id))
+    revalidatePath('/calendar')
+    return
+  }
+  const { supabase } = actor
 
   const { data, error } = await supabase
     .from('child_personal_schedules')

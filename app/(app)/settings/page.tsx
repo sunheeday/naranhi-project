@@ -1,8 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
-import { getLatestChildForUser } from '@/lib/server-cache'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getViewer } from '@/lib/viewer'
+import { BYPASS_SCHOOLS, getSelectedBypassSchool } from '@/lib/test-entry-bypass'
 import { applyBellOverrides } from '@/lib/bell-schedule'
 import { ensureBellSchedule } from '@/lib/bell-schedule-store'
 import BellOffsetForm from './BellOffsetForm'
@@ -11,6 +12,7 @@ import BrandHeader from '@/components/brand/BrandHeader'
 import CharacterImage from '@/components/brand/CharacterImage'
 import LogoutButton from './LogoutButton'
 import SchoolReselect from './SchoolReselect'
+import DemoSchoolPicker from './DemoSchoolPicker'
 import DietaryRestrictionsForm from './DietaryRestrictionsForm'
 import type { DietaryRestrictionId } from '@/lib/dietary-restrictions'
 
@@ -29,11 +31,12 @@ export default async function SettingsPage() {
     dietary_restrictions: DietaryRestrictionId[]
   } | null = null
 
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const viewer = await getViewer()
+  if (!viewer) redirect('/login')
 
-  const latestChild = await getLatestChildForUser(user.id)
+  const latestChild = await viewer.latestChild()
+  // 시연 방문자가 지금 고른 학교. 드롭다운의 현재 값이다.
+  const selectedBypassKey = viewer.demo ? (await getSelectedBypassSchool()).key : null
   child = latestChild
     ? {
         id: latestChild.id,
@@ -85,6 +88,17 @@ export default async function SettingsPage() {
           </section>
         )}
 
+        {viewer.demo && selectedBypassKey && (
+          <>
+            <DemoSchoolPicker
+              schools={BYPASS_SCHOOLS.map(s => ({ key: s.key, name: s.name }))}
+              currentKey={selectedBypassKey}
+              title={messages.settings.demo_school_select ?? '학교 선택'}
+            />
+            <hr className="border-border" />
+          </>
+        )}
+
         <section aria-labelledby="lang-heading">
           <h2 id="lang-heading" className="text-sm font-semibold text-text-secondary mb-3">
             {messages.settings.language}
@@ -131,7 +145,7 @@ export default async function SettingsPage() {
           </>
         )}
 
-        {child && (
+        {child && !viewer.demo && (
           <>
             <SchoolReselect
               childId={child.id}
@@ -163,9 +177,11 @@ export default async function SettingsPage() {
           </>
         )}
 
-        <section>
-          <LogoutButton label={messages.settings.logout} />
-        </section>
+        {!viewer.demo && (
+          <section>
+            <LogoutButton label={messages.settings.logout} />
+          </section>
+        )}
 
         <p className="text-xs text-text-disabled text-center mt-4">
           {messages.settings.version.replace('{version}', '0.1.0')}

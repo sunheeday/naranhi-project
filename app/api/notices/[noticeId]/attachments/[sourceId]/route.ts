@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 
 const BUCKET = 'notice-attachments'
 const SIGNED_URL_TTL_SECONDS = 300
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return notFound()
+  // 로그인이 없으면 시연 스위치가 켜져 있을 때만 계속 진행한다(아래 접근 검사가 다시 걸러낸다).
+  if (!user && !isTestEntryBypassEnabled()) return notFound()
 
   const service = createSupabaseServiceClient()
 
@@ -43,13 +45,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!notice?.school_id) return notFound()
 
   // 접근 검사: 요청자가 그 학교에 자녀를 등록한 학부모인가.
-  const { data: children } = await service
-    .from('children')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('school_id', notice.school_id)
-    .limit(1)
-  if (!children || children.length === 0) return notFound()
+  //   시연 방문자(로그인 없음)는 자녀 행이 없으므로, 지금 고른 학교의 공지인지로 본다.
+  let allowed = false
+  if (user) {
+    const { data: children } = await service
+      .from('children')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('school_id', notice.school_id)
+      .limit(1)
+    allowed = !!children && children.length > 0
+  } else {
+    allowed = (await ensureTestBypassChild()).school_id === notice.school_id
+  }
+  if (!allowed) return notFound()
 
   const extracted = asRecord(notice.extracted_content)
   const sources = Array.isArray(extracted?.sources) ? extracted.sources : []

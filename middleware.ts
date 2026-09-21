@@ -4,6 +4,9 @@ import { appendNextParam } from './lib/auth/redirect'
 import { withAuthCookieMaxAge } from './lib/supabase/config'
 import { ADMIN_COOKIE_NAME } from './lib/admin/cookie'
 
+/** 시연 스위치가 켜졌을 때 홈으로 돌려보내는 주소. 로그인·첫 설정 화면은 시연에 필요 없다. */
+const TEST_BYPASS_ENTRY_PATHS = ['/login', '/onboarding']
+
 const PUBLIC_PATHS = [
   '/home',
   '/login',
@@ -64,6 +67,19 @@ export async function middleware(request: NextRequest) {
     return adminGate(request)
   }
 
+  // ② 시연 스위치(TEST_ENTRY_BYPASS=true). QR 이든 어떤 주소든 로그인 검사 없이 통과시킨다.
+  //    반드시 ① 관리자 판정 «뒤»에 둔다 — 위에서 관리자 경로는 이미 돌려보냈으므로
+  //    이 스위치가 켜져 있어도 /admin 은 그대로 잠겨 있다.
+  //    스위치가 꺼져 있으면(기본) 이 분기는 아무 일도 하지 않는다.
+  //    다만 세션 갱신(아래 supabase.auth.getUser)은 계속한다. 통째로 건너뛰면 진짜로 로그인한 사람의
+  //    토큰이 만료 뒤 갱신되지 못해 시연 도중 조용히 로그아웃될 수 있다. 로그인이 없는 방문자는
+  //    getUser 가 네트워크 없이 바로 «세션 없음» 을 돌려주므로 비용이 거의 없다.
+  const testEntryBypass = process.env.TEST_ENTRY_BYPASS === 'true'
+  if (testEntryBypass) {
+    const goHome = TEST_BYPASS_ENTRY_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+    if (goHome) return NextResponse.redirect(new URL('/', request.url))
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -88,7 +104,7 @@ export async function middleware(request: NextRequest) {
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 
-  if (!user && !isPublic) {
+  if (!user && !isPublic && !testEntryBypass) {
     return NextResponse.redirect(
       new URL(appendNextParam('/login', `${pathname}${request.nextUrl.search}`), request.url)
     )

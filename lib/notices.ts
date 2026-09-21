@@ -1,5 +1,6 @@
 import 'server-only'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { ensureTestBypassChild, isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import type { Locale } from '@/lib/i18n'
 import { pickTranslation, type Translations } from '@/lib/translations'
 import type { CardType, Json, NoticeStatus } from '@/types/database'
@@ -106,17 +107,35 @@ export async function getNoticeDetail(
   noticeId: string,
   locale: Locale = 'ko'
 ): Promise<NoticeDetailDto | null> {
-  const supabase = await createSupabaseServerClient()
+  const sessionClient = await createSupabaseServerClient()
+  let supabase = sessionClient
+
+  // 시연 방문자(로그인 없음)는 RLS 가 아무것도 열어주지 않는다 — 서버 권한으로 읽는다.
+  // 스위치가 꺼져 있으면 아래 분기는 실행되지 않는다(getUser 왕복도 없다).
+  let isDemoVisitor = false
+  let demoSchoolId: string | null = null
+  if (isTestEntryBypassEnabled()) {
+    const { data: { user } } = await sessionClient.auth.getUser()
+    if (!user) {
+      supabase = createSupabaseServiceClient()
+      isDemoVisitor = true
+      demoSchoolId = (await ensureTestBypassChild()).school_id
+    }
+  }
 
   const { data: notice, error } = await supabase
     .from('notices')
     .select(
-      'id, status, error_message, created_at, title, original_text, extracted_content'
+      'id, school_id, status, error_message, created_at, title, original_text, extracted_content'
     )
     .eq('id', noticeId)
     .single()
 
   if (error || !notice) return null
+  // 서버 권한은 RLS 를 건너뛰므로, 시연 방문자가 지금 고른 학교의 공지만 연다.
+  // (다른 사용자가 촬영해 올린 공지가 주소만 알면 열리는 것을 막는다.)
+  // 학교 id 가 비어 있으면(있을 수 없는 경우지만) 열지 않는다 — 실패하면 «닫힘» 이어야 한다.
+  if (isDemoVisitor && (demoSchoolId === null || notice.school_id !== demoSchoolId)) return null
 
   const translationQuery = supabase
     .from('notice_ai_translations')

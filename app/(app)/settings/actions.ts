@@ -1,7 +1,18 @@
 'use server'
 
 import { revalidatePath, revalidateTag } from 'next/cache'
+import { cookies } from 'next/headers'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import {
+  DEMO_BELL_COOKIE,
+  DEMO_COOKIE_OPTIONS,
+  DEMO_DIETARY_COOKIE,
+  DEMO_SCHOOL_COOKIE,
+  ensureTestBypassChild,
+  getBypassSchoolByKey,
+  isBypassSchoolKey,
+  isTestEntryBypassEnabled,
+} from '@/lib/test-entry-bypass'
 import { parseDietaryRestrictions, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { ensureSchoolCrawlerState, getSchoolCrawlerState } from '@/lib/school-crawl-state'
 import { serverCacheTags } from '@/lib/server-cache'
@@ -158,7 +169,15 @@ export async function updateChildDietaryRestrictions(input: {
 
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) throw new Error('로그인이 필요합니다.')
+  if (authError || !user) {
+    // 시연 방문자: DB 가 아니라 그 사람 브라우저 쿠키에만 저장한다.
+    if (!isTestEntryBypassEnabled()) throw new Error('로그인이 필요합니다.')
+    const cookieStore = await cookies()
+    cookieStore.set(DEMO_DIETARY_COOKIE, JSON.stringify(dietaryRestrictions), DEMO_COOKIE_OPTIONS)
+    revalidatePath('/meals')
+    revalidatePath('/settings')
+    return
+  }
 
   const { error } = await supabase
     .from('children')
@@ -200,30 +219,60 @@ export async function updateBellTimes(input: {
 
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) throw new Error('로그인이 필요합니다.')
-
-  const { data: child, error: childError } = await supabase
-    .from('children')
-    .select('id, school_id')
-    .eq('id', input.childId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-  if (childError) throw new Error(`자녀 조회 실패: ${childError.message}`)
-  if (!child?.school_id) throw new Error('학교가 연결되지 않은 자녀예요.')
-
   const service = createSupabaseServiceClient()
-  const { data: school } = await service
-    .from('schools')
-    .select('name')
-    .eq('id', child.school_id)
-    .maybeSingle()
 
-  const base = await ensureBellSchedule(service, child.school_id, school?.name ?? '')
+  // 학교 id·이름: 진짜 로그인은 자기 자녀 행에서, 시연 방문자는 고른 학교에서 얻는다.
+  let schoolId: string
+  let schoolName: string
+  if (!authError && user) {
+    const { data: child, error: childError } = await supabase
+      .from('children')
+      .select('id, school_id')
+      .eq('id', input.childId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (childError) throw new Error(`자녀 조회 실패: ${childError.message}`)
+    if (!child?.school_id) throw new Error('학교가 연결되지 않은 자녀예요.')
+
+    const { data: school } = await service
+      .from('schools')
+      .select('name')
+      .eq('id', child.school_id)
+      .maybeSingle()
+    schoolId = child.school_id
+    schoolName = school?.name ?? ''
+  } else if (isTestEntryBypassEnabled()) {
+    const demoChild = await ensureTestBypassChild()
+    if (!demoChild.school_id) throw new Error('학교가 연결되지 않은 자녀예요.')
+    schoolId = demoChild.school_id
+    schoolName = demoChild.school_name
+  } else {
+    throw new Error('로그인이 필요합니다.')
+  }
+
+  const base = await ensureBellSchedule(service, schoolId, schoolName)
   const baseStart = base[0]?.startTime
   if (!baseStart) throw new Error('학교 시간표를 아직 만들지 못했어요.')
 
   const offset = toMinutes(input.firstPeriodStart) - toMinutes(baseStart)
   if (offset < -120 || offset > 120) throw new Error('시간이 너무 많이 차이나요.')
+
+  if (authError || !user) {
+    // 시연 방문자: 세 값을 그 사람 쿠키에만 저장한다.
+    const cookieStore = await cookies()
+    cookieStore.set(
+      DEMO_BELL_COOKIE,
+      JSON.stringify({
+        offsetMinutes: offset,
+        breakMinutes: input.breakMinutes,
+        lunchMinutes: input.lunchMinutes,
+      }),
+      DEMO_COOKIE_OPTIONS,
+    )
+    revalidatePath('/calendar')
+    revalidatePath('/settings')
+    return
+  }
 
   const { error } = await supabase
     .from('children')
@@ -251,4 +300,30 @@ function toMinutes(hhmm: string): number {
 
 function _isUniqueViolation(error: { code?: string | null; message?: string }): boolean {
   return error.code === '23505' || (error.message ?? '').includes('duplicate key value')
+}
+
+/**
+ * 데모(우회 모드) 전용: 화이트리스트에서 학교를 선택해 demo_school 쿠키에 저장.
+ * 이후 ensureTestBypassChild 가 이 쿠키로 학교를 결정한다.
+ */
+export async function selectDemoSchool(key: string): Promise<void> {
+  if (!isTestEntryBypassEnabled()) {
+    throw new Error('데모 모드에서만 사용할 수 있어요.')
+  }
+  if (!isBypassSchoolKey(key)) {
+    throw new Error('선택할 수 없는 학교예요.')
+  }
+  const school = getBypassSchoolByKey(key)
+  const cookieStore = await cookies()
+  cookieStore.set(DEMO_SCHOOL_COOKIE, school.key, {
+    httpOnly: true,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  })
+
+  // 학교 요약 캐시(revalidateTag)는 건드리지 않는다 — 시연 방문자는 그 요약을 쓰지 않고,
+  // 무효화하면 같은 학교의 진짜 사용자 캐시까지 비운다.
+  // 학교가 바뀌면 홈/급식/캘린더/촬영/설정 전부 새 학교 기준으로 다시 렌더.
+  revalidatePath('/', 'layout')
 }
