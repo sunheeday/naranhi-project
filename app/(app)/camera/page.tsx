@@ -2,8 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import BrandHeader from '@/components/brand/BrandHeader'
 import { defaultLocale, isValidLocale, type Locale } from '@/lib/i18n'
-import { getLatestChildForUser } from '@/lib/server-cache'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getViewer } from '@/lib/viewer'
 import CameraUploadForm, { type CameraUploadLabels } from './CameraUploadForm'
 
 const cameraFallback: CameraUploadLabels = {
@@ -85,11 +84,10 @@ export default async function CameraPage() {
   const locale: Locale = isValidLocale(cookieLocale) ? cookieLocale : defaultLocale
   const messages = (await import(`@/messages/${locale}.json`)).default
 
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const viewer = await getViewer()
+  if (!viewer) redirect('/login')
 
-  const child = await getLatestChildForUser(user.id)
+  const child = await viewer.latestChild()
 
   if (!child) redirect('/onboarding')
 

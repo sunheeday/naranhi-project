@@ -4,6 +4,9 @@ import { appendNextParam } from './lib/auth/redirect'
 import { withAuthCookieMaxAge } from './lib/supabase/config'
 import { ADMIN_COOKIE_NAME } from './lib/admin/cookie'
 
+/** 시연 스위치가 켜졌을 때 홈으로 돌려보내는 주소. 로그인·첫 설정 화면은 시연에 필요 없다. */
+const TEST_BYPASS_ENTRY_PATHS = ['/login', '/onboarding']
+
 const PUBLIC_PATHS = [
   '/home',
   '/login',
@@ -62,6 +65,16 @@ export async function middleware(request: NextRequest) {
   //    관리자 요청은 학부모 미들웨어 로직(Supabase 쿠키 갱신 등)을 전혀 타지 않는다.
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
     return adminGate(request)
+  }
+
+  // ② 시연 스위치(TEST_ENTRY_BYPASS=true). QR 이든 어떤 주소든 로그인 검사 없이 통과시킨다.
+  //    반드시 ① 관리자 판정 «뒤»에 둔다 — 위에서 관리자 경로는 이미 돌려보냈으므로
+  //    이 스위치가 켜져 있어도 /admin 은 그대로 잠겨 있다.
+  //    스위치가 꺼져 있으면(기본) 이 분기는 아무 일도 하지 않는다.
+  if (process.env.TEST_ENTRY_BYPASS === 'true') {
+    const goHome = TEST_BYPASS_ENTRY_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+    if (goHome) return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.next({ request })
   }
 
   let response = NextResponse.next({ request })

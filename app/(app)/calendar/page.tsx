@@ -1,8 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
-import { getChildrenForUser } from '@/lib/server-cache'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getViewer } from '@/lib/viewer'
+import { readDemoPersonalSchedules } from '@/lib/test-entry-bypass'
 import { backfillSchoolEventsForSchools } from '@/lib/schedule-backfill'
 import {
   fetchTimetableRangeFromNeis,
@@ -94,12 +95,12 @@ export default async function CalendarPage({ searchParams }: Props) {
   let childId: string | null = null
   let pendingTranslationNoticeIds: string[] = []
 
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const viewer = await getViewer()
+  if (!viewer) redirect('/login')
+  const supabase = viewer.supabase
 
   try {
-    const children = await getChildrenForUser(user.id)
+    const children = await viewer.children()
 
     const schoolIds = Array.from(new Set((children ?? []).map(child => child.school_id).filter(Boolean))) as string[]
     const child = children?.[0] ?? null
@@ -118,7 +119,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
       if (error) throw error
 
-      if ((rows ?? []).length === 0) {
+      if ((rows ?? []).length === 0 && !viewer.demo) {
         const serviceClient = createSupabaseServiceClient()
         await backfillSchoolEventsForSchools({
           serviceClient,
@@ -260,7 +261,10 @@ export default async function CalendarPage({ searchParams }: Props) {
     // 번역 경로를 타면 안 된다.
     if (child?.id) {
       childId = child.id
-      const personalItems = await fetchPersonalSchedulesForChild(supabase, child.id)
+      // 시연 방문자의 방과후 일정은 DB 가 아니라 그 사람 쿠키에 있다.
+      const personalItems = viewer.demo
+        ? await readDemoPersonalSchedules()
+        : await fetchPersonalSchedulesForChild(supabase, child.id)
       timetableDays = attachPersonalItems(timetableDays, personalItems)
     }
   } catch (e) {
@@ -270,7 +274,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   return (
     <main className="flex flex-col min-h-screen pb-20">
-      <NoticeTranslationKickoff locale={locale} noticeIds={pendingTranslationNoticeIds} />
+      <NoticeTranslationKickoff locale={locale} noticeIds={viewer?.demo ? [] : pendingTranslationNoticeIds} />
       <BrandHeader title={messages.calendar.title} subtitle={childLabel || undefined} character="walk" />
 
       {errorMessage && (

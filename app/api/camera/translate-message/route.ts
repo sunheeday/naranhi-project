@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { isDemoCameraEnabled } from '@/lib/test-entry-bypass'
 
 interface RequestBody {
   message?: unknown
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser()
-  if (authError || !user) {
+  if ((authError || !user) && !isDemoCameraEnabled()) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 

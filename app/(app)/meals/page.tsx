@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase/server'
-import { getLatestChildForUser } from '@/lib/server-cache'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getViewer } from '@/lib/viewer'
 import { annotateMealsWithDietaryWarnings, type DietaryRestrictionId } from '@/lib/dietary-restrictions'
 import { getCachedOrFetchMealsForRange, type Meal } from '@/lib/neis'
 import BrandHeader from '@/components/brand/BrandHeader'
@@ -72,11 +72,10 @@ export default async function MealsPage({ searchParams }: Props) {
   let childLabel = ''
   let dietaryRestrictions: DietaryRestrictionId[] = []
 
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const viewer = await getViewer()
+  if (!viewer) redirect('/login')
 
-  const child = await getLatestChildForUser(user.id)
+  const child = await viewer.latestChild()
 
   if (!child) redirect('/onboarding')
   childLabel = `${child.school_name} ${child.grade}-${child.class_no ?? ''}`

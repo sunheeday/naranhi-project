@@ -1,3 +1,5 @@
+import { getViewer } from '@/lib/viewer'
+import { isTestEntryBypassEnabled } from '@/lib/test-entry-bypass'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -111,6 +113,11 @@ export default async function NoticePage({ params }: Props) {
     notFound()
   }
 
+  // 시연 방문자는 번역을 새로 시킬 수 없다(로그인이 없어 서버가 거절한다). 번역이 없는 언어로 열면
+  // 한국어 본문을 그대로 보여주고, «번역 준비 중» 배너와 5초 새로 고침은 끈다.
+  // 스위치가 꺼져 있으면 getViewer() 를 부르지 않는다(로그인 확인 왕복이 늘지 않는다).
+  const demoVisitor = isTestEntryBypassEnabled() && (await getViewer())?.demo === true
+
   if (detail.status === 'pending' || detail.status === 'processing') {
     return (
       <main className="flex flex-col min-h-screen">
@@ -146,7 +153,7 @@ export default async function NoticePage({ params }: Props) {
   // 번역이 아직 없으면 잡 상태를 조회해 '준비중'과 '실패(재시도 안내)'를 가른다.
   // 본문·카드는 어차피 한국어로 폴백 표시되므로 배너만 상태를 알려주면 된다.
   const translationJobStatus: TranslationJobStatus =
-    !detail.hasLocaleTranslation && locale !== 'ko'
+    !detail.hasLocaleTranslation && locale !== 'ko' && !demoVisitor
       ? await fetchTranslationJobStatus(id, locale)
       : 'none'
 
@@ -211,7 +218,7 @@ export default async function NoticePage({ params }: Props) {
   return (
     <main className="flex flex-col min-h-screen">
       {Header}
-      {locale !== 'ko' ? (
+      {locale !== 'ko' && !demoVisitor ? (
         <NoticeLocaleTranslationKickoff
           noticeId={id}
           locale={locale}
@@ -219,7 +226,7 @@ export default async function NoticePage({ params }: Props) {
           translationFailed={translationJobStatus === 'failed'}
         />
       ) : null}
-      {!detail.hasLocaleTranslation && locale !== 'ko' ? (
+      {!detail.hasLocaleTranslation && locale !== 'ko' && !demoVisitor ? (
         translationJobStatus === 'failed' ? (
           <div className="px-4 pt-4">
             <div className="mx-auto max-w-app rounded-card border border-rose-200 bg-rose-50 px-4 py-4 shadow-soft">
