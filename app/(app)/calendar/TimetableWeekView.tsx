@@ -2,11 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { formatMonthDay } from '@/lib/i18n'
 import type { TimetablePeriod } from '@/lib/neis'
 import type { PersonalScheduleItem } from '@/lib/child-personal-schedules'
 import PersonalScheduleSheet, {
-  PERSONAL_COLOR_DOT,
   type PersonalLabels,
   type PersonalScheduleDraft,
 } from './PersonalScheduleSheet'
@@ -101,6 +99,10 @@ export default function TimetableWeekView({
     .replace('{endMonth}', String(end.m))
     .replace('{endDay}', String(end.d))
 
+  const noEntries = days.every(
+    day => (unsupported || day.periods.length === 0) && (day.personalItems ?? []).length === 0,
+  )
+
   function shiftWeek(deltaDays: number) {
     const params = new URLSearchParams(searchParams.toString())
     params.set('tab', 'classes')
@@ -129,7 +131,7 @@ export default function TimetableWeekView({
         </button>
       </div>
 
-      <div className="flex flex-col gap-4 px-6 pt-4 pb-24">
+      <div className="flex flex-col gap-4 px-2 pt-4 pb-24">
         {/* 시간표 미지원 학교여도 개인 일정은 계속 보여 준다 — 학원은 학교와 무관하다. */}
         {unsupported && (
           <div role="alert" className="rounded-card border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
@@ -137,17 +139,18 @@ export default function TimetableWeekView({
           </div>
         )}
 
-        {days.map(day => (
-          <TimetableDayCard
-            key={day.isoDate}
-            day={day}
-            labels={labels}
-            personalLabels={personalLabels}
-            isToday={day.isoDate === todayIso}
-            hidePeriods={unsupported}
-            onEditPersonal={childId ? setDraft : undefined}
-          />
-        ))}
+        {noEntries && !unsupported && (
+          <p className="text-sm text-text-secondary">{labels.noTimetable}</p>
+        )}
+
+        <WeekGrid
+          days={days}
+          weekdays={labels.weekdays}
+          todayLabel={labels.today}
+          todayIso={todayIso}
+          hidePeriods={unsupported}
+          onEditPersonal={childId ? setDraft : undefined}
+        />
 
         {childId && (
           <button
@@ -172,101 +175,185 @@ export default function TimetableWeekView({
   )
 }
 
-function TimetableDayCard({
-  day, labels, personalLabels, isToday, hidePeriods, onEditPersonal,
+
+const HOUR_PX = 48
+/** 표가 최소한 이 시각 범위는 보여 준다. 수업이 이 밖으로 나가면 그만큼 늘어난다. */
+const MIN_START_HOUR = 9
+const MIN_END_HOUR = 15
+const TIME_COL = '20px'
+
+/** 흰 글씨가 읽히도록 어둡게 잡은 색. 과목 이름으로 색을 고정한다(주가 바뀌어도 같은 색). */
+const SUBJECT_COLORS = ['#8f7434', '#5f7f34', '#4b66a8', '#a8642f', '#3f8577', '#b0574a']
+const PERSONAL_BLOCK_COLORS: Record<string, string> = {
+  blue: '#4b66a8',
+  green: '#5f7f34',
+  orange: '#a8642f',
+  purple: '#7a5aa6',
+  pink: '#b0577a',
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+
+function subjectColor(subject: string): string {
+  let hash = 0
+  for (const ch of subject) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+  return SUBJECT_COLORS[hash % SUBJECT_COLORS.length]
+}
+
+interface Block {
+  key: string
+  title: string
+  startMin: number
+  endMin: number
+  color: string
+  onClick?: () => void
+}
+
+function buildBlocks(
+  day: TimetableDayEntry,
+  hidePeriods: boolean,
+  onEditPersonal?: (draft: PersonalScheduleDraft) => void,
+): Block[] {
+  const blocks: Block[] = []
+
+  if (!hidePeriods) {
+    for (const period of day.periods) {
+      // 시각은 page 에서 항상 채워 준다(학교 시각표가 없으면 학교급 기본값). 그래도 없으면 자리를 못 잡는다.
+      if (!period.startTime || !period.endTime) continue
+      blocks.push({
+        key: `${day.isoDate}-p${period.period}`,
+        title: period.subject,
+        startMin: toMinutes(period.startTime),
+        endMin: toMinutes(period.endTime),
+        color: subjectColor(period.subject),
+      })
+    }
+  }
+
+  for (const item of day.personalItems ?? []) {
+    blocks.push({
+      key: `${day.isoDate}-x${item.id}`,
+      title: item.title,
+      startMin: toMinutes(item.startTime),
+      endMin: toMinutes(item.endTime),
+      color: PERSONAL_BLOCK_COLORS[item.color] ?? PERSONAL_BLOCK_COLORS.blue,
+      onClick: onEditPersonal
+        ? () => onEditPersonal({
+            id: item.id,
+            title: item.title,
+            dayOfWeek: item.dayOfWeek,
+            startTime: item.startTime,
+            endTime: item.endTime,
+            location: item.location,
+            memo: item.memo,
+            color: item.color,
+          })
+        : undefined,
+    })
+  }
+  return blocks
+}
+
+function hourLabel(hour: number): string {
+  return String(((hour + 11) % 12) + 1)
+}
+
+function WeekGrid({
+  days, weekdays, todayLabel, todayIso, hidePeriods, onEditPersonal,
 }: {
-  day: TimetableDayEntry
-  labels: Labels
-  personalLabels: PersonalLabels
-  isToday: boolean
+  days: TimetableDayEntry[]
+  weekdays: string[]
+  todayLabel: string
+  todayIso: string
   hidePeriods: boolean
   onEditPersonal?: (draft: PersonalScheduleDraft) => void
 }) {
-  const { m, d, weekday } = isoToParts(day.isoDate)
-  const personalItems = day.personalItems ?? []
-  const showPeriods = !hidePeriods && day.periods.length > 0
-  // 학교 수업도 개인 일정도 없을 때만 «수업 정보 없음»이다.
-  const empty = !showPeriods && personalItems.length === 0
-  const dayColor = weekday === 0 ? 'text-red-400' : weekday === 6 ? 'text-blue-400' : 'text-text-primary'
-  const md = formatMonthDay(m, d, labels.range)
+  const columns = days.map(day => buildBlocks(day, hidePeriods, onEditPersonal))
+  const all = columns.flat()
+  const startHour = Math.min(MIN_START_HOUR, ...all.map(b => Math.floor(b.startMin / 60)))
+  const endHour = Math.max(MIN_END_HOUR, ...all.map(b => Math.ceil(b.endMin / 60)))
+  const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i)
+  // 토·일은 평일의 절반 폭이다 — 폰(약 390px)에서 평일 칸을 사진만큼 확보하려는 것.
+  const dayCols = days.map(day => {
+    const { weekday } = isoToParts(day.isoDate)
+    return weekday === 0 || weekday === 6 ? 'minmax(0, 0.5fr)' : 'minmax(0, 1fr)'
+  })
+  const gridCols = `${TIME_COL} ${dayCols.join(' ')}`
 
   return (
-    <article
-      className={[
-        'bg-surface rounded-card shadow-card p-4',
-        isToday ? 'ring-2 ring-primary' : '',
-      ].join(' ')}
-      aria-label={`${md} ${labels.weekdays[weekday]}`}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`text-base font-bold ${dayColor}`}>{md}</span>
-        <span className={`text-xs ${dayColor}`}>{labels.weekdays[weekday]}</span>
-        {isToday && (
-          <span className="text-[11px] px-1.5 py-0.5 rounded-pill bg-primary text-white font-semibold">
-            {labels.today}
-          </span>
-        )}
+    <div className="overflow-hidden rounded-card border border-hairline-soft bg-surface">
+      <div className="grid border-b border-hairline-soft" style={{ gridTemplateColumns: gridCols }}>
+        <span />
+        {days.map(day => {
+          const { weekday } = isoToParts(day.isoDate)
+          const isToday = day.isoDate === todayIso
+          const dayColor = weekday === 0 ? 'text-red-400' : weekday === 6 ? 'text-blue-400' : 'text-text-secondary'
+          return (
+            <span
+              key={day.isoDate}
+              aria-label={isToday ? `${weekdays[weekday]} ${todayLabel}` : weekdays[weekday]}
+              className="flex justify-center py-1.5"
+            >
+              <span
+                className={[
+                  'min-w-6 rounded-pill px-1.5 text-center text-xs font-bold',
+                  isToday ? 'bg-primary text-white' : dayColor,
+                ].join(' ')}
+              >
+                {weekdays[weekday]}
+              </span>
+            </span>
+          )
+        })}
       </div>
 
-      {empty && <p className="text-sm text-text-secondary">{labels.noTimetable}</p>}
-
-      {showPeriods && (
-        <ol className="flex flex-col divide-y divide-hairline-soft">
-          {day.periods.map(period => (
-            <li key={`${day.isoDate}-${period.period}`} className="grid grid-cols-[52px_1fr] gap-3 py-2 first:pt-0 last:pb-0">
-              {/* 시각을 알면 시각을, 모르면 기존 «N교시» 로 되돌아간다 */}
-              <span className="text-xs font-bold text-muted pt-0.5 tabular-nums">
-                {period.startTime ?? labels.periodSuffix.replace('{period}', String(period.period))}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-text-primary truncate">{period.subject}</span>
-                {period.classroom && (
-                  <span className="block text-xs text-text-secondary truncate mt-0.5">{period.classroom}</span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {!hidePeriods && day.dismissalTime && (
-        <p className="mt-3 pt-3 border-t border-hairline-soft text-sm font-semibold text-text-secondary tabular-nums">
-          {labels.dismissal.replace('{time}', day.dismissalTime)}
-        </p>
-      )}
-
-      {personalItems.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-hairline-soft flex flex-col gap-2">
-          <p className="text-xs font-semibold text-text-secondary">{personalLabels.section}</p>
-          {personalItems.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              disabled={!onEditPersonal}
-              onClick={() => onEditPersonal?.({
-                id: item.id,
-                title: item.title,
-                dayOfWeek: item.dayOfWeek,
-                startTime: item.startTime,
-                endTime: item.endTime,
-                location: item.location,
-                memo: item.memo,
-                color: item.color,
-              })}
-              className="flex items-center gap-2 text-left disabled:cursor-default"
+      <div className="relative grid" style={{ gridTemplateColumns: gridCols, height: hours.length * HOUR_PX }}>
+        <div className="relative">
+          {hours.map((hour, i) => (
+            <span
+              key={hour}
+              className="absolute right-1 text-[10px] tabular-nums text-muted"
+              style={{ top: i * HOUR_PX + 2 }}
             >
-              <span className={`h-2 w-2 shrink-0 rounded-full ${PERSONAL_COLOR_DOT[item.color] ?? PERSONAL_COLOR_DOT.blue}`} />
-              <span className="text-sm font-semibold text-text-primary truncate">{item.title}</span>
-              <span className="text-xs text-text-secondary tabular-nums shrink-0">
-                {item.startTime}–{item.endTime}
-              </span>
-              {item.location && (
-                <span className="text-xs text-text-secondary truncate">· {item.location}</span>
-              )}
-            </button>
+              {hourLabel(hour)}
+            </span>
           ))}
         </div>
-      )}
-    </article>
+
+        {columns.map((blocks, i) => (
+          <div key={days[i].isoDate} className="relative border-l border-hairline-soft">
+            {hours.map((hour, row) => (
+              <div
+                key={hour}
+                className="absolute inset-x-0 border-t border-hairline-soft first:border-t-0"
+                style={{ top: row * HOUR_PX, height: HOUR_PX }}
+              />
+            ))}
+            {blocks.map(block => {
+              const height = ((block.endMin - block.startMin) * HOUR_PX) / 60 - 1
+              const style = {
+                top: ((block.startMin - startHour * 60) * HOUR_PX) / 60,
+                height,
+                backgroundColor: block.color,
+              }
+              const className = 'absolute inset-x-px overflow-hidden rounded-[3px] px-0.5 py-0.5 text-left text-white'
+              const content = (
+                <span className="block break-words text-[11px] font-bold leading-tight">{block.title}</span>
+              )
+              return block.onClick ? (
+                <button key={block.key} type="button" onClick={block.onClick} className={className} style={style}>
+                  {content}
+                </button>
+              ) : (
+                <div key={block.key} className={className} style={style}>{content}</div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
