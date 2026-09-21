@@ -99,3 +99,52 @@ export function resolveDismissal(
   if (!found) return null
   return toHHMM(toMinutes(found.endTime) + offsetMinutes + HOMEROOM_MINUTES)
 }
+
+export interface BellOverrides {
+  /** 1교시 시작 보정(분). children.bell_offset_minutes. */
+  offsetMinutes?: number
+  /** 교시 사이 쉬는 시간(분). null 이면 원래 표의 간격을 그대로 둔다. */
+  breakMinutes?: number | null
+  /** 점심시간(분). null 이면 원래 표의 간격을 그대로 둔다. */
+  lunchMinutes?: number | null
+}
+
+/** 점심은 4교시와 5교시 사이다 — 초·중·고 모두 그렇고 표준값도 그렇게 만든다.
+ *  표가 4교시까지면 점심이 맨 끝이라 교시 사이에 적용할 자리가 없다(-1). */
+function lunchGapIndex(periods: BellPeriod[]): number {
+  const index = periods.findIndex(p => p.period === 4)
+  return index >= 0 && index < periods.length - 1 ? index : -1
+}
+
+/** 부모가 고친 세 값(1교시 시작·쉬는 시간·점심시간)을 표에 반영한다.
+ *
+ *  수업 «길이»는 원래 표의 것을 그대로 쓴다 — 홈페이지에서 읽어온 진짜 일과표라면
+ *  교시마다 길이가 다를 수 있고, 그걸 표준값으로 덮으면 정확도가 오히려 떨어진다.
+ *  부모가 고치는 것은 시작 시각과 «사이 간격» 둘뿐이다.
+ *
+ *  쉬는 시간·점심을 둘 다 안 넣었으면 기존 동작(표 전체를 분 단위로 밀기)과 같다. */
+export function applyBellOverrides(periods: BellPeriod[], overrides: BellOverrides): BellPeriod[] {
+  const offset = overrides.offsetMinutes ?? 0
+  const breakMinutes = overrides.breakMinutes ?? null
+  const lunchMinutes = overrides.lunchMinutes ?? null
+
+  if (breakMinutes === null && lunchMinutes === null) return applyOffset(periods, offset)
+  if (periods.length === 0) return periods
+
+  const lunchIndex = lunchGapIndex(periods)
+  const result: BellPeriod[] = []
+  let cursor = toMinutes(periods[0].startTime) + offset
+
+  for (let i = 0; i < periods.length; i++) {
+    const lessonMinutes = toMinutes(periods[i].endTime) - toMinutes(periods[i].startTime)
+    const startTime = toHHMM(cursor)
+    cursor += lessonMinutes
+    result.push({ period: periods[i].period, startTime, endTime: toHHMM(cursor) })
+
+    if (i === periods.length - 1) break
+    const baseGap = toMinutes(periods[i + 1].startTime) - toMinutes(periods[i].endTime)
+    const override = i === lunchIndex ? lunchMinutes : breakMinutes
+    cursor += override ?? baseGap
+  }
+  return result
+}

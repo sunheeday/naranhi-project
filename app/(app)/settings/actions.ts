@@ -174,20 +174,28 @@ export async function updateChildDietaryRestrictions(input: {
   revalidatePath('/settings')
 }
 
-/** 부모가 «우리 학교 1교시 시작 시각»을 고친다.
+/** 부모가 «우리 아이 학교 시간»을 고친다 — 1교시 시작·쉬는 시간·점심시간 세 칸.
  *
- *  표 일곱 줄을 다 채우게 하면 아무도 채우지 않으므로 한 칸만 받는다. 학교 기준
- *  1교시 시작과의 차이를 분으로 환산해 children.bell_offset_minutes 에 담고,
- *  화면은 그 값만큼 표 전체를 민다.
+ *  교시별로 다 채우게 하면 아무도 채우지 않으므로 세 칸만 받는다. 세 칸 모두 선택이고,
+ *  비워 두면 그 항목은 원래 표(홈페이지 판독본 또는 학교급 표준값)를 그대로 쓴다.
  *
  *  school_bell_schedules 는 건드리지 않는다 — 학교 공용 데이터라 한 부모의 수정이
- *  같은 학교 다른 부모에게 번지면 안 된다. */
-export async function updateBellOffset(input: {
+ *  같은 학교 다른 부모에게 번지면 안 된다. 세 값 모두 children 에만 담긴다. */
+export async function updateBellTimes(input: {
   childId: string
   firstPeriodStart: string
+  breakMinutes: number | null
+  lunchMinutes: number | null
 }): Promise<void> {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.firstPeriodStart)) {
     throw new Error('시간 형식이 올바르지 않아요.')
+  }
+  // 0050 의 check 제약과 같은 범위. DB 까지 가기 전에 사람이 읽을 말로 막는다.
+  if (input.breakMinutes !== null && !(Number.isInteger(input.breakMinutes) && input.breakMinutes >= 0 && input.breakMinutes <= 60)) {
+    throw new Error('쉬는 시간은 0분에서 60분 사이로 넣어주세요.')
+  }
+  if (input.lunchMinutes !== null && !(Number.isInteger(input.lunchMinutes) && input.lunchMinutes >= 0 && input.lunchMinutes <= 120)) {
+    throw new Error('점심시간은 0분에서 120분 사이로 넣어주세요.')
   }
 
   const supabase = await createSupabaseServerClient()
@@ -219,7 +227,11 @@ export async function updateBellOffset(input: {
 
   const { error } = await supabase
     .from('children')
-    .update({ bell_offset_minutes: offset })
+    .update({
+      bell_offset_minutes: offset,
+      bell_break_minutes: input.breakMinutes,
+      bell_lunch_minutes: input.lunchMinutes,
+    })
     .eq('id', input.childId)
     .eq('user_id', user.id)
   if (error) throw new Error(`시간 저장 실패: ${error.message}`)

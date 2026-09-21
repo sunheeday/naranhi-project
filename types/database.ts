@@ -338,17 +338,23 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           },
         ]
       }
-      // children 은 generated 쪽에 이미 있으므로 0048 이 더한 컬럼 하나만 얹는다
+      // children 은 generated 쪽에 이미 있으므로 0048·0050 이 더한 컬럼만 얹는다
       // (notice_ai_translations 와 같은 방식 — 교차 타입이 기존 필드와 합쳐준다).
       children: {
         Row: {
           bell_offset_minutes: number
+          bell_break_minutes: number | null
+          bell_lunch_minutes: number | null
         }
         Insert: {
           bell_offset_minutes?: number
+          bell_break_minutes?: number | null
+          bell_lunch_minutes?: number | null
         }
         Update: {
           bell_offset_minutes?: number
+          bell_break_minutes?: number | null
+          bell_lunch_minutes?: number | null
         }
       }
     }

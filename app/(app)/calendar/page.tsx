@@ -10,7 +10,7 @@ import {
   type TimetablePeriod,
 } from '@/lib/neis'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
-import { applyOffset, resolveDismissal, type BellPeriod } from '@/lib/bell-schedule'
+import { applyBellOverrides, resolveDismissal, type BellPeriod } from '@/lib/bell-schedule'
 import { ensureBellSchedule } from '@/lib/bell-schedule-store'
 import {
   fetchPersonalSchedulesForChild,
@@ -229,13 +229,17 @@ export default async function CalendarPage({ searchParams }: Props) {
         // 교시 시각은 NEIS 에 없다(날짜·교시·과목만 준다). 학교별 시각표를 따로 붙인다.
         // 학교가 연결되지 않은 자녀는 시각 없이 기존 «N교시» 표시로 남는다.
         if (child.school_id) {
-          const bell = applyOffset(
+          const bell = applyBellOverrides(
             await ensureBellSchedule(
               createSupabaseServiceClient(),
               child.school_id,
               child.school_name,
             ),
-            child.bell_offset_minutes ?? 0,
+            {
+              offsetMinutes: child.bell_offset_minutes ?? 0,
+              breakMinutes: child.bell_break_minutes,
+              lunchMinutes: child.bell_lunch_minutes,
+            },
           )
           timetableDays = attachBellTimes(translated, bell)
         } else {
@@ -365,7 +369,7 @@ function buildTimetableDays(monday: string, periods: TimetablePeriod[]): Timetab
 
 /** 각 교시에 시각을 붙이고, 그날 마지막 교시로 하교 시각을 계산해 카드에 얹는다.
  *
- *  bell 은 이미 applyOffset 을 거친 값이므로 resolveDismissal 에는 0 을 넘긴다 —
+ *  bell 은 이미 applyBellOverrides 를 거친 값이므로 resolveDismissal 에는 0 을 넘긴다 —
  *  여기서 다시 더하면 보정이 두 번 먹는다. */
 function attachBellTimes(days: TimetableDayEntry[], bell: BellPeriod[]): TimetableDayEntry[] {
   const byPeriod = new Map(bell.map(p => [p.period, p]))
