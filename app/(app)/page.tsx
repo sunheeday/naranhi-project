@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { getViewer } from '@/lib/viewer'
-import { DEMO_NOTICE_LIMIT, readDemoHiddenNoticeIds } from '@/lib/test-entry-bypass'
+import { readDemoHiddenNoticeIds } from '@/lib/test-entry-bypass'
+import { isDemoNoticeVisible } from '@/lib/demo-notices'
 import { getHiddenNoticeIds, getSchoolSummary } from '@/lib/server-cache'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
@@ -210,7 +211,7 @@ export default async function HomePage() {
         .eq('status', 'done')
     : null
   const schoolRowsPromise = schoolRowsQuery
-    ? schoolRowsQuery.order('created_at', { ascending: false }).limit(viewer.demo ? DEMO_NOTICE_LIMIT : 50)
+    ? schoolRowsQuery.order('created_at', { ascending: false }).limit(50)
     : Promise.resolve({ data: [] })
 
   const schoolProcessingCountQuery = child.school_id
@@ -243,7 +244,8 @@ export default async function HomePage() {
 
   const rowMap = new Map<string, NoticeRow>()
   for (const row of schoolRows ?? []) {
-    if (!hiddenIds.has(row.id)) {
+    // 시연에서는 «9/21 이후 받은 공지» 중 뺀 공지를 제외한 것만 보여준다(예전 공지 감춤).
+    if (!hiddenIds.has(row.id) && (!viewer.demo || isDemoNoticeVisible(row))) {
       rowMap.set(row.id, row as NoticeRow)
     }
   }
