@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import {
   MAX_DEMO_SCHEDULES,
   MAX_HIDDEN_NOTICES,
+  isNoticeId,
   parseDemoBellTimes,
   parseDemoSchedules,
   parseHiddenNoticeIds,
@@ -143,5 +144,12 @@ test('숨김 목록 상한', () => {
 test('깨진 쿠키는 빈 목록', () => {
   for (const raw of [undefined, '{{{', '{}', '"x"']) {
     assert.deepEqual(parseHiddenNoticeIds(raw), [], String(raw))
+  }
+})
+
+test('공지 id 는 UUID 만 인정한다 — 서버 액션 인자가 조작돼도 쿠키에 못 들어간다', () => {
+  assert.equal(isNoticeId(U1), true)
+  for (const bad of ['', 'abc', '<script>', 'x'.repeat(5000), 123, null, undefined, {}, [U1]]) {
+    assert.equal(isNoticeId(bad), false, String(bad).slice(0, 20))
   }
 })

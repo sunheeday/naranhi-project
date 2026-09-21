@@ -322,19 +322,8 @@ export async function selectDemoSchool(key: string): Promise<void> {
     sameSite: 'lax',
   })
 
-  // 이미 DB에 있는 학교면 홈 요약(unstable_cache) 태그도 무효화해
-  // 학교 전환 직후 '공지 수집 중' 배너가 캐시로 어긋나지 않게 한다.
-  const serviceClient = createSupabaseServiceClient()
-  const { data: schoolRow } = await serviceClient
-    .from('schools')
-    .select('id')
-    .eq('neis_office_code', school.officeCode)
-    .eq('neis_school_code', school.schoolCode)
-    .maybeSingle()
-  if (schoolRow?.id) {
-    revalidateTag(serverCacheTags.schoolSummaryTag(schoolRow.id), 'max')
-  }
-
+  // 학교 요약 캐시(revalidateTag)는 건드리지 않는다 — 시연 방문자는 그 요약을 쓰지 않고,
+  // 무효화하면 같은 학교의 진짜 사용자 캐시까지 비운다.
   // 학교가 바뀌면 홈/급식/캘린더/촬영/설정 전부 새 학교 기준으로 다시 렌더.
   revalidatePath('/', 'layout')
 }

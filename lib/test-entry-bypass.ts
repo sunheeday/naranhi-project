@@ -10,6 +10,7 @@ import {
   MAX_HIDDEN_NOTICES,
   parseDemoBellTimes,
   parseDemoSchedules,
+  isNoticeId,
   parseHiddenNoticeIds,
   parseJson,
   serializeDemoSchedules,
@@ -215,6 +216,8 @@ export async function readDemoHiddenNoticeIds(): Promise<string[]> {
 
 /** 서버 액션에서만 부른다. */
 export async function hideDemoNotice(noticeId: string): Promise<void> {
+  // 서버 액션 인자는 조작될 수 있다. UUID 가 아니면 쿠키에 쓰지 않는다.
+  if (!isNoticeId(noticeId)) return
   const ids = await readDemoHiddenNoticeIds()
   if (ids.includes(noticeId)) return
   const cookieStore = await cookies()

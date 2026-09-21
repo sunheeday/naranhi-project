@@ -112,10 +112,14 @@ export function serializeDemoSchedules(items: PersonalScheduleItem[]): string | 
 export const MAX_HIDDEN_NOTICES = 60
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+export function isNoticeId(value: unknown): value is string {
+  return typeof value === 'string' && UUID.test(value)
+}
+
 export function parseHiddenNoticeIds(raw: string | undefined): string[] {
   const parsed = parseJson(raw)
   if (!Array.isArray(parsed)) return []
   return parsed
-    .filter((id): id is string => typeof id === 'string' && UUID.test(id))
+    .filter(isNoticeId)
     .slice(0, MAX_HIDDEN_NOTICES)
 }
