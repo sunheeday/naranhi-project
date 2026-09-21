@@ -11,7 +11,7 @@ import {
   type TimetablePeriod,
 } from '@/lib/neis'
 import { pickNoticeDisplayTitle } from '@/lib/notice-title'
-import { applyBellOverrides, resolveDismissal, type BellPeriod } from '@/lib/bell-schedule'
+import { applyBellOverrides, defaultBellSchedule, extendBellSchedule, resolveDismissal, type BellPeriod } from '@/lib/bell-schedule'
 import { ensureBellSchedule } from '@/lib/bell-schedule-store'
 import {
   fetchPersonalSchedulesForChild,
@@ -76,7 +76,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   const todayIso = todayKstIso()
   const baseIso = params.week && /^\d{4}-\d{2}-\d{2}$/.test(params.week) ? params.week : todayIso
   const monday = startOfWeekMonday(baseIso)
-  const friday = addDaysIso(monday, 4)
+  const sunday = addDaysIso(monday, 6)
 
   // 현재 월 ±2달 범위 (총 5개월) 조회
   const fromYear = month <= 2 ? year - 1 : year
@@ -219,7 +219,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           child.grade,
           child.class_no,
           monday.replace(/-/g, ''),
-          friday.replace(/-/g, ''),
+          sunday.replace(/-/g, ''),
         )
         const translated = await translateTimetableDays(
           buildTimetableDays(monday, periods),
@@ -228,24 +228,22 @@ export default async function CalendarPage({ searchParams }: Props) {
         )
 
         // 교시 시각은 NEIS 에 없다(날짜·교시·과목만 준다). 학교별 시각표를 따로 붙인다.
-        // 학교가 연결되지 않은 자녀는 시각 없이 기존 «N교시» 표시로 남는다.
-        if (child.school_id) {
-          const bell = applyBellOverrides(
-            await ensureBellSchedule(
-              createSupabaseServiceClient(),
-              child.school_id,
-              child.school_name,
-            ),
-            {
-              offsetMinutes: child.bell_offset_minutes ?? 0,
-              breakMinutes: child.bell_break_minutes,
-              lunchMinutes: child.bell_lunch_minutes,
-            },
-          )
-          timetableDays = attachBellTimes(translated, bell)
-        } else {
-          timetableDays = translated
-        }
+        // 학교가 연결되지 않은 자녀는 학교급 기본 시각표를 쓴다 — 표는 시각이 있어야 그려진다.
+        const bell = applyBellOverrides(
+          child.school_id
+            ? await ensureBellSchedule(
+                createSupabaseServiceClient(),
+                child.school_id,
+                child.school_name,
+              )
+            : defaultBellSchedule(child.school_name),
+          {
+            offsetMinutes: child.bell_offset_minutes ?? 0,
+            breakMinutes: child.bell_break_minutes,
+            lunchMinutes: child.bell_lunch_minutes,
+          },
+        )
+        timetableDays = attachBellTimes(translated, bell)
       } catch (e) {
         if (e instanceof UnsupportedTimetableError) {
           timetableUnsupported = true
@@ -361,7 +359,7 @@ function buildTimetableDays(monday: string, periods: TimetablePeriod[]): Timetab
   }
 
   const days: TimetableDayEntry[] = []
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 7; i++) {
     const iso = addDaysIso(monday, i)
     days.push({
       isoDate: iso,
@@ -375,7 +373,9 @@ function buildTimetableDays(monday: string, periods: TimetablePeriod[]): Timetab
  *
  *  bell 은 이미 applyBellOverrides 를 거친 값이므로 resolveDismissal 에는 0 을 넘긴다 —
  *  여기서 다시 더하면 보정이 두 번 먹는다. */
-function attachBellTimes(days: TimetableDayEntry[], bell: BellPeriod[]): TimetableDayEntry[] {
+function attachBellTimes(days: TimetableDayEntry[], baseBell: BellPeriod[]): TimetableDayEntry[] {
+  const maxPeriod = Math.max(0, ...days.flatMap(day => day.periods.map(p => p.period)))
+  const bell = extendBellSchedule(baseBell, maxPeriod)
   const byPeriod = new Map(bell.map(p => [p.period, p]))
   return days.map(day => {
     const lastPeriod = day.periods.length

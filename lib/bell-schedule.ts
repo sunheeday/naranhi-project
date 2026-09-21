@@ -148,3 +148,18 @@ export function applyBellOverrides(periods: BellPeriod[], overrides: BellOverrid
   }
   return result
 }
+
+/** 시각표가 끝난 뒤의 교시(초등 7교시·중고 8교시 등)에 시각을 이어 붙인다.
+ *  앞 교시와 같은 수업 길이, 쉬는 시간 10분으로 미룬 추정치다.
+ *  표에 없는 교시가 화면에서 사라지는 것보다 어림값이라도 보이는 편이 낫다. */
+export function extendBellSchedule(periods: BellPeriod[], maxPeriod: number): BellPeriod[] {
+  if (periods.length === 0) return periods
+  const result = [...periods]
+  while (result[result.length - 1].period < maxPeriod) {
+    const prev = result[result.length - 1]
+    const lesson = toMinutes(prev.endTime) - toMinutes(prev.startTime)
+    const start = toMinutes(prev.endTime) + 10
+    result.push({ period: prev.period + 1, startTime: toHHMM(start), endTime: toHHMM(start + lesson) })
+  }
+  return result
+}

@@ -8,6 +8,7 @@ import {
   applyBellOverrides,
   applyOffset,
   defaultBellSchedule,
+  extendBellSchedule,
   resolveDismissal,
   type BellPeriod,
 } from '../bell-schedule.ts'
@@ -217,4 +218,21 @@ test('점심 자리를 못 찾아도 쉬는 시간 보정은 모든 간격에 �
 test('교시가 하나뿐인 표는 그대로 나온다', () => {
   const single: BellPeriod[] = [{ period: 1, startTime: '09:00', endTime: '09:40' }]
   assert.deepEqual(applyBellOverrides(single, { breakMinutes: 5, lunchMinutes: 40 }), single)
+})
+
+test('시각표 밖 교시는 앞 교시 뒤로 이어 붙인다 — 초등 7교시', () => {
+  const p = extendBellSchedule(defaultBellSchedule('인천문남초등학교'), 7)
+  assert.equal(p.length, 7)
+  // 6교시 13:50–14:30 → 쉬는 10분 → 7교시 14:40–15:20 (수업 40분 그대로)
+  assert.deepEqual(p[6], { period: 7, startTime: '14:40', endTime: '15:20' })
+})
+
+test('시각표 안의 교시만 있으면 그대로 돌려준다', () => {
+  const base = defaultBellSchedule('인천문남초등학교')
+  assert.deepEqual(extendBellSchedule(base, 6), base)
+  assert.deepEqual(extendBellSchedule(base, 0), base)
+})
+
+test('빈 시각표는 그대로 빈 채로 돌려준다', () => {
+  assert.deepEqual(extendBellSchedule([], 8), [])
 })
