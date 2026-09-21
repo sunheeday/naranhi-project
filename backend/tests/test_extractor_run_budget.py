@@ -52,8 +52,10 @@ class DeployedExtractorJobEnvTest(unittest.TestCase):
         self.assertEqual(text.count("GEMINI_MAX_CONCURRENCY=32"), 2)  # 번역 워커 + 추출 Job
 
     def test_crawler_worker_job_pins_batch_size(self) -> None:
+        # --플래그=값 형태다. gcloud 가 --args 목록에 같은 값이 두 번 나오면 거부하고,
+        # 여기는 --idle-grace-seconds 3 과 --batch-size 3 의 "3" 이 겹쳤다.
         self.assertIn(
-            "app.jobs.crawler_worker,--max-jobs,0,--idle-grace-seconds,3,--batch-size,3",
+            "app.jobs.crawler_worker,--max-jobs=0,--idle-grace-seconds=3,--batch-size=3",
             self._workflow_text(),
         )
 
