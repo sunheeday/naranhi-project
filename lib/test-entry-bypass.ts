@@ -33,8 +33,6 @@ export {
 export const DEMO_SCHOOL_COOKIE = 'demo_school'
 export const TEST_BYPASS_CHILD_NAME = '학생'
 export const TEST_BYPASS_CHILD_ID = 'test-entry-bypass-child'
-/** 시연 화면에 보여줄 공지 개수(학교별 최신순). 예전 공지는 감춘다. 홈과 캘린더가 같은 기준을 쓴다. */
-export const DEMO_NOTICE_LIMIT = 5
 
 export type BypassSchoolLevel = 'elementary' | 'middle'
 
