@@ -123,13 +123,15 @@ export default async function CalendarPage({ searchParams }: Props) {
       // 시연 방문자에게는 홈과 같은 기준(학교별 최신 N건)의 공지에서 나온 일정만 보여준다.
       // 학교 학사일정처럼 공지에 묶이지 않은 행(notice_id 없음)은 그대로 둔다.
       if (viewer.demo && rows) {
-        const { data: recent } = await supabase
+        const { data: recent, error: recentError } = await supabase
           .from('notices')
           .select('id')
           .in('school_id', schoolIds)
           .eq('status', 'done')
           .order('created_at', { ascending: false })
           .limit(DEMO_NOTICE_LIMIT)
+        // 조회 실패를 «최신 공지가 0건» 으로 오해하면 공지 일정이 조용히 전부 사라진다 — 기존 오류 배너로 보낸다.
+        if (recentError) throw recentError
         const allowed = new Set((recent ?? []).map(r => r.id))
         rows = rows.filter(row => !row.notice_id || allowed.has(row.notice_id))
       }
