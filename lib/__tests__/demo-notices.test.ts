@@ -36,3 +36,9 @@ test('날짜를 읽을 수 없으면 감춘다(실패하면 닫힘)', () => {
   assert.equal(isDemoNoticeVisible({ id: 'a', created_at: '' }), false)
   assert.equal(isDemoNoticeVisible({ id: 'a', created_at: 'not-a-date' }), false)
 })
+
+test('시연에서 뺀 공지는 학교마다 하나씩이다(부천 예방접종·함박초 우리학교365)', () => {
+  assert.equal(DEMO_EXCLUDED_NOTICE_IDS.length, 2)
+  assert.ok(DEMO_EXCLUDED_NOTICE_IDS.includes('0e7127a2-72ab-4ef6-8cf0-b2f425eaa4a9'))
+  assert.ok(DEMO_EXCLUDED_NOTICE_IDS.includes('4372115f-07a8-4b6e-b92b-a163aa862ec1'))
+})
