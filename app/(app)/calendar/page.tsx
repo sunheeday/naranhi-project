@@ -4,7 +4,7 @@ import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getViewer } from '@/lib/viewer'
 import { readDemoPersonalSchedules } from '@/lib/test-entry-bypass'
-import { DEMO_NOTICES_SINCE, isDemoNoticeVisible } from '@/lib/demo-notices'
+import { isDemoNoticeVisible } from '@/lib/demo-notices'
 import { dedupeEventsByNoticeEnd } from '@/lib/calendar-events'
 import { backfillSchoolEventsForSchools } from '@/lib/schedule-backfill'
 import {
@@ -121,7 +121,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
       if (error) throw error
 
-      // 시연 방문자에게는 홈과 같은 기준(9/21 이후 받은 공지 중 뺀 것 제외)의 공지에서 나온 일정만 보여준다.
+      // 시연 방문자에게는 홈과 같은 기준(9/21 이후 받은 공지 - 뺀 공지 + 못 박은 옛 공지)의 공지에서 나온 일정만 보여준다.
       // 학교 학사일정처럼 공지에 묶이지 않은 행(notice_id 없음)은 그대로 둔다.
       if (viewer.demo && rows) {
         const { data: shown, error: shownError } = await supabase
@@ -129,7 +129,6 @@ export default async function CalendarPage({ searchParams }: Props) {
           .select('id, created_at')
           .in('school_id', schoolIds)
           .eq('status', 'done')
-          .gte('created_at', DEMO_NOTICES_SINCE)
         // 조회 실패를 «보여줄 공지가 0건» 으로 오해하면 공지 일정이 조용히 전부 사라진다 — 기존 오류 배너로 보낸다.
         if (shownError) throw shownError
         const allowed = new Set((shown ?? []).filter(isDemoNoticeVisible).map(r => r.id))
