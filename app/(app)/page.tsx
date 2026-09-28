@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { isValidLocale, type Locale, defaultLocale } from '@/lib/i18n'
 import { getViewer } from '@/lib/viewer'
 import { readDemoHiddenNoticeIds } from '@/lib/test-entry-bypass'
-import { demoPinnedNotice, isDemoNoticeVisible } from '@/lib/demo-notices'
+import { isDemoNoticeVisible } from '@/lib/demo-notices'
 import { getHiddenNoticeIds, getSchoolSummary } from '@/lib/server-cache'
 import type { Json, NoticeStatus } from '@/types/database'
 import { schoolNeedsInitialCrawl, type SchoolCrawlerState } from '@/lib/school-crawler-trigger'
@@ -337,11 +337,7 @@ export default async function HomePage() {
 
     notices = rows.map(row => {
       const noticeCards = cardsByNotice[row.id] ?? []
-      // 시연에서 되살린 옛 공지는 받은 시각·마감 뱃지를 못 박은 값으로 보여준다.
-      const pinned = viewer.demo ? demoPinnedNotice(row.id) : null
-      const due = pinned
-        ? (pinned.dueLabel ? { label: pinned.dueLabel, urgent: false } : null)
-        : computeDue(dueByNotice[row.id], todayIso)
+      const due = computeDue(dueByNotice[row.id], todayIso)
       return {
         id: row.id,
         cardType: dominantCardType(noticeCards),
@@ -351,9 +347,7 @@ export default async function HomePage() {
           homeMsg.fallback_title,
         ),
         status: row.status,
-        arrivedAt: pinned
-          ? homeMsg.relative.days_ago.replace('{n}', String(pinned.daysAgo))
-          : relativeTime(row.created_at, homeMsg),
+        arrivedAt: relativeTime(row.created_at, homeMsg),
         // 시연 방문자는 번역을 새로 시키지 않는다(로그인이 없어 서버가 요청을 거절하고,
         // 사람마다 번역 비용이 생긴다). 미리 만들어 둔 번역만 보여준다.
         needsTranslation: !viewer.demo && locale !== 'ko'
