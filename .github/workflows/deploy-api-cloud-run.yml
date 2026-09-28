@@ -139,7 +139,7 @@ jobs:
             --max-retries=1 \
             --memory=512Mi \
             --cpu=1 \
-            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }}" \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO,SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }},VERTEX_AI_PROJECT_ID=${{ vars.VERTEX_AI_PROJECT_ID }},VERTEX_AI_LOCATION=${{ vars.VERTEX_AI_LOCATION }},TRANSLATION_BACKEND=bedrock" \
             --set-secrets="SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GEMINI_API_KEY=gemini-api-key:latest,CRAWLER_INTERNAL_TOKEN=crawler-internal-token:latest,NEIS_API_KEY=neis-api-key:latest,AWS_ACCESS_KEY_ID=aws-bedrock-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-bedrock-secret-access-key:latest"
 
       # 정기 배치: 매일 06/18시 Cloud Scheduler가 직접 깨우는 전체학교 크롤 + 본문추출 Job.
