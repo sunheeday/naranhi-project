@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { dedupeEventsByNoticeEnd } from '../calendar-events.ts'
+import { dedupeEventsByNoticeEnd, pickEventReason } from '../calendar-events.ts'
 
 type Kind = 'event' | 'deadline'
 const ev = (
@@ -120,4 +120,24 @@ test('입력을 바꾸지 않는다', () => {
   const winner = ev('w', 'n1', '2026-10-01', '2026-10-10', ['event'])
   dedupeEventsByNoticeEnd([winner, ev('d', 'n1', '2026-10-10', null, ['deadline'])])
   assert.deepEqual(winner.eventKinds, ['event'])
+})
+
+test('이유는 보는 사람 언어 값을 고른다', () => {
+  assert.equal(pickEventReason({ ko: '체험비 납부 기간', en: 'Fee payment period' }, 'en'), 'Fee payment period')
+})
+
+test('그 언어가 없으면 한국어로 돌아간다', () => {
+  assert.equal(pickEventReason({ ko: '체험비 납부 기간', en: 'Fee payment period' }, 'vi'), '체험비 납부 기간')
+})
+
+test('이유가 없거나 모양이 이상하면 null — 카드에서 그 줄을 뺀다', () => {
+  assert.equal(pickEventReason(null, 'ko'), null)
+  assert.equal(pickEventReason('체험비 납부', 'ko'), null)
+  assert.equal(pickEventReason(['체험비 납부'], 'ko'), null)
+  assert.equal(pickEventReason({ ko: '   ', en: '' }, 'en'), null)
+})
+
+test('보는 사람 언어 값이 비어 있으면 한국어로 돌아가고, 앞뒤 공백은 뺀다', () => {
+  assert.equal(pickEventReason({ ko: ' 체험비 납부 기간 ', en: '  ' }, 'en'), '체험비 납부 기간')
+  assert.equal(pickEventReason({ ko: '희망원 제출 마감' }, 'ko'), '희망원 제출 마감')
 })

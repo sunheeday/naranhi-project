@@ -5,7 +5,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getViewer } from '@/lib/viewer'
 import { readDemoPersonalSchedules } from '@/lib/test-entry-bypass'
 import { DEMO_NOTICES_SINCE, isDemoNoticeVisible } from '@/lib/demo-notices'
-import { dedupeEventsByNoticeEnd } from '@/lib/calendar-events'
+import { dedupeEventsByNoticeEnd, pickEventReason } from '@/lib/calendar-events'
 import { backfillSchoolEventsForSchools } from '@/lib/schedule-backfill'
 import {
   fetchTimetableRangeFromNeis,
@@ -113,7 +113,7 @@ export default async function CalendarPage({ searchParams }: Props) {
     if (schoolIds.length > 0) {
       let { data: rows, error } = await supabase
         .from('school_events')
-        .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
+        .select('id, notice_id, title, event_date, end_date, event_kinds, location, description, reason')
         .in('school_id', schoolIds)
         .gte('event_date', from)
         .lt('event_date', to)
@@ -146,7 +146,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
         const retry = await supabase
           .from('school_events')
-          .select('id, notice_id, title, event_date, end_date, event_kinds, location, description')
+          .select('id, notice_id, title, event_date, end_date, event_kinds, location, description, reason')
           .in('school_id', schoolIds)
           .gte('event_date', from)
           .lt('event_date', to)
@@ -221,6 +221,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           endDate: row.end_date,
           eventKinds: parseEventKinds(row.event_kinds),
           location: translatedLocationsByNotice[row.notice_id]?.[locale] ?? row.location,
+          reason: pickEventReason(row.reason, locale),
           description: row.description,
         }
       }))

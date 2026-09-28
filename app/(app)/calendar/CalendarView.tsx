@@ -14,6 +14,8 @@ export interface ScheduleEvent {
   endDate?: string | null
   eventKinds: ('event' | 'deadline')[]
   location: string | null
+  /** 이 날짜가 무슨 날인지(예: 체험비 납부 기간) — 보는 사람 언어로 고른 값. 없으면 줄을 뺀다. */
+  reason?: string | null
   description?: string | null
 }
 
@@ -383,10 +385,10 @@ function EventCard({
                 </span>
               ))}
             </div>
-            <p className="text-xs text-text-secondary mt-0.5">
-              {formatEventDateLabel(event)}
-              {event.location ? ` · ${event.location}` : ''}
-            </p>
+            {/* 같은 공지에서 나온 일정끼리 구분되게 날짜 · 장소 · 이유를 한 줄씩 적는다. */}
+            <p className="text-xs text-text-secondary mt-0.5">{formatEventDateLabel(event)}</p>
+            {event.location ? <p className="text-xs text-text-secondary">{event.location}</p> : null}
+            {event.reason ? <p className="text-xs text-text-secondary">{event.reason}</p> : null}
           </div>
           <span className="text-text-disabled text-sm" aria-hidden="true">›</span>
         </Link>

@@ -67,3 +67,15 @@ function isBetter(candidate: DedupableEvent, current: DedupableEvent): boolean {
   if (candidate.eventDate !== current.eventDate) return candidate.eventDate < current.eventDate
   return Boolean(candidate.endDate) && !current.endDate
 }
+
+/** 일정 «이유»(school_events.reason, 0051 — 예: {"ko": "체험비 납부 기간", "en": "..."})에서
+ *  보는 사람 언어 값을 고른다. 그 언어가 없으면 한국어, 그것도 없으면 null(카드에서 그 줄을 뺀다). */
+export function pickEventReason(reason: unknown, locale: string): string | null {
+  if (!reason || typeof reason !== 'object' || Array.isArray(reason)) return null
+  const byLocale = reason as Record<string, unknown>
+  for (const key of [locale, 'ko']) {
+    const value = byLocale[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}

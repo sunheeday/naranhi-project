@@ -357,6 +357,19 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           bell_lunch_minutes?: number | null
         }
       }
+      // school_events 도 generated 쪽에 이미 있으므로 0051 이 더한 reason 만 얹는다.
+      // 0051 적용 후 gen:types 를 다시 돌리면 이 블록은 지운다.
+      school_events: {
+        Row: {
+          reason: Json | null
+        }
+        Insert: {
+          reason?: Json | null
+        }
+        Update: {
+          reason?: Json | null
+        }
+      }
     }
     Functions: GeneratedPublicSchema['Functions'] & {
       // outcome은 SQL에서 text로 선언돼 실제 gen types도 string을 낸다(리터럴
